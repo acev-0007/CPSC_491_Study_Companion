@@ -37,4 +37,3 @@ In summary, AI Study Companion represents an innovative approach to modern learn
 │   └── main.jsx
 └── README.md
 ```   
-
