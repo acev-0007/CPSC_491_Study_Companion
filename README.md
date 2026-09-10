@@ -25,13 +25,15 @@ In summary, AI Study Companion represents an innovative approach to modern learn
 - [ ] Auth
 
 ## File Structure
+```
 ├── backend/
 ├── database/
 ├── docs/
 ├── frontend/
-│ └── src/
-│ ├── components/
-│ ├── pages/
-│ ├── App.jsx
-│ └── main.jsx
+│   ├── components/
+│   ├── pages/
+│   ├── App.jsx
+│   ├── src/
+│   └── main.jsx
 └── README.md
+```   
