@@ -7,41 +7,57 @@ function Login() {
   };
 
   return (
-    <div>
-      <h1>AI Study Companion</h1>
-      <h2>Log In</h2>
+    <div className="auth-page">
+      <div className="auth-card">
+        <div className="auth-logo">✦</div>
 
-      <form onSubmit={handleSubmit}>
-        <div>
-          <label htmlFor="email">Email</label>
-          <br />
-          <input
-            id="email"
-            type="email"
-            name="email"
-            placeholder="Enter your email"
-            required
-          />
-        </div>
+        <h1 className="app-title">AI Study Companion</h1>
 
-        <div>
-          <label htmlFor="password">Password</label>
-          <br />
-          <input
-            id="password"
-            type="password"
-            name="password"
-            placeholder="Enter your password"
-            required
-          />
-        </div>
+        <h2>Welcome Back</h2>
 
-        <button type="submit">Log In</button>
-      </form>
+        <p className="auth-subtitle">
+          Log in to continue your study session.
+        </p>
 
-      <p>
-        Don't have an account? <Link to="/register">Register</Link>
-      </p>
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label htmlFor="email">Email Address</label>
+
+            <input
+              id="email"
+              type="email"
+              name="email"
+              placeholder="you@example.com"
+              required
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="password">Password</label>
+
+            <input
+              id="password"
+              type="password"
+              name="password"
+              placeholder="Enter your password"
+              required
+            />
+          </div>
+
+          <div className="forgot-password">
+            <a href="#">Forgot password?</a>
+          </div>
+
+          <button className="auth-button" type="submit">
+            Log In
+          </button>
+        </form>
+
+        <p className="auth-footer">
+          Don't have an account?{" "}
+          <Link to="/register">Create an account</Link>
+        </p>
+      </div>
     </div>
   );
 }
