@@ -1,0 +1,113 @@
+.flashcard {
+  width: 100%;
+  max-width: 480px;
+  height: 240px;
+  margin: 0 auto;
+  cursor: pointer;
+  perspective: 1200px;
+}
+
+.flashcard:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 12px;
+}
+
+.flashcard-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.5s;
+  transform-style: preserve-3d;
+}
+
+.flashcard-inner.is-flipped {
+  transform: rotateY(180deg);
+}
+
+.flashcard-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  box-shadow: var(--shadow);
+  backface-visibility: hidden;
+  text-align: center;
+}
+
+.flashcard-face p {
+  font-size: 20px;
+  line-height: 135%;
+  color: var(--text-h);
+  margin: 0;
+}
+
+.flashcard-back {
+  transform: rotateY(180deg);
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+}
+
+.flashcard-hint {
+  font-size: 13px;
+  color: var(--text);
+  opacity: 0.7;
+}
+
+.flashcards-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 0 48px;
+}
+
+.flashcards-progress {
+  font-family: var(--mono);
+  color: var(--text);
+}
+
+.flashcards-controls {
+  display: flex;
+  gap: 12px;
+}
+
+.flashcards-controls button,
+.flashcards-finish-btn,
+.flashcards-primary-btn {
+  font: inherit;
+  font-size: 15px;
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-h);
+  cursor: pointer;
+}
+
+.flashcards-controls button:hover:not(:disabled),
+.flashcards-finish-btn:hover,
+.flashcards-primary-btn:hover {
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
+}
+
+.flashcards-controls button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.flashcards-primary-btn {
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-weight: 600;
+}
