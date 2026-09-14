@@ -14,6 +14,7 @@ CREATE TABLE assignments (
     priority priority_level NOT NULL DEFAULT 'Low',
     status assignment_status NOT NULL DEFAULT 'Upcoming',
     notes TEXT,
+    estimated_time TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
