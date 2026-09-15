@@ -1,7 +1,7 @@
 -- Will use PostgreSQL
 -- Blueprint/Database Rules
 
--- Custom enum (prevent typos/invalid data)
+-- Custom enum to prevent typos/invalid data
 CREATE TYPE priority_level AS ENUM ('High', 'Medium', 'Low');
 CREATE TYPE assignment_status AS ENUM ('Upcoming', 'In Progress', 'Completed', 'Overdue');
 
@@ -11,13 +11,13 @@ CREATE TABLE assignments (
     title VARCHAR(255) NOT NULL,
     course VARCHAR(255) NOT NULL,
     duedate TIMESTAMPTZ NOT NULL,
+    estimated_time INTERVAL NOT NULL,
     priority priority_level NOT NULL DEFAULT 'Low',
     status assignment_status NOT NULL DEFAULT 'Upcoming',
     notes TEXT,
-    estimated_time TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Creates organized, fast lookup directory
-CREATE INDEX index_assignments_user_duedate ON assignments(user_id, duedate ASC)
+CREATE INDEX index_assignments_user_duedate ON assignments(user_id, duedate ASC);
