@@ -14,7 +14,7 @@ const VALID_STATUS = ['Upcoming', 'In Progress', 'Completed', 'Overdue'];
 let assignments = [
     {
         id: "1",
-        title: "",
+        title: "Sprint 1",
         course: "CPSC491",
         duedate: "2026-09-25",
         estimated_time: 2,
@@ -36,10 +36,10 @@ const validateAssignmentInput = (req, res, next) => {
             return res.status(400).json({error: "Course is required"});
         }
         if(!duedate || isNaN(Date.parse(duedate))) {
-            return res.status(400).json(console.error({error: " Valid due date is required"}));
+            return res.status(400).json({error: " Valid due date is required"});
         }
         if(!estimated_time) {
-            return res.status(400).json(console.error({error: "Valid estimated time is required"}));
+            return res.status(400).json({error: "Valid estimated time is required"});
         }
     }
 
