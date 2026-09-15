@@ -1,7 +1,5 @@
 # CPSC_491_Study_Companion
 
-Study companion
-
 The AI Study Companion is an interactive, web-based application that integrates a variety of AI-powered tools under one domain. Its primary goal is to assist students in transforming their study materials into dynamic and engaging resources. This application offers students key features such as automated flashcard and quiz generation, summaries based on their notes and readings, a free online textbook hub to access readings and study tools in one place, and visual image generation. Additionally, it includes an assignment and project tracker that allows students to plan and schedule their academic responsibilities, such as assignments and capstones, efficiently. With this tracker, students can schedule their day-to-day activities without any hassle, and the system ensures that students can meet their deadlines while maintaining a balanced workout. By automating these processes, the application allows students to focus more on comprehension and critical thinking rather than manual preparation. Each user can create a personal account, enabling the application to store individual progress, preferences, and access them anywhere at any time.
 
 The core purpose of this AI Study Companion is to bridge the gap between artificial intelligence and practical education. Additionally, instead of using multiple applications to generate flashcards and other study tools, we developed a single application that can perform all these functions. Therefore, students can utilize this as a new mode of digital online tutoring.
@@ -36,4 +34,67 @@ In summary, AI Study Companion represents an innovative approach to modern learn
 │   ├── src/
 │   └── main.jsx
 └── README.md
-```   
+```
+
+
+## Running the Project Locally
+
+### Prerequisites
+
+- Node.js
+- npm
+
+### 1. Start the backend in terminal
+
+Open a terminal and, from the project root, run the following:
+
+```bash
+cd backend
+npm install
+npm run dev
+```
+
+### 2. Start the frontend
+
+Open a second terminal and, from the project root, run the following:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+### 3. Navigate the site
+
+Vite will display the local development URL in the terminal. It usually looks like this:
+
+http://localhost:5173
+
+Open that URL in your browser.
+
+To navigate to different pages you will need to add /pageName to the end of the URL until the UI and page transitions are properly implemented. The current list of pageNames is as follows:
+
+/                 (this is the Dashboard)
+/assignments
+/flashcards
+/login
+/quiz
+/register
+/summarization
+/textbooks
+/visual-generator
+
+And a NotFound page, which you'll be taken to if the pageName was misspelled or does not exist.
+
+### Extra. How to Run Tests
+To run backend tests:
+```bash
+cd backend
+npm test
+```
+
+To run frontend tests:
+```bash
+cd frontend
+npm test
+```
