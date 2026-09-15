@@ -1,15 +1,39 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-import mockFlashcards from "../data/mockFlashcards";
+import { getFlashcards } from "../data/flashcardSource";
 import "../components/Flashcards.css";
 
 function Flashcards() {
-  const [cards, setCards] = useState(mockFlashcards);
+  const [cards, setCards] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [draftFront, setDraftFront] = useState("");
   const [draftBack, setDraftBack] = useState("");
+
+
+  useEffect(() => {
+    let cancelled = false;
+
+    getFlashcards()
+      .then((loaded) => {
+        if (cancelled) return;
+        setCards(loaded);
+        setIsLoading(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setLoadError("Could not load flashcards.");
+        setIsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const totalCards = cards.length;
   const card = cards[currentIndex];
@@ -45,16 +69,40 @@ function Flashcards() {
 
   function handleSaveEdit(event) {
     event.preventDefault();
-
     setCards((prev) =>
       prev.map((c, index) =>
-        index === currentIndex
-          ? { ...c, front: draftFront, back: draftBack }
-          : c
+        index === currentIndex ? { ...c, front: draftFront, back: draftBack } : c
       )
     );
     setIsFlipped(false);
     setIsEditing(false);
+  }
+
+  if (isLoading) {
+    return (
+      <section className="flashcards-page">
+        <h1>Flashcards</h1>
+        <p>Loading flashcards...</p>
+      </section>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <section className="flashcards-page">
+        <h1>Flashcards</h1>
+        <p role="alert">{loadError}</p>
+      </section>
+    );
+  }
+
+  if (totalCards === 0) {
+    return (
+      <section className="flashcards-page">
+        <h1>Flashcards</h1>
+        <p>No flashcards are available yet.</p>
+      </section>
+    );
   }
 
   return (
