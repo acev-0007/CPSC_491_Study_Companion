@@ -1,0 +1,184 @@
+.textbook-hub {
+  width: min(1100px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 2rem 0 4rem;
+  color: var(--text, #1f2937);
+}
+
+.hub-page-header {
+  margin-bottom: 1.5rem;
+}
+
+.hub-page-header h2,
+.hub-library-heading h2 {
+  margin: 0;
+}
+
+.hub-eyebrow {
+  margin: 0 0 0.35rem;
+  color: var(--accent, #4f46e5);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hub-intro,
+.hub-help,
+.document-card p,
+.hub-empty-state p {
+  color: #667085;
+}
+
+.hub-intro {
+  max-width: 680px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.hub-upload {
+  padding: 1.25rem;
+  border: 1px solid var(--accent-border, #c7d2fe);
+  border-radius: 12px;
+  background: var(--accent-bg, #eef2ff);
+  margin-bottom: 2rem;
+}
+
+.hub-label {
+  display: block;
+  font-weight: 700;
+}
+
+.hub-help {
+  margin: 0.25rem 0 1rem;
+  font-size: 0.9rem;
+}
+
+.hub-upload-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.hub-primary-button,
+.hub-secondary-button {
+  border-radius: 8px;
+  padding: 0.65rem 1rem;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.hub-primary-button {
+  border: 1px solid var(--accent, #4f46e5);
+  background: var(--accent, #4f46e5);
+  color: white;
+}
+
+.hub-secondary-button {
+  border: 1px solid var(--border, #d0d5dd);
+  background: white;
+  color: var(--text, #1f2937);
+}
+
+.hub-primary-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.hub-selected-file {
+  margin: 0.75rem 0 0;
+  font-size: 0.9rem;
+}
+
+.hub-message {
+  padding: 0.75rem 0.9rem;
+  border-radius: 8px;
+}
+
+.hub-message-error {
+  border: 1px solid #fda29b;
+  background: #fef3f2;
+  color: #b42318;
+}
+
+.hub-library-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.document-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.document-card {
+  padding: 1rem;
+  border: 1px solid var(--border, #d0d5dd);
+  border-radius: 12px;
+  background: white;
+}
+
+.document-card-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.document-card h3 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.document-card-heading p,
+.document-date {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+}
+
+.status-badge {
+  flex: 0 0 auto;
+  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.status-ready {
+  background: #ecfdf3;
+  color: #027a48;
+}
+
+.status-failed {
+  background: #fef3f2;
+  color: #b42318;
+}
+
+.hub-empty-state,
+.hub-state {
+  padding: 2rem;
+  border: 1px dashed var(--border, #d0d5dd);
+  border-radius: 12px;
+  text-align: center;
+}
+
+.hub-empty-state h3 {
+  margin-top: 0;
+}
+
+@media (max-width: 600px) {
+  .textbook-hub {
+    width: min(100% - 1rem, 1100px);
+    padding-top: 1rem;
+  }
+
+  .document-card-heading {
+    flex-direction: column;
+  }
+}
