@@ -7,16 +7,32 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies
 node_modules
+
+# Build output
 dist
 dist-ssr
+
+# Local environment files
 *.local
+.env
+.env.*
+!.env.example
+
+# Textbook Hub mock-backend runtime data
+backend/data/documents.json
+backend/data/uploads/
+
+# Test coverage
+coverage/
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
 .idea
 .DS_Store
+Thumbs.db
 *.suo
 *.ntvs*
 *.njsproj

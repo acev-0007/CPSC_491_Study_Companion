@@ -1,6 +1,9 @@
 # Dependencies
 node_modules/
 
+# Backend generated data
+data/
+
 # Environment variables / API keys
 .env
 .env.local
