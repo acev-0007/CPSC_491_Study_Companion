@@ -5,6 +5,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { DocumentStore } from "./documentStore.js";
 import { extractText, validateSupportedFile } from "./extractText.js";
+import aiRoutes from "./routes/aiRoutes.js";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
@@ -25,6 +26,8 @@ export function createApp({
   });
 
   app.use(express.json());
+
+  app.use("/api/ai", aiRoutes);
 
   // Temporary auth shim for Sprint 1. The frontend sends X-User-Id: local-user.
   // Replace this with req.user.id when the team's real auth backend is available.
