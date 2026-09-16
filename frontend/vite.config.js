@@ -3,12 +3,6 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
-  test: {
-    environment: 'jsdom',
-    setupFiles: ['./src/setupTests.js'],
-    globals: true,
-  },
-
   server: {
     proxy: {
       "/api": {
@@ -19,6 +13,7 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
-    setupFiles: "./src/test/setup.js",
+    setupFiles: ["./src/setupTests.js"],
+    globals: true,
   },
 });
