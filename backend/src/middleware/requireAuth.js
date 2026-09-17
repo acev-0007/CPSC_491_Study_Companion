@@ -24,7 +24,7 @@ export async function requireAuth(
     const supabase =
       createSupabaseClient();
 
-    // First try the existing access token.
+    // Try the existing access token first.
     if (accessToken) {
       const {
         data,
@@ -41,8 +41,8 @@ export async function requireAuth(
       }
     }
 
-    // If the access token expired,
-    // try refreshing the session.
+    // If the access token is expired or invalid,
+    // try refreshing the session with the refresh token.
     if (refreshToken) {
       const {
         data,
@@ -62,28 +62,19 @@ export async function requireAuth(
           data.session
         );
 
-        const {
-          data: verifiedData,
-          error: verificationError,
-        } = await supabase.auth.getUser(
-          data.session.access_token
-        );
+        // refreshSession() has already validated the
+        // refresh token with Supabase Auth and returned
+        // the refreshed user and session, so another
+        // getUser() request is unnecessary here.
+        req.user = data.user;
+        req.accessToken =
+          data.session.access_token;
 
-        if (
-          !verificationError &&
-          verifiedData.user
-        ) {
-          req.user =
-            verifiedData.user;
-
-          req.accessToken =
-            data.session.access_token;
-
-          return next();
-        }
+        return next();
       }
     }
 
+    // No valid session could be established.
     clearSessionCookies(res);
 
     return res.status(401).json({
