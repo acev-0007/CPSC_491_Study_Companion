@@ -40,7 +40,7 @@ function AssignmentTracker() {
       });
       if (!response.ok) {
         const errorData = await response.text();
-        throw new Error("Failed to create assignment: ${response.status} ${errorData}");
+        throw new Error(`Failed to create assignment: ${response.status} ${errorData}`);
       }
       setMessage("Assignment created successfully!");
     } catch(error) {
@@ -52,8 +52,8 @@ function AssignmentTracker() {
   return (
     <div className="assignment-tracker">
       <h1>Assignment Tracker</h1>
-      <form onSubmit={handleSubmit}>
-        <label>
+      <form className="assignment-form" onSubmit={handleSubmit}>
+        <label className="form-group">
           Title
           <input
             type="text"
@@ -64,7 +64,7 @@ function AssignmentTracker() {
           />
         </label>
       
-        <label>
+        <label className="form-group">
           Course
           <input
             type="text"
@@ -75,7 +75,7 @@ function AssignmentTracker() {
           />
         </label>
 
-        <label>
+        <label className="form-group">
           Due Date
           <input
             type="datetime-local"
@@ -86,7 +86,7 @@ function AssignmentTracker() {
           />
         </label>
 
-        <label>
+        <label className="form-group">
           Priority
           <select
             name="priority"
@@ -99,7 +99,7 @@ function AssignmentTracker() {
           </select>
         </label>
 
-        <label>
+        <label className="form-group">
           Status
           <select
             name="status"
@@ -112,7 +112,7 @@ function AssignmentTracker() {
           </select>
         </label>
 
-        <label>
+        <label className="form-group">
           Notes
           <textarea
             name="notes"
@@ -121,7 +121,7 @@ function AssignmentTracker() {
           />
         </label>
 
-        <label>
+        <label className="form-group">
           Estimated Time
           <input
             type="number"
@@ -131,8 +131,8 @@ function AssignmentTracker() {
             onChange={handleChange}
           />
         </label>
-        <button type="submit">Add Assignment</button>
-      </form>
+        <button className="assignment-form" type="submit">Add Assignment</button>
+      </form >
       {message && <p>{message}</p>}
     </div>
   );
