@@ -1,65 +1,216 @@
-import { Link } from "react-router-dom";
+import { useState } from "react";
+
+import {
+  Link,
+  useNavigate,
+} from "react-router-dom";
+
+import {
+  loginAccount,
+} from "../api/auth";
+
 
 function Login() {
-  const handleSubmit = (event) => {
-    event.preventDefault();
-    console.log("Login form submitted");
+  const navigate =
+    useNavigate();
+
+  const [
+    formData,
+    setFormData,
+  ] = useState({
+    email: "",
+    password: "",
+  });
+
+  const [
+    errorMessage,
+    setErrorMessage,
+  ] = useState("");
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(false);
+
+
+  const handleChange = (
+    event
+  ) => {
+
+    const {
+      name,
+      value,
+    } = event.target;
+
+    setFormData(
+      (previous) => ({
+        ...previous,
+        [name]: value,
+      })
+    );
   };
+
+
+  const handleSubmit =
+    async (event) => {
+
+      event.preventDefault();
+
+      setErrorMessage("");
+      setLoading(true);
+
+      try {
+        await loginAccount({
+          email:
+            formData.email,
+
+          password:
+            formData.password,
+        });
+
+        navigate("/");
+
+      } catch (error) {
+        setErrorMessage(
+          error.message
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
 
   return (
     <div className="auth-page">
+
       <div className="auth-card">
-        <div className="auth-logo">✦</div>
 
-        <h1 className="app-title">AI Study Companion</h1>
+        <div className="auth-logo">
+          ✦
+        </div>
 
-        <h2>Welcome Back</h2>
+        <h1 className="app-title">
+          AI Study Companion
+        </h1>
+
+        <h2>
+          Welcome Back
+        </h2>
 
         <p className="auth-subtitle">
-          Log in to continue your study session.
+          Log in to continue
+          your study session.
         </p>
 
-        <form onSubmit={handleSubmit}>
+
+        <form
+          onSubmit={handleSubmit}
+        >
+
           <div className="form-group">
-            <label htmlFor="email">Email Address</label>
+
+            <label htmlFor="email">
+              Email Address
+            </label>
 
             <input
               id="email"
               type="email"
               name="email"
               placeholder="you@example.com"
+
+              value={
+                formData.email
+              }
+
+              onChange={
+                handleChange
+              }
+
               required
             />
+
           </div>
 
+
           <div className="form-group">
-            <label htmlFor="password">Password</label>
+
+            <label htmlFor="password">
+              Password
+            </label>
 
             <input
               id="password"
               type="password"
               name="password"
               placeholder="Enter your password"
+
+              value={
+                formData.password
+              }
+
+              onChange={
+                handleChange
+              }
+
               required
             />
+
           </div>
+
 
           <div className="forgot-password">
-            <a href="#">Forgot password?</a>
+            <a href="#">
+              Forgot password?
+            </a>
           </div>
 
-          <button className="auth-button" type="submit">
-            Log In
+
+          {errorMessage && (
+            <p
+              style={{
+                color:
+                  "crimson",
+
+                marginBottom:
+                  "12px",
+              }}
+            >
+              {errorMessage}
+            </p>
+          )}
+
+
+          <button
+            className="auth-button"
+            type="submit"
+            disabled={loading}
+          >
+
+            {loading
+              ? "Logging In..."
+              : "Log In"}
+
           </button>
+
         </form>
 
+
         <p className="auth-footer">
+
           Don't have an account?{" "}
-          <Link to="/register">Create an account</Link>
+
+          <Link to="/register">
+            Create an account
+          </Link>
+
         </p>
+
       </div>
+
     </div>
   );
 }
+
 
 export default Login;
