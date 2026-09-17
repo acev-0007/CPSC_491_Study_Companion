@@ -44,10 +44,10 @@ const validateAssignmentInput = (req, res, next) => {
     }
 
     if (priority && !VALID_PRIORITIES.includes(priority)) {
-        return res.status(400).json({error: "Priority must be one of: ${VALID_PRIORITIES.join(', ')}"});
+        return res.status(400).json({error: `Priority must be one of: ${VALID_PRIORITIES.join(', ')}`});
     }
     if (status && !VALID_STATUS.includes(status)) {
-        return res.status(400).json({error: "Priority must be one of: ${VALID_STATUS.join(', ')}"});
+        return res.status(400).json({error: `Priority must be one of: ${VALID_STATUS.join(', ')}`});
     }
 
     next();
@@ -63,12 +63,12 @@ app.get('/api/assignments', (req, res) => {
 });
 
 // READ ONE (GET by ID)
-app.get('api/assignments/:id', (req, res) => {
-    const assignments = assignments.find(a => a.id === req.paramas.id);
-    if (!assignments) {
+app.get('/api/assignments/:id', (req, res) => {
+    const assignment = assignments.find(a => a.id === req.params.id);
+    if (!assignment) {
         return res.status(404).json({error: "Assignment not found"});
     }
-    res.status(200).json(assignments);
+    res.status(200).json(assignment);
 });
 
 // CREATE (POST) - Creates assignments
@@ -85,12 +85,12 @@ app.post('/api/assignments', validateAssignmentInput, (req, res) => {
         notes: req.body.notes || ""
     };
     assignments.push(newAssignment);
-    res.status(202).json(newAssignment);
+    res.status(201).json(newAssignment);
 });
 
 // UPDATE (PUT) - Update assignments
 app.put('/api/assignments/:id', validateAssignmentInput, (req, res) => {
-    const index = assignments.findIndex(a => a.id === req.parama.id);
+    const index = assignments.findIndex(a => a.id === req.params.id);
     if (index === -1) {
         return res.status(404).json({error: "Assignment Not Found"});
     }
@@ -105,7 +105,7 @@ app.put('/api/assignments/:id', validateAssignmentInput, (req, res) => {
 // DELETE (DELETE) - Delete assignments
 app.delete('/api/assignments/:id', (req, res) => {
     const initialLength = assignments.length;
-    assignments = assignments.filter(a => a.id !== req.parama.id);
+    assignments = assignments.filter(a => a.id !== req.params.id);
 
     if (assignments.length === initialLength) {
         return res.status(404).json({error: "Assignment Not Found"});
@@ -116,5 +116,5 @@ app.delete('/api/assignments/:id', (req, res) => {
 // Start Server
 const PORT = 3000;
 app.listen(PORT, () => {
-    console.log('Server running on port ${PORT}');
+    console.log(`Server running on port ${PORT}`);
 });
