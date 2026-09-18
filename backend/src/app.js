@@ -24,6 +24,9 @@ import {
 import authRoutes
   from "./routes/authRoutes.js";
 
+import aiRoutes
+  from "./routes/aiRoutes.js";
+
 import {
   requireAuth,
 } from "./middleware/requireAuth.js";
@@ -47,12 +50,12 @@ function publicDocument(document) {
 
 export function createApp({
   dataDir =
-    path.resolve("data"),
+  path.resolve("data"),
 
   uploadDir =
-    path.resolve(
-      "data/uploads"
-    ),
+  path.resolve(
+    "data/uploads"
+  ),
 } = {}) {
 
   const app = express();
@@ -87,6 +90,16 @@ export function createApp({
   app.use(
     "/api/auth",
     authRoutes
+  );
+
+
+  // ========================================
+  // AI ROUTES
+  // ========================================
+
+  app.use(
+    "/api/ai",
+    aiRoutes
   );
 
 
@@ -217,8 +230,6 @@ export function createApp({
         const document = {
           id,
 
-          // THIS IS NOW THE REAL
-          // SUPABASE USER UUID
           userId:
             req.user.id,
 
@@ -280,9 +291,9 @@ export function createApp({
 
       if (
         error instanceof
-          multer.MulterError &&
+        multer.MulterError &&
         error.code ===
-          "LIMIT_FILE_SIZE"
+        "LIMIT_FILE_SIZE"
       ) {
         return res
           .status(413)
