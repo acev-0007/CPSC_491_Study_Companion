@@ -1,0 +1,38 @@
+.assignment-tracker {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 30px;
+}
+
+.assignment-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px
+}
+
+.form-group input,
+.form-group select, 
+.form-group textarea {
+    padding: 10px;
+    font-size: 16px;
+}
+
+.form-group textarea {
+    min-height: 100px;
+}
+
+.submit-button {
+    padding: 12px;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+.form-message {
+    margin-top: 20px;
+}
