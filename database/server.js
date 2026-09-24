@@ -1,28 +1,21 @@
 // ===== IMPORTS AND APP CONFIG =====
+require('dotenv').config();
 const express = require('express');
-const app = express();
 const cors = require('cors');
-const { v4: uuidv4 } = require('uuid'); // Generates unique UUID strings
+const { createClient } = require('@supabase/supavase-js')
+
+const app = express();
 
 app.use(cors());
 app.use(express.json());
 
+const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_KEY
+);
+
 const VALID_PRIORITIES = ['High', 'Medium', 'Low'];
 const VALID_STATUS = ['Upcoming', 'In Progress', 'Completed', 'Overdue'];
-
-// Temp in-memory test data
-let assignments = [
-    {
-        id: "1",
-        title: "Sprint 1",
-        course: "CPSC491",
-        duedate: "2026-09-25",
-        estimated_time: 2,
-        priority: "Low",
-        status: "Upcoming",
-        notes: ""
-    }
-];
 
 // Check input validation
 const validateAssignmentInput = (req, res, next) => {
@@ -47,7 +40,7 @@ const validateAssignmentInput = (req, res, next) => {
         return res.status(400).json({error: `Priority must be one of: ${VALID_PRIORITIES.join(', ')}`});
     }
     if (status && !VALID_STATUS.includes(status)) {
-        return res.status(400).json({error: `Priority must be one of: ${VALID_STATUS.join(', ')}`});
+        return res.status(400).json({error: `Status must be one of: ${VALID_STATUS.join(', ')}`});
     }
 
     next();
@@ -57,60 +50,124 @@ const validateAssignmentInput = (req, res, next) => {
 // ===== CRUD ENDPOINTS =====
 
 // READ ALL (GET) - Retrieve assignments sorted by due date
-app.get('/api/assignments', (req, res) => {
-    const sorted = [...assignments].sort((a, b) => new Date(a.duedate) - new Date(b.duedate));
-    res.status(200).json(sorted);
+app.get('/api/assignments', async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from('assignments')
+            .select('*')
+            .order('duedate', { ascending: true});
+        
+        if (error) {
+            throw error;
+        }
+
+        res.status(200).json(data);
+    } catch (error) {
+        console.error("Error fetching assignments: ", error);
+        res.status(500).json({
+            error: "Failed to fetch assignments"
+        });
+    }
 });
 
 // READ ONE (GET by ID)
-app.get('/api/assignments/:id', (req, res) => {
-    const assignment = assignments.find(a => a.id === req.params.id);
-    if (!assignment) {
-        return res.status(404).json({error: "Assignment not found"});
+app.get('/api/assignments/:id', async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from('assignments')
+            .select('*')
+            .eq('id', req.params.id)
+            .single();
+        
+        if (error) {
+            return res.status(404).json({error: "Assignment not found"});
+        }
+
+        res.status(200).json(data);
+    } catch (error) {
+        console.error("Error fetching assignments: ", error);
+        res.status(500).json({
+            error: "Failed to fetch assignments"
+        });
     }
-    res.status(200).json(assignment);
 });
 
 // CREATE (POST) - Creates assignments
-app.post('/api/assignments', validateAssignmentInput, (req, res) => {
-    const newAssignment = {
-        id: uuidv4(),
-        user_id: req.body.user_id || "user_123",
-        title: req.body.title.trim(),
-        course: req.body.course.trim(),
-        duedate: new Date(req.body.duedate).toISOString(),
-        estimated_time: req.body.estimated_time,
-        priority: req.body.priority || "Low",
-        status: "Upcoming", // Enforce initial state run
-        notes: req.body.notes || ""
-    };
-    assignments.push(newAssignment);
-    res.status(201).json(newAssignment);
+app.post('/api/assignments', validateAssignmentInput, async (req, res) => {
+    try {
+        const newAssignment = {
+            user_id: req.body.user_id || "user_123",
+            title: req.body.title.trim(),
+            course: req.body.course.trim(),
+            duedate: new Date(req.body.duedate).toISOString(),
+            estimated_time: req.body.estimated_time,
+            priority: req.body.priority || "Low",
+            status: "Upcoming", // Enforce initial state run
+            notes: req.body.notes || ""
+        };
+        
+        const { data, error } = await supabase
+            .from('assignments')
+            .insert(newAssignment)
+            .select();
+        
+        if (error) {
+            throw error;
+        }
+
+        res.status(201).json(data[0]);
+    } catch (error) {
+        console.error("Error creating assignment: ", error);
+        res.status(500).json({error: "Failed to create assignment"});
+    }
 });
 
 // UPDATE (PUT) - Update assignments
-app.put('/api/assignments/:id', validateAssignmentInput, (req, res) => {
-    const index = assignments.findIndex(a => a.id === req.params.id);
-    if (index === -1) {
-        return res.status(404).json({error: "Assignment Not Found"});
-    }
+app.put('/api/assignments/:id', validateAssignmentInput, async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from('assignments')
+            .update(req.body)
+            .eq('id', req.params.id)
+            .select();
+        
+        if (error) {
+            throw(error);
+        }
+        if (!data || data.length === 0) {
+            return res.status(404).json({error: "Assignment not found"});
+        }
 
-    assignments[index] = {
-        ...assignments[index],
-        ...req.body
-    };
-    res.status(200).json(assignments[index]);
+        res.status(200).json(data[0]);
+
+    } catch (error) {
+        console.error("Error updating assignments: ", error);
+        res.status(500).json({
+            error: "Failed to update assignments"
+        });
+    }
 });
 
 // DELETE (DELETE) - Delete assignments
-app.delete('/api/assignments/:id', (req, res) => {
-    const initialLength = assignments.length;
-    assignments = assignments.filter(a => a.id !== req.params.id);
+app.delete('/api/assignments/:id', async (req, res) => {
+    try {
+        const { error } = await supabase
+            .from('assignments')
+            .delete()
+            .eq('id', req.params.id);
+        
+        if (error) {
+            throw error;
+        }
 
-    if (assignments.length === initialLength) {
-        return res.status(404).json({error: "Assignment Not Found"});
+        res.status(200).json({message: "Assignment deleted"});
+
+    } catch (error) {
+        console.error("Error deleting assignments: ", error);
+        res.status(500).json({
+            error: "Failed to delete assignments"
+        });
     }
-    res.status(200).json({error: "Assignment deleted"});
 });
 
 // Start Server
