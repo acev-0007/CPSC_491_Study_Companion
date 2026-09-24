@@ -86,78 +86,61 @@ function Login() {
   return (
     <div className="auth-page">
 
-      <main className="auth-card">
-
+      <header className="auth-brand">
         <div
-          className="auth-logo"
+          className="auth-brand-mark"
           aria-hidden="true"
         >
           ✦
         </div>
 
-        <p className="app-title">
-          AI Study Companion
-        </p>
+        <div className="auth-brand-copy">
+          <p className="auth-brand-name">
+            AI Study Companion
+          </p>
+          <p className="auth-brand-tagline">
+            Your personalized AI learning workspace.
+          </p>
+        </div>
+      </header>
 
-        <h1 className="auth-heading">
-          Welcome back
-        </h1>
-        <p className="auth-subtitle">
-          Log in to continue studying.
-        </p>
-
-
-        <form
-          className="auth-form"
-          onSubmit={handleSubmit}
+      <main className="auth-shell">
+        <section
+          className="auth-panel"
+          aria-labelledby="login-heading"
         >
-
-          <div className="form-group">
-
-            <label htmlFor="email">
-              Email Address
-            </label>
-
-            <input
-              id="email"
-              type="email"
-              name="email"
-              placeholder="you@example.com"
-              autoComplete="email"
-
-              value={
-                formData.email
-              }
-              onChange={
-                handleChange
-              }
-
-              required
-            />
-
+          <div className="auth-intro">
+            <h1
+              id="login-heading"
+              className="auth-heading"
+            >
+              Welcome back
+            </h1>
+            <p className="auth-subtitle">
+              Log in to continue studying.
+            </p>
           </div>
 
+          <form
+            className="auth-form"
+            onSubmit={handleSubmit}
+          >
 
-          <div className="form-group">
+            <div className="form-group">
 
-            <label htmlFor="password">
-              Password
-            </label>
+              <label htmlFor="email">
+                Email Address
+              </label>
 
-            <div className="password-field">
               <input
-                id="password"
-                type={
-                  showPassword
-                    ? "text"
-                    : "password"
-                }
-                name="password"
-                placeholder="Enter your password"
-                autoComplete="current-password"
+                id="email"
+                type="email"
+                name="email"
+                placeholder="you@example.com"
+                autoComplete="email"
 
                 value={
-                  formData.password
+                  formData.email
                 }
                 onChange={
                   handleChange
@@ -166,78 +149,111 @@ function Login() {
                 required
               />
 
-              <button
-                className="password-toggle"
-                type="button"
-                onClick={() =>
-                  setShowPassword(
-                    (visible) => !visible
-                  )
-                }
-                aria-label={
-                  showPassword
-                    ? "Hide password"
-                    : "Show password"
-                }
-                aria-pressed={showPassword}
-              >
-                {showPassword
-                  ? "Hide"
-                  : "Show"}
-              </button>
             </div>
 
-          </div>
+
+            <div className="form-group">
+
+              <div className="field-label-row">
+                <label htmlFor="password">
+                  Password
+                </label>
+              </div>
+
+              <div className="password-field">
+                <input
+                  id="password"
+                  type={
+                    showPassword
+                      ? "text"
+                      : "password"
+                  }
+                  name="password"
+                  placeholder="Enter your password"
+                  autoComplete="current-password"
+
+                  value={
+                    formData.password
+                  }
+                  onChange={
+                    handleChange
+                  }
+
+                  required
+                />
+
+                <button
+                  className="password-toggle"
+                  type="button"
+                  onClick={() =>
+                    setShowPassword(
+                      (visible) => !visible
+                    )
+                  }
+                  aria-label={
+                    showPassword
+                      ? "Hide password"
+                      : "Show password"
+                  }
+                  aria-pressed={showPassword}
+                >
+                  {showPassword
+                    ? "Hide"
+                    : "Show"}
+                </button>
+              </div>
+
+            </div>
 
 
-          <div className="forgot-password">
-            <a href="#">
-              Forgot password?
-            </a>
-          </div>
+            <div className="forgot-password">
+              <a href="#">
+                Forgot password?
+              </a>
+            </div>
 
 
-          {errorMessage && (
-            <div
-              className="auth-message auth-message-error"
-              role="alert"
+            {errorMessage && (
+              <div
+                className="auth-message auth-message-error"
+                role="alert"
+              >
+                <span
+                  className="auth-message-icon"
+                  aria-hidden="true"
+                >
+                  !
+                </span>
+                <span>{errorMessage}</span>
+              </div>
+            )}
+
+
+            <button
+              className="auth-button"
+              type="submit"
+              disabled={loading}
+              aria-busy={loading}
             >
-              <span
-                className="auth-message-icon"
-                aria-hidden="true"
-              >
-                !
-              </span>
-              <span>{errorMessage}</span>
-            </div>
-          )}
+
+              {loading
+                ? "Logging In..."
+                : "Log In"}
+
+            </button>
+
+          </form>
 
 
-          <button
-            className="auth-button"
-            type="submit"
-            disabled={loading}
-            aria-busy={loading}
-          >
+          <p className="auth-footer">
 
-            {loading
-              ? "Logging In..."
-              : "Log In"}
+            Don't have an account?{" "}
+            <Link to="/register">
+              Create an account
+            </Link>
 
-          </button>
-
-        </form>
-
-
-        <p className="auth-footer">
-
-          Don't have an account?{" "}
-          <Link to="/register">
-            Create an account
-          </Link>
-
-        </p>
-
+          </p>
+        </section>
       </main>
 
     </div>
