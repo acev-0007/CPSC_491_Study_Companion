@@ -32,7 +32,6 @@ function Register() {
     loading,
     setLoading,
   ] = useState(false);
-
   const [
     accountCreated,
     setAccountCreated,
@@ -41,6 +40,16 @@ function Register() {
   const [
     requiresEmailConfirmation,
     setRequiresEmailConfirmation,
+  ] = useState(false);
+
+  const [
+    showPassword,
+    setShowPassword,
+  ] = useState(false);
+
+  const [
+    showConfirmPassword,
+    setShowConfirmPassword,
   ] = useState(false);
 
 
@@ -67,7 +76,6 @@ function Register() {
       event.preventDefault();
 
       setErrorMessage("");
-
       if (
         formData.password !==
         formData.confirmPassword
@@ -93,7 +101,6 @@ function Register() {
             password:
               formData.password,
           });
-
         setRequiresEmailConfirmation(
           result
             .requiresEmailConfirmation
@@ -110,6 +117,10 @@ function Register() {
       }
     };
 
+  const passwordsDoNotMatch =
+    errorMessage ===
+    "Passwords do not match.";
+
 
   // ========================================
   // SUCCESS SCREEN
@@ -119,75 +130,30 @@ function Register() {
     return (
       <div className="auth-page">
 
-        <div className="auth-card">
-
-          <div className="auth-logo">
+        <main
+          className="auth-card auth-card-success"
+          aria-live="polite"
+        >
+          <div
+            className="auth-logo auth-logo-success"
+            aria-hidden="true"
+          >
             ✓
           </div>
 
-          <h1 className="app-title">
+          <p className="app-title">
             AI Study Companion
-          </h1>
-
-          <h2>
-            Account Created!
-          </h2>
-
-          <p className="auth-subtitle">
-            Welcome to AI Study Companion.
           </p>
 
+          <h1 className="auth-heading">
+            Account created
+          </h1>
 
-          <div
-            style={{
-              margin: "30px 0",
-              padding: "22px",
-              textAlign: "center",
-
-              background:
-                "rgba(124, 58, 237, 0.06)",
-
-              border:
-                "1px solid rgba(124, 58, 237, 0.15)",
-
-              borderRadius:
-                "14px",
-
-              lineHeight:
-                "1.6",
-            }}
-          >
-
-            <p>
-              Congratulations,{" "}
-
-              <strong>
-                {formData.name}
-              </strong>
-              !
-            </p>
-
-            <p>
-              Your account has been
-              created successfully.
-            </p>
-
-            {requiresEmailConfirmation ? (
-              <p>
-                Check your email to
-                confirm your account
-                before logging in.
-              </p>
-            ) : (
-              <p>
-                You're ready to start
-                using your AI Study
-                Companion.
-              </p>
-            )}
-
-          </div>
-
+          <p className="auth-subtitle auth-success-copy">
+            {requiresEmailConfirmation
+              ? "Check your email to confirm your account before logging in."
+              : "Your account is ready. You can continue to your dashboard."}
+          </p>
 
           <button
             className="auth-button"
@@ -204,16 +170,15 @@ function Register() {
 
             {requiresEmailConfirmation
               ? "Go to Login"
-              : "Continue to Dashboard"}
+              : "Continue"}
 
           </button>
 
-        </div>
+        </main>
 
       </div>
     );
   }
-
 
   // ========================================
   // REGISTRATION FORM
@@ -222,27 +187,29 @@ function Register() {
   return (
     <div className="auth-page">
 
-      <div className="auth-card">
+      <main className="auth-card">
 
-        <div className="auth-logo">
+        <div
+          className="auth-logo"
+          aria-hidden="true"
+        >
           ✦
         </div>
 
-        <h1 className="app-title">
+        <p className="app-title">
           AI Study Companion
+        </p>
+
+        <h1 className="auth-heading">
+          Create your account
         </h1>
-
-        <h2>
-          Create Your Account
-        </h2>
-
         <p className="auth-subtitle">
-          Start studying smarter
-          with your AI companion.
+          Create an account to save your progress and access your study tools.
         </p>
 
 
         <form
+          className="auth-form"
           onSubmit={handleSubmit}
         >
 
@@ -257,11 +224,11 @@ function Register() {
               type="text"
               name="name"
               placeholder="Enter your name"
+              autoComplete="name"
 
               value={
                 formData.name
               }
-
               onChange={
                 handleChange
               }
@@ -283,11 +250,11 @@ function Register() {
               type="email"
               name="email"
               placeholder="you@example.com"
+              autoComplete="email"
 
               value={
                 formData.email
               }
-
               onChange={
                 handleChange
               }
@@ -304,22 +271,48 @@ function Register() {
               Password
             </label>
 
-            <input
-              id="password"
-              type="password"
-              name="password"
-              placeholder="Create a password"
+            <div className="password-field">
+              <input
+                id="password"
+                type={
+                  showPassword
+                    ? "text"
+                    : "password"
+                }
+                name="password"
+                placeholder="Create a password"
+                autoComplete="new-password"
 
-              value={
-                formData.password
-              }
+                value={
+                  formData.password
+                }
+                onChange={
+                  handleChange
+                }
 
-              onChange={
-                handleChange
-              }
+                required
+              />
 
-              required
-            />
+              <button
+                className="password-toggle"
+                type="button"
+                onClick={() =>
+                  setShowPassword(
+                    (visible) => !visible
+                  )
+                }
+                aria-label={
+                  showPassword
+                    ? "Hide password"
+                    : "Show password"
+                }
+                aria-pressed={showPassword}
+              >
+                {showPassword
+                  ? "Hide"
+                  : "Show"}
+              </button>
+            </div>
 
           </div>
 
@@ -332,46 +325,92 @@ function Register() {
               Confirm Password
             </label>
 
-            <input
-              id="confirmPassword"
-              type="password"
-              name="confirmPassword"
-              placeholder="Confirm your password"
+            <div className="password-field">
+              <input
+                id="confirmPassword"
+                type={
+                  showConfirmPassword
+                    ? "text"
+                    : "password"
+                }
+                name="confirmPassword"
+                placeholder="Confirm your password"
+                autoComplete="new-password"
+                aria-invalid={
+                  passwordsDoNotMatch
+                }
+                aria-describedby={
+                  passwordsDoNotMatch
+                    ? "confirm-password-error"
+                    : undefined
+                }
+                value={
+                  formData
+                    .confirmPassword
+                }
 
-              value={
-                formData
-                  .confirmPassword
-              }
+                onChange={
+                  handleChange
+                }
 
-              onChange={
-                handleChange
-              }
+                required
+              />
 
-              required
-            />
+              <button
+                className="password-toggle"
+                type="button"
+                onClick={() =>
+                  setShowConfirmPassword(
+                    (visible) => !visible
+                  )
+                }
+                aria-label={
+                  showConfirmPassword
+                    ? "Hide confirmed password"
+                    : "Show confirmed password"
+                }
+                aria-pressed={showConfirmPassword}
+              >
+                {showConfirmPassword
+                  ? "Hide"
+                  : "Show"}
+              </button>
+            </div>
+
+            {passwordsDoNotMatch && (
+              <p
+                id="confirm-password-error"
+                className="field-error"
+                role="alert"
+              >
+                Passwords do not match.
+              </p>
+            )}
 
           </div>
 
 
-          {errorMessage && (
-            <p
-              style={{
-                color:
-                  "crimson",
-
-                marginBottom:
-                  "12px",
-              }}
-            >
-              {errorMessage}
-            </p>
-          )}
-
+          {errorMessage &&
+            !passwordsDoNotMatch && (
+              <div
+                className="auth-message auth-message-error"
+                role="alert"
+              >
+                <span
+                  className="auth-message-icon"
+                  aria-hidden="true"
+                >
+                  !
+                </span>
+                <span>{errorMessage}</span>
+              </div>
+            )}
 
           <button
             className="auth-button"
             type="submit"
             disabled={loading}
+            aria-busy={loading}
           >
 
             {loading
@@ -393,7 +432,7 @@ function Register() {
 
         </p>
 
-      </div>
+      </main>
 
     </div>
   );

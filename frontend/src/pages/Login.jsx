@@ -32,11 +32,15 @@ function Login() {
     setLoading,
   ] = useState(false);
 
+  const [
+    showPassword,
+    setShowPassword,
+  ] = useState(false);
+
 
   const handleChange = (
     event
   ) => {
-
     const {
       name,
       value,
@@ -69,7 +73,6 @@ function Login() {
         });
 
         navigate("/");
-
       } catch (error) {
         setErrorMessage(
           error.message
@@ -83,27 +86,29 @@ function Login() {
   return (
     <div className="auth-page">
 
-      <div className="auth-card">
+      <main className="auth-card">
 
-        <div className="auth-logo">
+        <div
+          className="auth-logo"
+          aria-hidden="true"
+        >
           ✦
         </div>
 
-        <h1 className="app-title">
+        <p className="app-title">
           AI Study Companion
+        </p>
+
+        <h1 className="auth-heading">
+          Welcome back
         </h1>
-
-        <h2>
-          Welcome Back
-        </h2>
-
         <p className="auth-subtitle">
-          Log in to continue
-          your study session.
+          Log in to continue studying.
         </p>
 
 
         <form
+          className="auth-form"
           onSubmit={handleSubmit}
         >
 
@@ -118,11 +123,11 @@ function Login() {
               type="email"
               name="email"
               placeholder="you@example.com"
+              autoComplete="email"
 
               value={
                 formData.email
               }
-
               onChange={
                 handleChange
               }
@@ -139,22 +144,48 @@ function Login() {
               Password
             </label>
 
-            <input
-              id="password"
-              type="password"
-              name="password"
-              placeholder="Enter your password"
+            <div className="password-field">
+              <input
+                id="password"
+                type={
+                  showPassword
+                    ? "text"
+                    : "password"
+                }
+                name="password"
+                placeholder="Enter your password"
+                autoComplete="current-password"
 
-              value={
-                formData.password
-              }
+                value={
+                  formData.password
+                }
+                onChange={
+                  handleChange
+                }
 
-              onChange={
-                handleChange
-              }
+                required
+              />
 
-              required
-            />
+              <button
+                className="password-toggle"
+                type="button"
+                onClick={() =>
+                  setShowPassword(
+                    (visible) => !visible
+                  )
+                }
+                aria-label={
+                  showPassword
+                    ? "Hide password"
+                    : "Show password"
+                }
+                aria-pressed={showPassword}
+              >
+                {showPassword
+                  ? "Hide"
+                  : "Show"}
+              </button>
+            </div>
 
           </div>
 
@@ -167,17 +198,18 @@ function Login() {
 
 
           {errorMessage && (
-            <p
-              style={{
-                color:
-                  "crimson",
-
-                marginBottom:
-                  "12px",
-              }}
+            <div
+              className="auth-message auth-message-error"
+              role="alert"
             >
-              {errorMessage}
-            </p>
+              <span
+                className="auth-message-icon"
+                aria-hidden="true"
+              >
+                !
+              </span>
+              <span>{errorMessage}</span>
+            </div>
           )}
 
 
@@ -185,6 +217,7 @@ function Login() {
             className="auth-button"
             type="submit"
             disabled={loading}
+            aria-busy={loading}
           >
 
             {loading
@@ -199,14 +232,13 @@ function Login() {
         <p className="auth-footer">
 
           Don't have an account?{" "}
-
           <Link to="/register">
             Create an account
           </Link>
 
         </p>
 
-      </div>
+      </main>
 
     </div>
   );
