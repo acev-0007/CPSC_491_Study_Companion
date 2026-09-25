@@ -1,0 +1,70 @@
+.empty-state {
+  min-height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  padding: var(--space-6);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.empty-state-copy {
+  max-width: 600px;
+}
+
+.empty-state h3 {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.empty-state p {
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.empty-state-action > a,
+.empty-state-action > button {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 14px;
+  border: 1px solid var(--color-accent-border);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-soft);
+  color: #c0b2ff;
+  font-size: 14px;
+  font-weight: 650;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.empty-state-action > a:hover,
+.empty-state-action > button:hover {
+  border-color: rgba(124, 92, 255, 0.48);
+  background: rgba(124, 92, 255, 0.16);
+}
+
+@media (max-width: 620px) {
+  .empty-state {
+    min-height: 0;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--space-5);
+    padding: var(--space-5);
+  }
+
+  .empty-state-action,
+  .empty-state-action > a,
+  .empty-state-action > button {
+    width: 100%;
+  }
+}
