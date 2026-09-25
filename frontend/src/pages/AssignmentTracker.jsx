@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./AssignmentTracker.css"
 
 function AssignmentTracker() {
+  const [assignments, setAssignments] = useState([]);
+
   const [formData, setFormData] = useState({
     title: "",
     course: "",
@@ -11,6 +13,16 @@ function AssignmentTracker() {
     notes: "",
     estimated_time: "",
   });
+
+  async function fetchAssignments() {
+    const response = await fetch("http://localhost:3000/api/assignments");
+    const data = await response.json();
+    setAssignments(data);
+  }
+
+  useEffect(() => {
+    fetchAssignments();
+  }, []);
 
   const [message, setMessage] = useState("");
 
@@ -134,6 +146,12 @@ function AssignmentTracker() {
         <button className="assignment-form" type="submit">Add Assignment</button>
       </form >
       {message && <p>{message}</p>}
+      <h2>Assignments</h2>
+      {assignments.map((assignment) => (
+        <p key={assignment.id}>
+          {assignment.title}
+        </p>
+      ))}
     </div>
   );
 }

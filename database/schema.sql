@@ -11,7 +11,7 @@ CREATE TABLE assignments (
     title VARCHAR(255) NOT NULL,
     course VARCHAR(255) NOT NULL,
     duedate TIMESTAMPTZ NOT NULL,
-    estimated_time INTERVAL NOT NULL,
+    estimated_time INTEGER NOT NULL,
     priority priority_level NOT NULL DEFAULT 'Low',
     status assignment_status NOT NULL DEFAULT 'Upcoming',
     notes TEXT,
