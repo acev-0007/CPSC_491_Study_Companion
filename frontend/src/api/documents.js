@@ -35,3 +35,18 @@ export async function uploadDocument(file, category, course) {
   const body = await parseResponse(response);
   return body.document;
 }
+
+
+export async function updateDocument(id, updates) {
+  const response = await fetch(`/api/documents/${id}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      "X-User-Id": LOCAL_USER_ID,
+    },
+    body: JSON.stringify(updates),
+  });
+
+  const body = await parseResponse(response);
+  return body.document;
+}

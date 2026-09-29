@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import DocumentCard from "../components/textbookHub/DocumentCard";
 import DocumentUploadForm from "../components/textbookHub/DocumentUploadForm";
-import { listDocuments, uploadDocument } from "../api/documents";
+import { listDocuments, uploadDocument, updateDocument, } from "../api/documents";
 import "./TextbookHub.css";
 import DocumentDetailModal from "../components/textbookHub/DocumentDetailModal";
 
@@ -56,6 +56,27 @@ function TextbookHub() {
     }
   }
 
+  async function handleUpdateDocument(id, updates) {
+    setError("");
+
+    try {
+      const updated = await updateDocument(id, updates);
+
+      setDocuments((current) =>
+        current.map((document) =>
+          document.id === updated.id ? updated : document
+        )
+      );
+
+      setSelectedDocument(updated);
+
+      return true;
+    } catch (requestError) {
+      setError(requestError.message);
+      return false;
+    }
+  }
+
   return (
     <section className="textbook-hub">
       <header className="hub-page-header">
@@ -99,8 +120,7 @@ function TextbookHub() {
         </div>
       )}
 
-      {selectedDocument && (<DocumentDetailModal document={selectedDocument} categories={CATEGORIES} onClose={() => setSelectedDocument(null)} />
-      )}
+      {selectedDocument && (<DocumentDetailModal document={selectedDocument} categories={CATEGORIES} onSave={handleUpdateDocument} onClose={() => setSelectedDocument(null)} />)}
     </section>
   );
 }

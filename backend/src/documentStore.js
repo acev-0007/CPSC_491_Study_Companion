@@ -41,4 +41,33 @@ export class DocumentStore {
     const documents = await this.readAll();
     return documents.filter((document) => document.userId === userId);
   }
+
+  async updateForUser(id, userId, updates) {
+    const documents = await this.readAll();
+
+    const index = documents.findIndex(
+      (document) =>
+        document.id === id &&
+        document.userId === userId
+    );
+
+    if (index === -1) {
+      return null;
+    }
+
+    const current = documents[index];
+
+    const updated = {
+      ...current,
+      name: updates.name || current.name,
+      category: updates.category || current.category,
+      course: updates.course || current.course,
+    };
+
+    documents[index] = updated;
+
+    await this.writeAll(documents);
+
+    return updated;
+  }
 }

@@ -101,6 +101,32 @@ export function createApp({
     }
   });
 
+  app.patch("/api/documents/:id", async (req, res, next) => {
+    try {
+      const updatedDocument = await store.updateForUser(
+        req.params.id,
+        req.userId,
+        {
+          name: req.body.name?.trim(),
+          category: req.body.category?.trim(),
+          course: req.body.course?.trim(),
+        }
+      );
+
+      if (!updatedDocument) {
+        return res.status(404).json({
+          error: "Document not found.",
+        });
+      }
+
+      return res.json({
+        document: publicDocument(updatedDocument),
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   app.use((error, _req, res, _next) => {
     if (error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE") {
       return res.status(413).json({ error: "File is too large. Maximum size is 10 MB." });

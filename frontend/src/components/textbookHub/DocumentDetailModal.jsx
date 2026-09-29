@@ -7,12 +7,30 @@ import { useState } from "react";
 function DocumentDetailModal({
   document,
   categories,
+  onSave,
   onClose,
 }) {
   const [name, setName] = useState(document.name);
   const [category, setCategory] = useState(document.category || "Other");
   const [course, setCourse] = useState(document.course || "");
+  const [saving, setSaving] = useState(false);
   
+  
+async function handleSave() {
+  setSaving(true);
+
+  const success = await onSave(document.id, {
+    name,
+    category,
+    course,
+  });
+
+  setSaving(false);
+
+  if (success) {
+    onClose();
+  }
+}
 
   function handleOverlayClick(event) {
     if (event.target === event.currentTarget) {
@@ -40,8 +58,10 @@ function DocumentDetailModal({
           <button
             type="button"
             className="hub-primary-button"
+            onClick={handleSave}
+            disabled={saving}
           >
-            Save
+            {saving ? "Saving..." : "Save"}
           </button>
 
           <button
