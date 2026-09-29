@@ -43,6 +43,7 @@ describe("TextbookHub", () => {
       type: "txt",
       mimeType: "text/plain",
       size: 18,
+      category: "Study Guide",
       uploadedAt: "2026-09-13T12:00:00.000Z",
       status: "ready",
       extractionError: null,
@@ -65,11 +66,18 @@ describe("TextbookHub", () => {
     });
 
     await user.upload(fileInput, file);
+
+    await user.selectOptions(
+      screen.getByLabelText(/category/i),
+      "Study Guide"
+    );
+    
     await user.click(screen.getByRole("button", { name: /^upload$/i }));
 
     await waitFor(() => {
       expect(screen.getByText("chapter-1.txt")).toBeInTheDocument();
     });
     expect(screen.getByText("Ready")).toBeInTheDocument();
+    expect(screen.getByText("Study Guide")).toBeInTheDocument();
   });
 });

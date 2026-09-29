@@ -13,7 +13,7 @@ function DocumentCard({ document }) {
         <div>
           <h3>{document.name}</h3>
           <p>
-            {document.type.toUpperCase()} · {formatBytes(document.size)}
+            {document.type.toUpperCase()} · {formatBytes(document.size)} · · {document.category}
           </p>
         </div>
         <span className={`status-badge ${failed ? "status-failed" : "status-ready"}`}>

@@ -84,6 +84,7 @@ export function createApp({
         type: extension.slice(1),
         mimeType: req.file.mimetype || null,
         size: req.file.size,
+        category: req.body.category || "Other",
         uploadedAt: new Date().toISOString(),
         status,
         extractionError,
