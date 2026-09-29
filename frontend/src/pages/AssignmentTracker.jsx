@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import "./AssignmentTracker.css"
+import "./AssignmentTracker.css";
 
 function AssignmentTracker() {
   const [assignments, setAssignments] = useState([]);
@@ -15,10 +15,25 @@ function AssignmentTracker() {
   });
 
   async function fetchAssignments() {
-    const response = await fetch("http://localhost:3000/api/assignments");
-    const data = await response.json();
-    setAssignments(data);
+    try {
+      const response = await fetch("http://localhost:3001/api/assignments", {
+        credentials: "include"
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.error || "Failed to fetch assignments"
+        );
+      }
+
+      const data = await response.json();
+      setAssignments(data);
+  } catch (error) {
+    console.error(error);
+    setMessage(error.message);
   }
+}
 
   useEffect(() => {
     fetchAssignments();
@@ -43,7 +58,8 @@ function AssignmentTracker() {
     }
 
     try {
-      const response = await fetch("http://localhost:3000/api/assignments", {
+      const response = await fetch("http://localhost:3001/api/assignments", {
+        credentials: "include",
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -55,6 +71,7 @@ function AssignmentTracker() {
         throw new Error(`Failed to create assignment: ${response.status} ${errorData}`);
       }
       setMessage("Assignment created successfully!");
+      await fetchAssignments();
     } catch(error) {
       console.error(error);
       setMessage(error.message);
@@ -141,6 +158,7 @@ function AssignmentTracker() {
             min="1"
             value={formData.estimated_time}
             onChange={handleChange}
+            required
           />
         </label>
         <button className="assignment-form" type="submit">Add Assignment</button>
