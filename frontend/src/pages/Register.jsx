@@ -32,7 +32,6 @@ function Register() {
     loading,
     setLoading,
   ] = useState(false);
-
   const [
     accountCreated,
     setAccountCreated,
@@ -41,6 +40,16 @@ function Register() {
   const [
     requiresEmailConfirmation,
     setRequiresEmailConfirmation,
+  ] = useState(false);
+
+  const [
+    showPassword,
+    setShowPassword,
+  ] = useState(false);
+
+  const [
+    showConfirmPassword,
+    setShowConfirmPassword,
   ] = useState(false);
 
 
@@ -67,7 +76,6 @@ function Register() {
       event.preventDefault();
 
       setErrorMessage("");
-
       if (
         formData.password !==
         formData.confirmPassword
@@ -93,7 +101,6 @@ function Register() {
             password:
               formData.password,
           });
-
         setRequiresEmailConfirmation(
           result
             .requiresEmailConfirmation
@@ -110,6 +117,10 @@ function Register() {
       }
     };
 
+  const passwordsDoNotMatch =
+    errorMessage ===
+    "Passwords do not match.";
+
 
   // ========================================
   // SUCCESS SCREEN
@@ -119,101 +130,76 @@ function Register() {
     return (
       <div className="auth-page">
 
-        <div className="auth-card">
-
-          <div className="auth-logo">
-            ✓
-          </div>
-
-          <h1 className="app-title">
-            AI Study Companion
-          </h1>
-
-          <h2>
-            Account Created!
-          </h2>
-
-          <p className="auth-subtitle">
-            Welcome to AI Study Companion.
-          </p>
-
-
+        <header className="auth-brand">
           <div
-            style={{
-              margin: "30px 0",
-              padding: "22px",
-              textAlign: "center",
-
-              background:
-                "rgba(124, 58, 237, 0.06)",
-
-              border:
-                "1px solid rgba(124, 58, 237, 0.15)",
-
-              borderRadius:
-                "14px",
-
-              lineHeight:
-                "1.6",
-            }}
+            className="auth-brand-mark"
+            aria-hidden="true"
           >
-
-            <p>
-              Congratulations,{" "}
-
-              <strong>
-                {formData.name}
-              </strong>
-              !
-            </p>
-
-            <p>
-              Your account has been
-              created successfully.
-            </p>
-
-            {requiresEmailConfirmation ? (
-              <p>
-                Check your email to
-                confirm your account
-                before logging in.
-              </p>
-            ) : (
-              <p>
-                You're ready to start
-                using your AI Study
-                Companion.
-              </p>
-            )}
-
+            ✦
           </div>
 
+          <div className="auth-brand-copy">
+            <p className="auth-brand-name">
+              AI Study Companion
+            </p>
+            <p className="auth-brand-tagline">
+              Your personalized AI learning workspace.
+            </p>
+          </div>
+        </header>
 
-          <button
-            className="auth-button"
-            type="button"
-
-            onClick={() =>
-              navigate(
-                requiresEmailConfirmation
-                  ? "/login"
-                  : "/"
-              )
-            }
+        <main className="auth-shell">
+          <section
+            className="auth-panel auth-panel-success"
+            aria-live="polite"
+            aria-labelledby="register-success-heading"
           >
+            <div
+              className="auth-success-mark"
+              aria-hidden="true"
+            >
+              ✓
+            </div>
 
-            {requiresEmailConfirmation
-              ? "Go to Login"
-              : "Continue to Dashboard"}
+            <div className="auth-intro">
+              <h1
+                id="register-success-heading"
+                className="auth-heading"
+              >
+                Account created
+              </h1>
 
-          </button>
+              <p className="auth-subtitle auth-success-copy">
+                {requiresEmailConfirmation
+                  ? "Check your email to confirm your account before logging in."
+                  : "Your account is ready. You can continue to your dashboard."}
+              </p>
+            </div>
 
-        </div>
+            <button
+              className="auth-button"
+              type="button"
+
+              onClick={() =>
+                navigate(
+                  requiresEmailConfirmation
+                    ? "/login"
+                    : "/"
+                )
+              }
+            >
+
+              {requiresEmailConfirmation
+                ? "Go to Login"
+                : "Continue"}
+
+            </button>
+          </section>
+        </main>
 
       </div>
     );
   }
-
 
   // ========================================
   // REGISTRATION FORM
@@ -222,178 +208,267 @@ function Register() {
   return (
     <div className="auth-page">
 
-      <div className="auth-card">
-
-        <div className="auth-logo">
+      <header className="auth-brand">
+        <div
+          className="auth-brand-mark"
+          aria-hidden="true"
+        >
           ✦
         </div>
 
-        <h1 className="app-title">
-          AI Study Companion
-        </h1>
+        <div className="auth-brand-copy">
+          <p className="auth-brand-name">
+            AI Study Companion
+          </p>
+          <p className="auth-brand-tagline">
+            Your personalized AI learning workspace.
+          </p>
+        </div>
+      </header>
 
-        <h2>
-          Create Your Account
-        </h2>
-
-        <p className="auth-subtitle">
-          Start studying smarter
-          with your AI companion.
-        </p>
-
-
-        <form
-          onSubmit={handleSubmit}
+      <main className="auth-shell">
+        <section
+          className="auth-panel"
+          aria-labelledby="register-heading"
         >
-
-          <div className="form-group">
-
-            <label htmlFor="name">
-              Name
-            </label>
-
-            <input
-              id="name"
-              type="text"
-              name="name"
-              placeholder="Enter your name"
-
-              value={
-                formData.name
-              }
-
-              onChange={
-                handleChange
-              }
-
-              required
-            />
-
-          </div>
-
-
-          <div className="form-group">
-
-            <label htmlFor="email">
-              Email Address
-            </label>
-
-            <input
-              id="email"
-              type="email"
-              name="email"
-              placeholder="you@example.com"
-
-              value={
-                formData.email
-              }
-
-              onChange={
-                handleChange
-              }
-
-              required
-            />
-
-          </div>
-
-
-          <div className="form-group">
-
-            <label htmlFor="password">
-              Password
-            </label>
-
-            <input
-              id="password"
-              type="password"
-              name="password"
-              placeholder="Create a password"
-
-              value={
-                formData.password
-              }
-
-              onChange={
-                handleChange
-              }
-
-              required
-            />
-
-          </div>
-
-
-          <div className="form-group">
-
-            <label
-              htmlFor="confirmPassword"
+          <div className="auth-intro">
+            <h1
+              id="register-heading"
+              className="auth-heading"
             >
-              Confirm Password
-            </label>
-
-            <input
-              id="confirmPassword"
-              type="password"
-              name="confirmPassword"
-              placeholder="Confirm your password"
-
-              value={
-                formData
-                  .confirmPassword
-              }
-
-              onChange={
-                handleChange
-              }
-
-              required
-            />
-
-          </div>
-
-
-          {errorMessage && (
-            <p
-              style={{
-                color:
-                  "crimson",
-
-                marginBottom:
-                  "12px",
-              }}
-            >
-              {errorMessage}
+              Create your account
+            </h1>
+            <p className="auth-subtitle">
+              Save your progress and access your study tools.
             </p>
-          )}
+          </div>
 
 
-          <button
-            className="auth-button"
-            type="submit"
-            disabled={loading}
+          <form
+            className="auth-form"
+            onSubmit={handleSubmit}
           >
 
-            {loading
-              ? "Creating Account..."
-              : "Create Account"}
+            <div className="form-group">
 
-          </button>
+              <label htmlFor="name">
+                Name
+              </label>
 
-        </form>
+              <input
+                id="name"
+                type="text"
+                name="name"
+                placeholder="Enter your name"
+                autoComplete="name"
+
+                value={
+                  formData.name
+                }
+                onChange={
+                  handleChange
+                }
+
+                required
+              />
+
+            </div>
 
 
-        <p className="auth-footer">
+            <div className="form-group">
 
-          Already have an account?{" "}
+              <label htmlFor="email">
+                Email Address
+              </label>
 
-          <Link to="/login">
-            Log in
-          </Link>
+              <input
+                id="email"
+                type="email"
+                name="email"
+                placeholder="you@example.com"
+                autoComplete="email"
 
-        </p>
+                value={
+                  formData.email
+                }
+                onChange={
+                  handleChange
+                }
 
-      </div>
+                required
+              />
+
+            </div>
+
+
+            <div className="form-group">
+
+              <label htmlFor="password">
+                Password
+              </label>
+
+              <div className="password-field">
+                <input
+                  id="password"
+                  type={
+                    showPassword
+                      ? "text"
+                      : "password"
+                  }
+                  name="password"
+                  placeholder="Create a password"
+                  autoComplete="new-password"
+
+                  value={
+                    formData.password
+                  }
+                  onChange={
+                    handleChange
+                  }
+
+                  required
+                />
+
+                <button
+                  className="password-toggle"
+                  type="button"
+                  onClick={() =>
+                    setShowPassword(
+                      (visible) => !visible
+                    )
+                  }
+                  aria-label={
+                    showPassword
+                      ? "Hide password"
+                      : "Show password"
+                  }
+                  aria-pressed={showPassword}
+                >
+                  {showPassword
+                    ? "Hide"
+                    : "Show"}
+                </button>
+              </div>
+
+            </div>
+
+
+            <div className="form-group">
+
+              <label
+                htmlFor="confirmPassword"
+              >
+                Confirm Password
+              </label>
+
+              <div className="password-field">
+                <input
+                  id="confirmPassword"
+                  type={
+                    showConfirmPassword
+                      ? "text"
+                      : "password"
+                  }
+                  name="confirmPassword"
+                  placeholder="Confirm your password"
+                  autoComplete="new-password"
+                  aria-invalid={
+                    passwordsDoNotMatch
+                  }
+                  aria-describedby={
+                    passwordsDoNotMatch
+                      ? "confirm-password-error"
+                      : undefined
+                  }
+                  value={
+                    formData
+                      .confirmPassword
+                  }
+
+                  onChange={
+                    handleChange
+                  }
+
+                  required
+                />
+
+                <button
+                  className="password-toggle"
+                  type="button"
+                  onClick={() =>
+                    setShowConfirmPassword(
+                      (visible) => !visible
+                    )
+                  }
+                  aria-label={
+                    showConfirmPassword
+                      ? "Hide confirmed password"
+                      : "Show confirmed password"
+                  }
+                  aria-pressed={showConfirmPassword}
+                >
+                  {showConfirmPassword
+                    ? "Hide"
+                    : "Show"}
+                </button>
+              </div>
+
+              {passwordsDoNotMatch && (
+                <p
+                  id="confirm-password-error"
+                  className="field-error"
+                  role="alert"
+                >
+                  Passwords do not match.
+                </p>
+              )}
+
+            </div>
+
+
+            {errorMessage &&
+              !passwordsDoNotMatch && (
+                <div
+                  className="auth-message auth-message-error"
+                  role="alert"
+                >
+                  <span
+                    className="auth-message-icon"
+                    aria-hidden="true"
+                  >
+                    !
+                  </span>
+                  <span>{errorMessage}</span>
+                </div>
+              )}
+
+            <button
+              className="auth-button"
+              type="submit"
+              disabled={loading}
+              aria-busy={loading}
+            >
+
+              {loading
+                ? "Creating Account..."
+                : "Create Account"}
+
+            </button>
+
+          </form>
+
+
+          <p className="auth-footer">
+
+            Already have an account?{" "}
+
+            <Link to="/login">
+              Log in
+            </Link>
+
+          </p>
+        </section>
+      </main>
 
     </div>
   );
