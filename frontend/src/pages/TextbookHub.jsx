@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import DocumentCard from "../components/textbookHub/DocumentCard";
 import DocumentUploadForm from "../components/textbookHub/DocumentUploadForm";
-import { listDocuments, uploadDocument, updateDocument, } from "../api/documents";
+import { listDocuments, uploadDocument, updateDocument, deleteDocument} from "../api/documents";
 import "./TextbookHub.css";
 import DocumentDetailModal from "../components/textbookHub/DocumentDetailModal";
 
@@ -53,6 +53,25 @@ function TextbookHub() {
       return false;
     } finally {
       setUploading(false);
+    }
+  }
+
+  async function handleDeleteDocument(id) {
+    setError("");
+
+    try {
+      await deleteDocument(id);
+
+      setDocuments((current) =>
+        current.filter((document) => document.id !== id)
+      );
+
+      setSelectedDocument(null);
+
+      return true;
+    } catch (requestError) {
+      setError(requestError.message);
+      return false;
     }
   }
 
@@ -120,7 +139,13 @@ function TextbookHub() {
         </div>
       )}
 
-      {selectedDocument && (<DocumentDetailModal document={selectedDocument} categories={CATEGORIES} onSave={handleUpdateDocument} onClose={() => setSelectedDocument(null)} />)}
+      {selectedDocument && (<DocumentDetailModal
+        document={selectedDocument}
+        categories={CATEGORIES}
+        onSave={handleUpdateDocument}
+        onDelete={handleDeleteDocument}
+        onClose={() => setSelectedDocument(null)}
+        />)}
     </section>
   );
 }

@@ -50,3 +50,15 @@ export async function updateDocument(id, updates) {
   const body = await parseResponse(response);
   return body.document;
 }
+
+export async function deleteDocument(id) {
+  const response = await fetch(`/api/documents/${id}`, {
+    method: "DELETE",
+    headers: {
+      "X-User-Id": LOCAL_USER_ID,
+    },
+  });
+
+  const body = await parseResponse(response);
+  return body.document;
+}

@@ -1,7 +1,7 @@
 import express from "express";
 import multer from "multer";
 import path from "node:path";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, writeFile, unlink } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { DocumentStore } from "./documentStore.js";
 import { extractText, validateSupportedFile } from "./extractText.js";
@@ -121,6 +121,40 @@ export function createApp({
 
       return res.json({
         document: publicDocument(updatedDocument),
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+
+  app.delete("/api/documents/:id", async (req, res, next) => {
+    try {
+      const deletedDocument = await store.deleteForUser(
+        req.params.id,
+        req.userId
+      );
+
+      if (!deletedDocument) {
+        return res.status(404).json({
+          error: "Document not found.",
+        });
+      }
+
+      if (deletedDocument.storedFilename) {
+        try {
+          await unlink(
+            path.join(uploadDir, deletedDocument.storedFilename)
+          );
+        } catch (error) {
+          if (error.code !== "ENOENT") {
+            throw error;
+          }
+        }
+      }
+
+      return res.json({
+        document: publicDocument(deletedDocument),
       });
     } catch (error) {
       next(error);

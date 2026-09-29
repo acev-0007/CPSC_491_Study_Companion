@@ -70,4 +70,25 @@ export class DocumentStore {
 
     return updated;
   }
+
+  
+  async deleteForUser(id, userId) {
+    const documents = await this.readAll();
+
+    const index = documents.findIndex(
+      (document) =>
+        document.id === id &&
+        document.userId === userId
+    );
+
+    if (index === -1) {
+      return null;
+    }
+
+    const [deletedDocument] = documents.splice(index, 1);
+
+    await this.writeAll(documents);
+
+    return deletedDocument;
+  }
 }

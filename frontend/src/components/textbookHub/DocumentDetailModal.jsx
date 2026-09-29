@@ -8,13 +8,14 @@ function DocumentDetailModal({
   document,
   categories,
   onSave,
+  onDelete,
   onClose,
 }) {
   const [name, setName] = useState(document.name);
   const [category, setCategory] = useState(document.category || "Other");
   const [course, setCourse] = useState(document.course || "");
   const [saving, setSaving] = useState(false);
-  
+  const [deleting, setDeleting] = useState(false);
   
 async function handleSave() {
   setSaving(true);
@@ -31,6 +32,24 @@ async function handleSave() {
     onClose();
   }
 }
+
+async function handleDelete() {
+    const confirmed = window.confirm(
+      `Delete "${document.name}"? This cannot be undone.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDeleting(true);
+
+    try {
+      await onDelete(document.id);
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   function handleOverlayClick(event) {
     if (event.target === event.currentTarget) {
@@ -50,8 +69,10 @@ async function handleSave() {
           <button
             type="button"
             className="document-delete-button"
+            onClick={handleDelete}
+            disabled={deleting || saving}
           >
-            Delete
+            {deleting ? "Deleting..." : "Delete"}
           </button>
 
 
