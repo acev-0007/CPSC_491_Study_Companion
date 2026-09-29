@@ -16,6 +16,10 @@ function AssignmentTracker() {
     (assignment) => assignment.status === "Completed"
   );
 
+  const overdueAssignments = assignments.filter(
+    (assignment) => assignment.status === "Overdue"
+  );
+
   const [formData, setFormData] = useState({
     title: "",
     course: "",
@@ -203,7 +207,7 @@ function AssignmentTracker() {
             required
           />
         </label>
-        <button className="assignment-form" type="submit">Add Assignment</button>
+        <button className="submit-button" type="submit">Add Assignment</button>
       </form >
       {message && <p>{message}</p>}
       
@@ -226,6 +230,13 @@ function AssignmentTracker() {
       {completedAssignments.length === 0 
        ? <p>No completed assignments</p>
        : completedAssignments.map(renderAssignmentCard)}
+      </section>
+
+      <section className="assignment-section">
+      <h2>Overdue</h2>
+      {overdueAssignments.length === 0 
+       ? <p>No assignments overdue</p>
+       : overdueAssignments.map(renderAssignmentCard)}
       </section>
     </div>
   );
