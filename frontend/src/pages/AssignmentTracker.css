@@ -4,10 +4,21 @@
     padding: 30px;
 }
 
+.assignment-card {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
 .assignment-form {
     display: flex;
     flex-direction: column;
     gap: 20px;
+}
+
+.assignment-section {
+    margin-top: 2rem;
 }
 
 .form-group {
