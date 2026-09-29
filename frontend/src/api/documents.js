@@ -19,11 +19,12 @@ export async function listDocuments() {
   return body.documents;
 }
 
-export async function uploadDocument(file, category) {
+export async function uploadDocument(file, category, course) {
   const formData = new FormData();
 
   formData.append("file", file);
   formData.append("category", category);
+  formData.append("course", course);
 
   const response = await fetch("/api/documents", {
     method: "POST",

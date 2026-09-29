@@ -19,6 +19,7 @@ function TextbookHub() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [category, setCategory] = useState("Other");
+  const [course, setCourse] = useState("");
 
   const loadDocuments = useCallback(async () => {
     setLoading(true);
@@ -36,22 +37,23 @@ function TextbookHub() {
     loadDocuments();
   }, [loadDocuments]);
 
-async function handleUpload(file) {
-  setUploading(true);
-  setError("");
+  async function handleUpload(file) {
+    setUploading(true);
+    setError("");
 
-  try {
-    const created = await uploadDocument(file, category);
-    setDocuments((current) => [created, ...current]);
-    setCategory("Other");
-    return true;
-  } catch (requestError) {
-    setError(requestError.message);
-    return false;
-  } finally {
-    setUploading(false);
+    try {
+      const created = await uploadDocument(file, category, course);
+      setDocuments((current) => [created, ...current]);
+      setCategory("Other");
+      setCourse("");
+      return true;
+    } catch (requestError) {
+      setError(requestError.message);
+      return false;
+    } finally {
+      setUploading(false);
+    }
   }
-}
 
   return (
     <section className="textbook-hub">
@@ -66,7 +68,7 @@ async function handleUpload(file) {
         </div>
       </header>
 
-      <DocumentUploadForm onUpload={handleUpload} uploading={uploading} category={category} setCategory={setCategory} categories={CATEGORIES}/>
+      <DocumentUploadForm onUpload={handleUpload} uploading={uploading} category={category} setCategory={setCategory} categories={CATEGORIES} course={course} setCourse={setCourse}/>
 
       {error && (
         <p className="hub-message hub-message-error" role="alert">

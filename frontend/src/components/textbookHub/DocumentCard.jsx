@@ -13,6 +13,9 @@ function DocumentCard({ document }) {
         <div>
           <h3>{document.name}</h3>
           <p>
+          <strong>Course:</strong> {document.course || "Unassigned"}
+          </p>
+          <p>
             {document.type.toUpperCase()} · {formatBytes(document.size)} · · {document.category}
           </p>
         </div>

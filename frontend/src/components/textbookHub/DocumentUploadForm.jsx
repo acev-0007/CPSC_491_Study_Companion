@@ -18,6 +18,8 @@ function DocumentUploadForm({
   category,
   setCategory,
   categories,
+  course,
+  setCourse,
 }) {
   const inputRef = useRef(null);
   const [file, setFile] = useState(null);
@@ -94,6 +96,19 @@ function DocumentUploadForm({
             </option>
           ))}
         </select>
+
+        <label className="hub-label" htmlFor="document-course">
+          Course
+        </label>
+
+        <input
+          id="document-course"
+          type="text"
+          value={course}
+          onChange={(event) => setCourse(event.target.value)}
+          placeholder="e.g. CPSC 491"
+          disabled={uploading}
+        />
 
         <button
           className="hub-primary-button"

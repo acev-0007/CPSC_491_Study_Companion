@@ -44,6 +44,7 @@ describe("TextbookHub", () => {
       mimeType: "text/plain",
       size: 18,
       category: "Study Guide",
+      course: "CPSC 491",
       uploadedAt: "2026-09-13T12:00:00.000Z",
       status: "ready",
       extractionError: null,
@@ -71,13 +72,24 @@ describe("TextbookHub", () => {
       screen.getByLabelText(/category/i),
       "Study Guide"
     );
+
+    await user.type(
+      screen.getByLabelText(/course/i),
+      "CPSC 491"
+    );
     
     await user.click(screen.getByRole("button", { name: /^upload$/i }));
+
+    const uploadCall = fetchMock.mock.calls[1];
+
+    const requestOptions = uploadCall[1];
+    const formData = requestOptions.body;
 
     await waitFor(() => {
       expect(screen.getByText("chapter-1.txt")).toBeInTheDocument();
     });
     expect(screen.getByText("Ready")).toBeInTheDocument();
-    expect(screen.getByText("Study Guide")).toBeInTheDocument();
+    expect(formData.get("category")).toBe("Study Guide");
+    expect(formData.get("course")).toBe("CPSC 491");
   });
 });
