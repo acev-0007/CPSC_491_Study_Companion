@@ -3,7 +3,7 @@ import DocumentCard from "../components/textbookHub/DocumentCard";
 import DocumentUploadForm from "../components/textbookHub/DocumentUploadForm";
 import { listDocuments, uploadDocument } from "../api/documents";
 import "./TextbookHub.css";
-
+import DocumentDetailModal from "../components/textbookHub/DocumentDetailModal";
 
 const CATEGORIES = [
   "Textbook",
@@ -20,6 +20,7 @@ function TextbookHub() {
   const [error, setError] = useState("");
   const [category, setCategory] = useState("Other");
   const [course, setCourse] = useState("");
+  const [selectedDocument, setSelectedDocument] = useState(null);
 
   const loadDocuments = useCallback(async () => {
     setLoading(true);
@@ -77,7 +78,7 @@ function TextbookHub() {
       )}
 
       <div className="hub-library-heading">
-        <h2>Your documents</h2>
+        <h2>Your documents --- (select a card to edit or delete)</h2>
         <button className="hub-secondary-button" type="button" onClick={loadDocuments}>
           Refresh
         </button>
@@ -93,9 +94,12 @@ function TextbookHub() {
       ) : (
         <div className="document-grid">
           {documents.map((document) => (
-            <DocumentCard key={document.id} document={document} />
+            <DocumentCard key={document.id} document={document} onOpen={() => setSelectedDocument(document)} />
           ))}
         </div>
+      )}
+
+      {selectedDocument && (<DocumentDetailModal document={selectedDocument} categories={CATEGORIES} onClose={() => setSelectedDocument(null)} />
       )}
     </section>
   );

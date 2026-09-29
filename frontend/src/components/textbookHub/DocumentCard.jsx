@@ -4,11 +4,12 @@ function formatBytes(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function DocumentCard({ document }) {
+function DocumentCard({ document, onOpen }) {
   const failed = document.status === "failed";
 
   return (
-    <article className="document-card">
+    <article className="document-card" onClick={onOpen} role="button" tabIndex={0} onKeyDown={(event) =>
+    {if (event.key === "Enter" || event.key === " ") {onOpen();}}}>
       <div className="document-card-heading">
         <div>
           <h3>{document.name}</h3>
