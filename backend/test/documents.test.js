@@ -1,10 +1,42 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { PDFDocument, StandardFonts } from "pdf-lib";
 import { createApp } from "../src/app.js";
+import {
+  ACCESS_COOKIE,
+} from "../src/auth/sessionCookies.js";
+
+vi.mock("../src/config/supabase.js", () => ({
+  createSupabaseClient: vi.fn(() => ({
+    auth: {
+      getUser: vi.fn(async (accessToken) => {
+        const users = {
+          "student-1-token": { id: "student-1" },
+          "student-2-token": { id: "student-2" },
+        };
+
+        const user = users[accessToken];
+
+        if (user) {
+          return {
+            data: { user },
+            error: null,
+          };
+        }
+
+        return {
+          data: { user: null },
+          error: new Error("Invalid test token"),
+        };
+      }),
+
+      refreshSession: vi.fn(),
+    },
+  })),
+}));
 
 async function makePdf(text) {
   const pdf = await PDFDocument.create();
@@ -33,7 +65,7 @@ describe("document API", () => {
   it("uploads and extracts a valid TXT file", async () => {
     const response = await request(app)
       .post("/api/documents")
-      .set("X-User-Id", "student-1")
+      .set("Cookie", `${ACCESS_COOKIE}=student-1-token`)
       .attach("file", Buffer.from("Operating systems manage hardware resources."), {
         filename: "os-notes.txt",
         contentType: "text/plain",
@@ -45,11 +77,21 @@ describe("document API", () => {
     expect(response.body.document.textLength).toBeGreaterThan(0);
   });
 
+  it("rejects document access without authentication", async () => {
+    const response = await request(app)
+    .get("/api/documents");
+
+    expect(response.status).toBe(401);
+    expect(response.body.error).toMatch(
+    /authentication required/i
+    );
+    });
+
   it("uploads and extracts a valid digital PDF", async () => {
     const pdf = await makePdf("Virtual memory allows processes to use logical address spaces.");
     const response = await request(app)
       .post("/api/documents")
-      .set("X-User-Id", "student-1")
+      .set("Cookie", `${ACCESS_COOKIE}=student-1-token`)
       .attach("file", pdf, {
         filename: "virtual-memory.pdf",
         contentType: "application/pdf",
@@ -64,7 +106,7 @@ describe("document API", () => {
   it("rejects an invalid file type", async () => {
     const response = await request(app)
       .post("/api/documents")
-      .set("X-User-Id", "student-1")
+      .set("Cookie", `${ACCESS_COOKIE}=student-1-token`)
       .attach("file", Buffer.from("fake image"), {
         filename: "diagram.png",
         contentType: "image/png",
@@ -77,7 +119,7 @@ describe("document API", () => {
   it("keeps the document but marks it failed when extraction fails", async () => {
     const response = await request(app)
       .post("/api/documents")
-      .set("X-User-Id", "student-1")
+      .set("Cookie", `${ACCESS_COOKIE}=student-1-token`)
       .attach("file", Buffer.from("this is not a valid pdf"), {
         filename: "broken.pdf",
         contentType: "application/pdf",
@@ -91,7 +133,7 @@ describe("document API", () => {
   it("returns an uploaded item in the current user's document list", async () => {
     await request(app)
       .post("/api/documents")
-      .set("X-User-Id", "student-1")
+      .set("Cookie", `${ACCESS_COOKIE}=student-1-token`)
       .attach("file", Buffer.from("Chapter one notes"), {
         filename: "chapter-1.txt",
         contentType: "text/plain",
@@ -100,7 +142,7 @@ describe("document API", () => {
     // Add another user's document to make sure listing is user-scoped.
     await request(app)
       .post("/api/documents")
-      .set("X-User-Id", "student-2")
+      .set("Cookie", `${ACCESS_COOKIE}=student-2-token`)
       .attach("file", Buffer.from("Other student's notes"), {
         filename: "private.txt",
         contentType: "text/plain",
@@ -108,7 +150,7 @@ describe("document API", () => {
 
     const response = await request(app)
       .get("/api/documents")
-      .set("X-User-Id", "student-1");
+      .set("Cookie", `${ACCESS_COOKIE}=student-1-token`);
 
     expect(response.status).toBe(200);
     expect(response.body.documents).toHaveLength(1);
