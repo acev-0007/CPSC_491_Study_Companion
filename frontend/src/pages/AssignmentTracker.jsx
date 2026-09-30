@@ -127,65 +127,82 @@ function AssignmentTracker() {
   return (
     <div className="assignment-tracker">
       <h1>Assignment Tracker</h1>
-      <form className="assignment-form" onSubmit={handleSubmit}>
-        <label className="form-group">
-          Title
-          <input
-            type="text"
-            name="title"
-            value={formData.title}
-            onChange={handleChange}
-            required
-          />
-        </label>
-      
-        <label className="form-group">
-          Course
-          <input
-            type="text"
-            name="course"
-            value={formData.course}
-            onChange={handleChange}
-            required
-          />
-        </label>
+      <div className="tracker-layout">
+        <div className="left-panel">
+          <form className="assignment-form" onSubmit={handleSubmit}>
+            <h2>Add Assignment</h2>
+            <div className="form-grid">
+            <label className="form-group">
+              Title
+              <input
+                type="text"
+                name="title"
+                value={formData.title}
+                onChange={handleChange}
+                required
+              />
+            </label>
+          
+            <label className="form-group">
+              Course
+              <input
+                type="text"
+                name="course"
+                value={formData.course}
+                onChange={handleChange}
+                required
+              />
+            </label>
 
-        <label className="form-group">
-          Due Date
-          <input
-            type="datetime-local"
-            name="duedate"
-            value={formData.duedate}
-            onChange={handleChange}
-            required
-          />
-        </label>
+            <label className="form-group">
+              Due Date
+              <input
+                type="datetime-local"
+                name="duedate"
+                value={formData.duedate}
+                onChange={handleChange}
+                required
+              />
+            </label>
 
-        <label className="form-group">
-          Priority
-          <select
-            name="priority"
-            value={formData.priority}
-            onChange={handleChange}
-          >
-            <option value="Low">Low</option>
-            <option value="Medium">Medium</option>
-            <option value="High">High</option>
-          </select>
-        </label>
+            <label className="form-group">
+              Priority
+              <select
+                name="priority"
+                value={formData.priority}
+                onChange={handleChange}
+              >
+                <option value="Low">Low</option>
+                <option value="Medium">Medium</option>
+                <option value="High">High</option>
+              </select>
+            </label>
 
-        <label className="form-group">
-          Status
-          <select
-            name="status"
-            value={formData.status}
-            onChange={handleChange}
-          >
-            <option value="Upcoming">Upcoming</option>
-            <option value="In Progress">In Progress</option>
-            <option value="Completed">Completed</option>
-          </select>
-        </label>
+            <label className="form-group">
+              Status
+              <select
+                name="status"
+                value={formData.status}
+                onChange={handleChange}
+              >
+                <option value="Upcoming">Upcoming</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Completed">Completed</option>
+              </select>
+            </label>
+
+            <label className="form-group">
+              Estimated Time
+              <input
+                type="number"
+                name="estimated_time"
+                min="1"
+                value={formData.estimated_time}
+                onChange={handleChange}
+                required
+              />
+            </label>
+          </div>
 
         <label className="form-group">
           Notes
@@ -196,21 +213,13 @@ function AssignmentTracker() {
           />
         </label>
 
-        <label className="form-group">
-          Estimated Time
-          <input
-            type="number"
-            name="estimated_time"
-            min="1"
-            value={formData.estimated_time}
-            onChange={handleChange}
-            required
-          />
-        </label>
         <button className="submit-button" type="submit">Add Assignment</button>
+
+        {message && <p>{message}</p>}
       </form >
-      {message && <p>{message}</p>}
-      
+    </div>
+
+    <div className="right-panel">
       <section className="assignment-section">
       <h2>Upcoming</h2>
       {upcomingAssignments.length === 0 
@@ -238,6 +247,8 @@ function AssignmentTracker() {
        ? <p>No assignments overdue</p>
        : overdueAssignments.map(renderAssignmentCard)}
       </section>
+      </div>
+      </div>  
     </div>
   );
 }
