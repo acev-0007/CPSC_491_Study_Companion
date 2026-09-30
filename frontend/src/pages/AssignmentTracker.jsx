@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import "./AssignmentTracker.css";
+import { getDeadlineStatus } from "../utils/assignmentStatus";
 
 function AssignmentTracker() {
   const [assignments, setAssignments] = useState([]);
@@ -16,10 +17,6 @@ function AssignmentTracker() {
     (assignment) => assignment.status === "Completed"
   );
 
-  const overdueAssignments = assignments.filter(
-    (assignment) => assignment.status === "Overdue"
-  );
-
   const [formData, setFormData] = useState({
     title: "",
     course: "",
@@ -31,8 +28,13 @@ function AssignmentTracker() {
   });
 
   function renderAssignmentCard(assignment) {
+    const deadlineState = getDeadlineStatus(assignment);
+
     return (
-      <div className="assignment-card" key={assignment.id}>
+      <div 
+        className={`assignment-card ${deadlineState}`}
+        key={assignment.id}
+      >
         <h3>{assignment.title}</h3>
            
         <p>
@@ -49,13 +51,41 @@ function AssignmentTracker() {
         </p>
 
         <p>
-          <strong>Status:</strong> {assignment.status}
+          <strong>Status:</strong>{" "}
+          <select
+            value={assignment.status}
+            onChange={(event) =>
+              handleStatusChange(assignment.id, event.target.value)
+            }
+          >
+            <option value="Upcoming">Upcoming</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Completed">Completed</option>
+          </select>
         </p>
 
         <p>
           <strong>Estimated Time</strong> {" "}
           {assignment.estimated_time} hours
         </p>
+            
+        {deadlineState === "overdue" && (
+          <span className="deadline-badge overdue-badge">
+            Overdue
+          </span>
+        )}
+
+        {deadlineState === "due-soon" && (
+          <span className="deadline-badge due-soon-badge">
+            Due Soon
+          </span>
+        )}
+
+        {deadlineState === "completed" && (
+          <span className="deadline-badge completed-badge">
+            Completed
+          </span>
+        )}
       </div>
     );
   }
@@ -94,6 +124,38 @@ function AssignmentTracker() {
       ...formData,
       [name]: value,
     })
+  }
+
+  async function handleStatusChange(id, newStatus) {
+    try {
+      const response = await fetch(`http://localhost:3001/api/assignments/${id}`,
+      {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status: newStatus,
+        }),
+      }
+    );
+      if (!response.ok) {
+        throw new Error("Failed to update assignment status");
+      }
+      const updatedAssignment = await response.json();
+
+      setAssignments((currentAssignments) =>
+        currentAssignments.map((assignment) =>
+          assignment.id === id
+            ? updatedAssignment
+            : assignment
+        )
+      );
+    } catch (error) {
+      console.error(error)
+      setMessage("Failed to update assignment status")
+    }
   }
 
   async function handleSubmit(event) {
@@ -181,7 +243,7 @@ function AssignmentTracker() {
             <label className="form-group">
               Status
               <select
-                name="status"
+              name="status"
                 value={formData.status}
                 onChange={handleChange}
               >
@@ -239,13 +301,6 @@ function AssignmentTracker() {
       {completedAssignments.length === 0 
        ? <p>No completed assignments</p>
        : completedAssignments.map(renderAssignmentCard)}
-      </section>
-
-      <section className="assignment-section">
-      <h2>Overdue</h2>
-      {overdueAssignments.length === 0 
-       ? <p>No assignments overdue</p>
-       : overdueAssignments.map(renderAssignmentCard)}
       </section>
       </div>
       </div>  
