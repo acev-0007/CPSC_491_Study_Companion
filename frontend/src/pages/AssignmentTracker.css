@@ -14,6 +14,38 @@
     margin-bottom: 1rem;
 }
 
+.assignment-card.overdue {
+    border-left: 5px solid #d9534f;
+}
+
+.assignment-card.due-soon {
+    border-left: 5px solid #eb9748;
+}
+
+.assignment-card.completed {
+    border-left: 5px solid #60c060;
+}
+
+.deadline-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: bold;
+}
+
+.overdue-badge {
+    background-color: #ff3849;
+}
+
+.due-soon-badge {
+    background-color: #ff3849;
+}
+
+.completed-badge {
+    background-color: #ff3849;
+}
+
 .assignment-form {
     width: 100%;
     display: flex;
