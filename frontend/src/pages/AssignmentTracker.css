@@ -1,8 +1,11 @@
 .assignment-tracker {
-    max-width: 700px;
+    width: 100%;
+    max-width: 1600px;
     margin: 0 auto;
     padding: 30px;
+    box-sizing: border-box;
 }
+
 
 .assignment-card {
     border: 1px solid #ddd;
@@ -12,6 +15,7 @@
 }
 
 .assignment-form {
+    width: 100%;
     display: flex;
     flex-direction: column;
     gap: 20px;
@@ -21,16 +25,26 @@
     margin-top: 2rem;
 }
 
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+}
+
 .form-group {
     display: flex;
     flex-direction: column;
-    gap: 5px
+    gap: 8px;
 }
 
 .form-group input,
 .form-group select, 
 .form-group textarea {
+    width: 100%;
     padding: 10px;
+    border: 1px solid #a668cf;
+    border-radius: 8px;
+    box-sizing: border-box;
     font-size: 16px;
 }
 
@@ -38,12 +52,44 @@
     min-height: 100px;
 }
 
+.form-message {
+    margin-top: 20px;
+}
+
+.left-panel {
+    width: 100%;
+    padding: 25px;
+    border-radius: 12px;
+    box-sizing: border-box;
+}
+
+.right-panel {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
 .submit-button {
     padding: 12px;
     font-size: 16px;
     cursor: pointer;
+    transition: 0.2s;
 }
 
-.form-message {
-    margin-top: 20px;
+.tracker-layout {
+    display: grid;
+    grid-template-columns: 2fr 3fr;
+    gap: 50px;
+    align-items: start;
+}
+
+@media (max-width: 900px) {
+    .tracker-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
 }
