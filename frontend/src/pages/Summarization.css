@@ -37,3 +37,9 @@
   cursor: pointer;
   border-radius: 8px;
 }
+
+.summarization-validation-error {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
