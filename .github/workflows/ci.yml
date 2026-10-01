@@ -1,4 +1,4 @@
-name: CI
+so does this look good name: CI
 
 on:
   pull_request:
@@ -11,9 +11,23 @@ jobs:
     name: CI Pipeline
     runs-on: ubuntu-latest
 
+    outputs:
+      build_id: ${{ steps.build_version.outputs.build_id }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Generate build ID
+        id: build_version
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          BUILD_ID="build-${GITHUB_RUN_NUMBER}-${SHORT_SHA}"
+
+          echo "BUILD_ID=$BUILD_ID" >> "$GITHUB_ENV"
+          echo "build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
+
+          echo "Generated Build ID: $BUILD_ID"
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -23,6 +37,7 @@ jobs:
       - name: Confirm environment
         run: |
           echo "CI pipeline started successfully"
+          echo "Build ID: $BUILD_ID"
           node --version
           npm --version
 
@@ -44,3 +59,16 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+
+      - name: Record successful main build
+        if: success() && github.ref == 'refs/heads/main'
+        run: |
+          echo "Build ID: $BUILD_ID"
+          echo "Commit SHA: $GITHUB_SHA"
+          echo "Branch: $GITHUB_REF_NAME"
+
+          echo "## Successful CI Build" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Build ID:** \`$BUILD_ID\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Commit SHA:** \`$GITHUB_SHA\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Branch:** \`$GITHUB_REF_NAME\`" >> "$GITHUB_STEP_SUMMARY"
