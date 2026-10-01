@@ -5,6 +5,8 @@ import { getDeadlineStatus } from "../utils/assignmentStatus";
 function AssignmentTracker() {
   const [assignments, setAssignments] = useState([]);
 
+  const [message, setMessage] = useState("");
+
   const upcomingAssignments = assignments.filter(
     (assignment) => assignment.status === "Upcoming"
   );
@@ -112,10 +114,25 @@ function AssignmentTracker() {
 }
 
   useEffect(() => {
-    fetchAssignments();
-  }, []);
+  async function loadAssignments() {
+    try {
+      const response = await fetch("http://localhost:3001/api/assignments", {
+        credentials: "include"
+      });
 
-  const [message, setMessage] = useState("");
+      if (!response.ok) {
+        throw new Error("Failed to fetch assignments");
+      }
+
+      const data = await response.json();
+      setAssignments(data);
+    } catch (error) {
+      console.error(error);
+      setMessage(error.message);
+    }
+  }
+    loadAssignments();
+  }, []);
 
   function handleChange(event) {
     const { name, value } = event.target;
