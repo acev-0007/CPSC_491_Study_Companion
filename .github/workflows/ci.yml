@@ -1,4 +1,4 @@
-name: CI
+so does this look good name: CI
 
 on:
   pull_request:
@@ -40,6 +40,25 @@ jobs:
           echo "Build ID: $BUILD_ID"
           node --version
           npm --version
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run frontend tests
+        working-directory: frontend
+        run: npm test
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Run backend tests
+        working-directory: backend
+        run: npm test
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
 
       - name: Record successful main build
         if: success() && github.ref == 'refs/heads/main'
