@@ -1,38 +1,137 @@
+@import "../styles/variables.css";
+
 .assignment-tracker {
-    max-width: 700px;
+    width: 100%;
+    max-width: 1600px;
     margin: 0 auto;
-    padding: 30px;
+    padding: 15px;
+    box-sizing: border-box;
+}
+
+
+.assignment-card {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.assignment-card.overdue {
+    border-left: 5px solid #df4d48;
+}
+
+.assignment-card.due-soon {
+    border-left: 5px solid #e7974d;
+}
+
+.assignment-card.completed {
+    border-left: 5px solid #56b056;
+}
+
+.deadline-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: bold;
+}
+
+.overdue-badge {
+    background-color: #ff3849;
+}
+
+.due-soon-badge {
+    background-color: #ff9838;
+}
+
+.completed-badge {
+    background-color: #38ff3b;
 }
 
 .assignment-form {
+    width: 100%;
     display: flex;
     flex-direction: column;
+    gap: 20px;
+    color: var(--color-text-primary);
+}
+
+.assignment-section {
+    margin-top: 2rem;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
     gap: 20px;
 }
 
 .form-group {
     display: flex;
     flex-direction: column;
-    gap: 5px
+    gap: 8px;
 }
 
 .form-group input,
 .form-group select, 
 .form-group textarea {
+    width: 100%;
     padding: 10px;
+    border: 1px solid var(--color-accent-border);
+    border-radius: 8px;
+    box-sizing: border-box;
     font-size: 16px;
+    background-color: var(--color-accent-soft);
+    color: var(--color-text-muted);
+
 }
 
 .form-group textarea {
     min-height: 100px;
 }
 
+.form-message {
+    margin-top: 20px;
+}
+
+.left-panel {
+    width: 100%;
+    padding: 25px;
+    border-radius: 12px;
+    box-sizing: border-box;
+}
+
+.right-panel {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
 .submit-button {
     padding: 12px;
     font-size: 16px;
     cursor: pointer;
+    transition: 0.2s;
+    background-color: var(--color-accent);
+    border: var(--color-accent-border);
+    color: var(--color-text-primary);
+    font-weight: bold;
 }
 
-.form-message {
-    margin-top: 20px;
+.tracker-layout {
+    display: grid;
+    grid-template-columns: 2fr 1.5fr;
+    gap: 50px;
+    align-items: start;
+}
+
+@media (max-width: 900px) {
+    .tracker-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
 }
