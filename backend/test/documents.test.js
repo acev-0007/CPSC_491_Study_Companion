@@ -24,17 +24,40 @@ import {
   StandardFonts,
 } from "pdf-lib";
 
-vi.mock("../src/middleware/requireAuth.js", () => ({
-  requireAuth(req, _res, next) {
-    req.user = {
-      id: req.get("X-User-Id") || "test-user",
-    };
-
-    next();
-  },
-}));
-
 import { createApp } from "../src/app.js";
+
+import {
+  ACCESS_COOKIE,
+} from "../src/auth/sessionCookies.js";
+
+vi.mock("../src/config/supabase.js", () => ({
+  createSupabaseClient: vi.fn(() => ({
+    auth: {
+      getUser: vi.fn(async (accessToken) => {
+        const users = {
+          "student-1-token": { id: "student-1" },
+          "student-2-token": { id: "student-2" },
+        };
+
+        const user = users[accessToken];
+
+        if (user) {
+          return {
+            data: { user },
+            error: null,
+          };
+        }
+
+        return {
+          data: { user: null },
+          error: new Error("Invalid test token"),
+        };
+      }),
+
+      refreshSession: vi.fn(),
+    },
+  })),
+}));
 
 async function makePdf(text) {
   const pdf = await PDFDocument.create();
@@ -76,7 +99,7 @@ describe("document API", () => {
   it("uploads and extracts a valid TXT file", async () => {
     const response = await request(app)
       .post("/api/documents")
-      .set("X-User-Id", "student-1")
+      .set("Cookie", `${ACCESS_COOKIE}=student-1-token`)
       .attach(
         "file",
         Buffer.from(
@@ -96,6 +119,16 @@ describe("document API", () => {
     ).toBeGreaterThan(0);
   });
 
+  it("rejects document access without authentication", async () => {
+    const response = await request(app)
+      .get("/api/documents");
+
+    expect(response.status).toBe(401);
+    expect(response.body.error).toMatch(
+      /authentication required/i
+    );
+  });
+
   it("uploads and extracts a valid digital PDF", async () => {
     const pdf = await makePdf(
       "Virtual memory allows processes to use logical address spaces."
@@ -103,7 +136,7 @@ describe("document API", () => {
 
     const response = await request(app)
       .post("/api/documents")
-      .set("X-User-Id", "student-1")
+      .set("Cookie", `${ACCESS_COOKIE}=student-1-token`)
       .attach("file", pdf, {
         filename: "virtual-memory.pdf",
         contentType: "application/pdf",
@@ -120,7 +153,7 @@ describe("document API", () => {
   it("rejects an invalid file type", async () => {
     const response = await request(app)
       .post("/api/documents")
-      .set("X-User-Id", "student-1")
+      .set("Cookie", `${ACCESS_COOKIE}=student-1-token`)
       .attach(
         "file",
         Buffer.from("fake image"),
@@ -139,7 +172,7 @@ describe("document API", () => {
   it("keeps the document but marks it failed when extraction fails", async () => {
     const response = await request(app)
       .post("/api/documents")
-      .set("X-User-Id", "student-1")
+      .set("Cookie", `${ACCESS_COOKIE}=student-1-token`)
       .attach(
         "file",
         Buffer.from("this is not a valid pdf"),
@@ -159,7 +192,7 @@ describe("document API", () => {
   it("returns an uploaded item in the current user's document list", async () => {
     await request(app)
       .post("/api/documents")
-      .set("X-User-Id", "student-1")
+      .set("Cookie", `${ACCESS_COOKIE}=student-1-token`)
       .attach(
         "file",
         Buffer.from("Chapter one notes"),
@@ -171,7 +204,7 @@ describe("document API", () => {
 
     await request(app)
       .post("/api/documents")
-      .set("X-User-Id", "student-2")
+      .set("Cookie", `${ACCESS_COOKIE}=student-2-token`)
       .attach(
         "file",
         Buffer.from("Other student's notes"),
@@ -183,7 +216,7 @@ describe("document API", () => {
 
     const response = await request(app)
       .get("/api/documents")
-      .set("X-User-Id", "student-1");
+      .set("Cookie", `${ACCESS_COOKIE}=student-1-token`);
 
     expect(response.status).toBe(200);
     expect(response.body.documents).toHaveLength(1);
@@ -215,7 +248,7 @@ describe("document API", () => {
   it("updates document metadata", async () => {
     const uploadResponse = await request(app)
       .post("/api/documents")
-      .set("X-User-Id", "student-1")
+      .set("Cookie", `${ACCESS_COOKIE}=student-1-token`)
       .field("category", "Study Guide")
       .field("course", "CPSC 491")
       .attach(
@@ -234,7 +267,7 @@ describe("document API", () => {
 
     const response = await request(app)
       .patch(`/api/documents/${documentId}`)
-      .set("X-User-Id", "student-1")
+      .set("Cookie", `${ACCESS_COOKIE}=student-1-token`)
       .send({
         name: "chapter-1-review.txt",
         category: "Lecture Notes",
@@ -282,7 +315,7 @@ describe("document API", () => {
   it("normalizes a cleared course to Unassigned", async () => {
     const uploadResponse = await request(app)
       .post("/api/documents")
-      .set("X-User-Id", "student-1")
+      .set("Cookie", `${ACCESS_COOKIE}=student-1-token`)
       .field("course", "CPSC 491")
       .attach(
         "file",
@@ -300,12 +333,13 @@ describe("document API", () => {
 
     const response = await request(app)
       .patch(`/api/documents/${documentId}`)
-      .set("X-User-Id", "student-1")
+      .set("Cookie", `${ACCESS_COOKIE}=student-1-token`)
       .send({
         course: "",
       });
 
     expect(response.status).toBe(200);
+
     expect(response.body.document.course).toBe(
       "Unassigned"
     );
@@ -329,7 +363,7 @@ describe("document API", () => {
   it("does not allow a user to update another user's document", async () => {
     const uploadResponse = await request(app)
       .post("/api/documents")
-      .set("X-User-Id", "student-1")
+      .set("Cookie", `${ACCESS_COOKIE}=student-1-token`)
       .attach(
         "file",
         Buffer.from("Private notes"),
@@ -346,7 +380,7 @@ describe("document API", () => {
 
     const response = await request(app)
       .patch(`/api/documents/${documentId}`)
-      .set("X-User-Id", "student-2")
+      .set("Cookie", `${ACCESS_COOKIE}=student-2-token`)
       .send({
         name: "stolen-name.txt",
       });
@@ -372,7 +406,7 @@ describe("document API", () => {
   it("deletes an owned document and its uploaded file", async () => {
     const uploadResponse = await request(app)
       .post("/api/documents")
-      .set("X-User-Id", "student-1")
+      .set("Cookie", `${ACCESS_COOKIE}=student-1-token`)
       .attach(
         "file",
         Buffer.from("Temporary notes"),
@@ -415,7 +449,7 @@ describe("document API", () => {
 
     const response = await request(app)
       .delete(`/api/documents/${documentId}`)
-      .set("X-User-Id", "student-1");
+      .set("Cookie", `${ACCESS_COOKIE}=student-1-token`);
 
     expect(response.status).toBe(200);
 
@@ -444,7 +478,7 @@ describe("document API", () => {
   it("does not allow a user to delete another user's document", async () => {
     const uploadResponse = await request(app)
       .post("/api/documents")
-      .set("X-User-Id", "student-1")
+      .set("Cookie", `${ACCESS_COOKIE}=student-1-token`)
       .attach(
         "file",
         Buffer.from("Private document"),
@@ -461,7 +495,7 @@ describe("document API", () => {
 
     const response = await request(app)
       .delete(`/api/documents/${documentId}`)
-      .set("X-User-Id", "student-2");
+      .set("Cookie", `${ACCESS_COOKIE}=student-2-token`);
 
     expect(response.status).toBe(404);
 
