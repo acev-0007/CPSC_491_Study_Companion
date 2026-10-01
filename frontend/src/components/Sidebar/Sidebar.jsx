@@ -54,6 +54,7 @@ function NavigationLinks({ onNavigate }) {
 function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
+
   const [mobileOpen, setMobileOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState("");
@@ -68,9 +69,14 @@ function Sidebar() {
 
     try {
       await logoutAccount();
-      navigate("/login");
+
+      navigate("/login", {
+        replace: true,
+      });
     } catch (error) {
-      setLogoutError(error.message);
+      setLogoutError(
+        error.message || "Unable to log out. Please try again."
+      );
     } finally {
       setLoggingOut(false);
     }
@@ -78,21 +84,40 @@ function Sidebar() {
 
   return (
     <>
-      <aside className="app-sidebar" aria-label="Application navigation">
-        <NavLink className="sidebar-brand" end to="/">
-          <span className="sidebar-brand-mark" aria-hidden="true">
+      <aside
+        className="app-sidebar"
+        aria-label="Application navigation"
+      >
+        <NavLink
+          className="sidebar-brand"
+          end
+          to="/"
+        >
+          <span
+            className="sidebar-brand-mark"
+            aria-hidden="true"
+          >
             ✦
           </span>
-          <span className="sidebar-brand-name">AI Study Companion</span>
+
+          <span className="sidebar-brand-name">
+            AI Study Companion
+          </span>
         </NavLink>
 
-        <nav className="sidebar-navigation" aria-label="Primary">
+        <nav
+          className="sidebar-navigation"
+          aria-label="Primary"
+        >
           <NavigationLinks />
         </nav>
 
         <div className="sidebar-footer">
           {logoutError && (
-            <p className="sidebar-error" role="alert">
+            <p
+              className="sidebar-error"
+              role="alert"
+            >
               {logoutError}
             </p>
           )}
@@ -103,43 +128,75 @@ function Sidebar() {
             onClick={handleLogout}
             type="button"
           >
-            {loggingOut ? "Logging out..." : "Log out"}
+            {loggingOut
+              ? "Logging out..."
+              : "Log out"}
           </button>
         </div>
       </aside>
 
       <div className="mobile-app-navigation">
         <div className="mobile-app-bar">
-          <NavLink className="mobile-brand" end to="/">
-            <span className="sidebar-brand-mark" aria-hidden="true">
+          <NavLink
+            className="mobile-brand"
+            end
+            to="/"
+          >
+            <span
+              className="sidebar-brand-mark"
+              aria-hidden="true"
+            >
               ✦
             </span>
-            <span className="sidebar-brand-name">AI Study Companion</span>
+
+            <span className="sidebar-brand-name">
+              AI Study Companion
+            </span>
           </NavLink>
 
           <button
             aria-controls="mobile-primary-navigation"
             aria-expanded={mobileOpen}
-            aria-label={mobileOpen ? "Close navigation" : "Open navigation"}
+            aria-label={
+              mobileOpen
+                ? "Close navigation"
+                : "Open navigation"
+            }
             className="mobile-menu-button"
-            onClick={() => setMobileOpen((open) => !open)}
+            onClick={() =>
+              setMobileOpen((open) => !open)
+            }
             type="button"
           >
-            <span aria-hidden="true">{mobileOpen ? "×" : "☰"}</span>
+            <span aria-hidden="true">
+              {mobileOpen ? "×" : "☰"}
+            </span>
           </button>
         </div>
 
         <div
-          className={`mobile-nav-panel${mobileOpen ? " is-open" : ""}`}
+          className={`mobile-nav-panel${
+            mobileOpen ? " is-open" : ""
+          }`}
           id="mobile-primary-navigation"
         >
-          <nav className="mobile-nav-links" aria-label="Mobile primary">
-            <NavigationLinks onNavigate={() => setMobileOpen(false)} />
+          <nav
+            className="mobile-nav-links"
+            aria-label="Mobile primary"
+          >
+            <NavigationLinks
+              onNavigate={() =>
+                setMobileOpen(false)
+              }
+            />
           </nav>
 
           <div className="mobile-nav-footer">
             {logoutError && (
-              <p className="sidebar-error" role="alert">
+              <p
+                className="sidebar-error"
+                role="alert"
+              >
                 {logoutError}
               </p>
             )}
@@ -150,7 +207,9 @@ function Sidebar() {
               onClick={handleLogout}
               type="button"
             >
-              {loggingOut ? "Logging out..." : "Log out"}
+              {loggingOut
+                ? "Logging out..."
+                : "Log out"}
             </button>
           </div>
         </div>
