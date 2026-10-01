@@ -152,7 +152,7 @@ app.patch("/api/assignments/:id", requireAuth, async (req, res) => {
         const { id } = req.params;
         const { status } = req.body;
 
-        if (!status && !VALID_STATUS.includes(status)) {
+        if (!status || !VALID_STATUS.includes(status)) {
             return res.status(400).json({ error: "Invalid assignment status" });
         }
 
@@ -194,8 +194,8 @@ app.post('/api/assignments', requireAuth, validateAssignmentInput, async (req, r
             course: req.body.course.trim(),
             duedate: new Date(req.body.duedate).toISOString(),
             estimated_time: Number(req.body.estimated_time),
-            priority: req.body.priority || "",
-            status: req.body.status || "",
+            priority: req.body.priority || "Low",
+            status: req.body.status || "Upcoming",
             notes: req.body.notes || ""
         };
         
