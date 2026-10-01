@@ -5,12 +5,22 @@ const ALLOWED_MIME_TYPES = ["text/plain", "application/pdf"];
 
 export function isSupportedDocument(file) {
   const lowerName = file.name.toLowerCase();
-  const validExtension = ALLOWED_EXTENSIONS.some((ext) => lowerName.endsWith(ext));
+  const validExtension = ALLOWED_EXTENSIONS.some((ext) =>
+    lowerName.endsWith(ext)
+  );
   const validMime = !file.type || ALLOWED_MIME_TYPES.includes(file.type);
   return validExtension && validMime;
 }
 
-function DocumentUploadForm({ onUpload, uploading }) {
+function DocumentUploadForm({
+  onUpload,
+  uploading,
+  category,
+  setCategory,
+  categories,
+  course,
+  setCourse,
+}) {
   const inputRef = useRef(null);
   const [file, setFile] = useState(null);
   const [validationError, setValidationError] = useState("");
@@ -30,15 +40,20 @@ function DocumentUploadForm({ onUpload, uploading }) {
 
   async function handleSubmit(event) {
     event.preventDefault();
+
     if (!file) {
       setValidationError("Choose a TXT or PDF file first.");
       return;
     }
 
     const success = await onUpload(file);
+
     if (success) {
       setFile(null);
-      if (inputRef.current) inputRef.current.value = "";
+
+      if (inputRef.current) {
+        inputRef.current.value = "";
+      }
     }
   }
 
@@ -48,7 +63,10 @@ function DocumentUploadForm({ onUpload, uploading }) {
         <label className="hub-label" htmlFor="study-document">
           Add a study document
         </label>
-        <p className="hub-help">TXT and digital-text PDF files, up to 10 MB.</p>
+
+        <p className="hub-help">
+          TXT and digital-text PDF files, up to 10 MB.
+        </p>
       </div>
 
       <div className="hub-upload-controls">
@@ -61,12 +79,52 @@ function DocumentUploadForm({ onUpload, uploading }) {
           onChange={handleFileChange}
           disabled={uploading}
         />
-        <button className="hub-primary-button" type="submit" disabled={uploading}>
+
+        <label className="hub-label" htmlFor="document-category">
+          Category
+        </label>
+
+        <select
+          id="document-category"
+          value={category}
+          onChange={(event) => setCategory(event.target.value)}
+          disabled={uploading}
+        >
+          {categories.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+
+        <label className="hub-label" htmlFor="document-course">
+          Course
+        </label>
+
+        <input
+          id="document-course"
+          type="text"
+          value={course}
+          onChange={(event) => setCourse(event.target.value)}
+          placeholder="e.g. CPSC 491"
+          disabled={uploading}
+        />
+
+        <button
+          className="hub-primary-button"
+          type="submit"
+          disabled={uploading}
+        >
           {uploading ? "Uploading..." : "Upload"}
         </button>
       </div>
 
-      {file && <p className="hub-selected-file">Selected: {file.name}</p>}
+      {file && (
+        <p className="hub-selected-file">
+          Selected: {file.name}
+        </p>
+      )}
+
       {validationError && (
         <p className="hub-message hub-message-error" role="alert">
           {validationError}
