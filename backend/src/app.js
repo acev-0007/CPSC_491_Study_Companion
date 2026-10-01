@@ -144,11 +144,18 @@ export function createApp({
       if (deletedDocument.storedFilename) {
         try {
           await unlink(
-            path.join(uploadDir, deletedDocument.storedFilename)
+            path.join(
+              uploadDir,
+              deletedDocument.storedFilename
+            )
           );
         } catch (error) {
           if (error.code !== "ENOENT") {
-            throw error;
+            console.error(
+              "Failed to remove uploaded file:",
+              deletedDocument.storedFilename,
+              error
+            );
           }
         }
       }

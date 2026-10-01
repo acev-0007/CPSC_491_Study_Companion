@@ -80,7 +80,7 @@ async function handleDelete() {
             type="button"
             className="hub-primary-button"
             onClick={handleSave}
-            disabled={saving}
+            disabled={saving || deleting}
           >
             {saving ? "Saving..." : "Save"}
           </button>
@@ -89,6 +89,7 @@ async function handleDelete() {
             type="button"
             className="hub-secondary-button"
             onClick={onClose}
+            disabled={saving || deleting}
           >
             Close
           </button>

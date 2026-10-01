@@ -59,9 +59,21 @@ export class DocumentStore {
 
     const updated = {
       ...current,
-      name: updates.name || current.name,
-      category: updates.category || current.category,
-      course: updates.course || current.course,
+
+      name:
+        updates.name !== undefined && updates.name !== ""
+          ? updates.name
+          : current.name,
+
+      category:
+        updates.category !== undefined && updates.category !== ""
+          ? updates.category
+          : current.category,
+
+      course:
+        updates.course !== undefined
+          ? updates.course || "Unassigned"
+          : current.course,
     };
 
     documents[index] = updated;
@@ -71,7 +83,7 @@ export class DocumentStore {
     return updated;
   }
 
-  
+
   async deleteForUser(id, userId) {
     const documents = await this.readAll();
 
