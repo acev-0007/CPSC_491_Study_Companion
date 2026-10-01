@@ -1,4 +1,4 @@
-so does this look good name: CI
+name: CI
 
 on:
   pull_request:
