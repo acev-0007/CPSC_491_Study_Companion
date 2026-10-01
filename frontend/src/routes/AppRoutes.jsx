@@ -1,5 +1,6 @@
 import { Routes, Route } from "react-router-dom";
 import Layout from "../components/Layout";
+import ProtectedRoute from "../components/ProtectedRoute";
 import Login from "../pages/Login";
 import Register from "../pages/Register";
 import Dashboard from "../pages/Dashboard";
@@ -14,6 +15,7 @@ import NotFound from "../pages/NotFound";
 function AppRoutes() {
   return (
     <Routes>
+      {/* Public routes */}
       <Route
         path="/login"
         element={
@@ -38,70 +40,84 @@ function AppRoutes() {
         <Route
           path="/"
           element={
-            <>
-              <title>Dashboard | AI Study Companion</title>
-              <Dashboard />
-            </>
+            <ProtectedRoute>
+              <>
+                <title>Dashboard | AI Study Companion</title>
+                <Dashboard />
+              </>
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/flashcards"
           element={
-            <>
-              <title>Flashcards | AI Study Companion</title>
-              <Flashcards />
-            </>
+            <ProtectedRoute>
+              <>
+                <title>Flashcards | AI Study Companion</title>
+                <Flashcards />
+              </>
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/quiz"
           element={
-            <>
-              <title>Quiz Generator | AI Study Companion</title>
-              <Quiz />
-            </>
+            <ProtectedRoute>
+              <>
+                <title>Quiz Generator | AI Study Companion</title>
+                <Quiz />
+              </>
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/assignments"
           element={
-            <>
-              <title>Assignment Tracker | AI Study Companion</title>
-              <AssignmentTracker />
-            </>
+            <ProtectedRoute>
+              <>
+                <title>Assignment Tracker | AI Study Companion</title>
+                <AssignmentTracker />
+              </>
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/visual-generator"
           element={
-            <>
-              <title>Visual Generator | AI Study Companion</title>
-              <VisualGenerator />
-            </>
+            <ProtectedRoute>
+              <>
+                <title>Visual Generator | AI Study Companion</title>
+                <VisualGenerator />
+              </>
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/summarization"
           element={
-            <>
-              <title>Summarization | AI Study Companion</title>
-              <Summarization />
-            </>
+            <ProtectedRoute>
+              <>
+                <title>Summarization | AI Study Companion</title>
+                <Summarization />
+              </>
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/textbooks"
           element={
-            <>
-              <title>Textbook Hub | AI Study Companion</title>
-              <TextbookHub />
-            </>
+            <ProtectedRoute>
+              <>
+                <title>Textbook Hub | AI Study Companion</title>
+                <TextbookHub />
+              </>
+            </ProtectedRoute>
           }
         />
       </Route>
