@@ -3,7 +3,7 @@
 
 -- Custom enum to prevent typos/invalid data
 CREATE TYPE priority_level AS ENUM ('High', 'Medium', 'Low');
-CREATE TYPE assignment_status AS ENUM ('Upcoming', 'In Progress', 'Completed', 'Overdue');
+CREATE TYPE assignment_status AS ENUM ('Upcoming', 'In Progress', 'Completed');
 
 CREATE TABLE assignments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(), -- Generates unique ID for every assignment created

@@ -23,7 +23,7 @@ app.use(express.json());
 app.use(cookieParser());
 
 const VALID_PRIORITIES = ['High', 'Medium', 'Low'];
-const VALID_STATUS = ['Upcoming', 'In Progress', 'Completed', 'Overdue'];
+const VALID_STATUS = ['Upcoming', 'In Progress', 'Completed'];
 
 // Check input validation
 const validateAssignmentInput = (req, res, next) => {
@@ -146,6 +146,43 @@ app.get('/api/assignments/:id', requireAuth, async (req, res) => {
     }
 });
 
+app.patch("/api/assignments/:id", requireAuth, async (req, res) => {
+    try {
+        const supabase = createUserSupabaseClient(req.accessToken);
+        const { id } = req.params;
+        const { status } = req.body;
+
+        if (!status || !VALID_STATUS.includes(status)) {
+            return res.status(400).json({ error: "Invalid assignment status" });
+        }
+
+        const { data, error } = await supabase
+            .from("assignments")
+            .update({
+                status: status,
+                updated_at: new Date().toISOString(),
+            })
+            .eq("id", id)
+            .eq("user_id", req.user.id)
+            .select()
+            .maybeSingle();
+
+        if (error) {
+            throw error;
+        }
+
+        if (!data) {
+            return res.status(404).json({error: "Assignment not found"});
+        }
+
+        res.status(200).json(data);
+
+    } catch (error) {
+        console.error("Error updating assignment status: ", error);
+        res.status(500).json({error: "Failed to update assignment"});
+    }
+});
+
 // CREATE (POST) - Creates assignments
 app.post('/api/assignments', requireAuth, validateAssignmentInput, async (req, res) => {
     try {
@@ -158,7 +195,7 @@ app.post('/api/assignments', requireAuth, validateAssignmentInput, async (req, r
             duedate: new Date(req.body.duedate).toISOString(),
             estimated_time: Number(req.body.estimated_time),
             priority: req.body.priority || "Low",
-            status: "Upcoming", // Enforce initial state run
+            status: req.body.status || "Upcoming",
             notes: req.body.notes || ""
         };
         

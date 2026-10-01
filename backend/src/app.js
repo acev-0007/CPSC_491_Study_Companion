@@ -7,6 +7,7 @@ import path from "node:path";
 import {
   mkdir,
   writeFile,
+  unlink,
 } from "node:fs/promises";
 
 import {
@@ -253,6 +254,14 @@ export function createApp({
 
           size:
             req.file.size,
+
+          category:
+            req.body.category ||
+            "Other",
+
+          course:
+            req.body.course?.trim() ||
+            "Unassigned",
 
           uploadedAt:
             new Date()
@@ -543,6 +552,111 @@ app.post(
         }
     }
 );
+
+  // ========================================
+  // UPDATE DOCUMENT METADATA
+  // ========================================
+
+  app.patch(
+    "/api/documents/:id",
+    requireAuth,
+
+    async (req, res, next) => {
+      try {
+        const updatedDocument =
+          await store.updateForUser(
+            req.params.id,
+            req.user.id,
+            {
+              name:
+                req.body.name?.trim(),
+
+              category:
+                req.body.category?.trim(),
+
+              course:
+                req.body.course?.trim(),
+            }
+          );
+
+        if (!updatedDocument) {
+          return res
+            .status(404)
+            .json({
+              error:
+                "Document not found.",
+            });
+        }
+
+        return res.json({
+          document:
+            publicDocument(
+              updatedDocument
+            ),
+        });
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
+
+  // ========================================
+  // DELETE DOCUMENT
+  // ========================================
+
+  app.delete(
+    "/api/documents/:id",
+    requireAuth,
+
+    async (req, res, next) => {
+      try {
+        const deletedDocument =
+          await store.deleteForUser(
+            req.params.id,
+            req.user.id
+          );
+
+        if (!deletedDocument) {
+          return res
+            .status(404)
+            .json({
+              error:
+                "Document not found.",
+            });
+        }
+
+      if (deletedDocument.storedFilename) {
+        try {
+          await unlink(
+            path.join(
+              uploadDir,
+              deletedDocument.storedFilename
+            )
+          );
+        } catch (error) {
+          if (error.code !== "ENOENT") {
+            console.error(
+              "Failed to remove uploaded file:",
+              deletedDocument.storedFilename,
+              error
+            );
+          }
+        }
+      }
+
+        return res.json({
+          document:
+            publicDocument(
+              deletedDocument
+            ),
+        });
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
 
   // ========================================
   // ERROR HANDLING
