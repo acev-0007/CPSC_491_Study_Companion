@@ -12,7 +12,7 @@ function DocumentCard({ document, onOpen }) {
     {if (event.key === "Enter" || event.key === " ") {onOpen();}}}>
       <div className="document-card-heading">
         <div>
-          <h3>{document.name}</h3>
+          <h3 style={{ color: 'grey' }}>{document.name}</h3>
           <p>
           <strong>Course:</strong> {document.course || "Unassigned"}
           </p>
