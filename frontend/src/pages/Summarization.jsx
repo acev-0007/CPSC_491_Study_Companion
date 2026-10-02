@@ -5,15 +5,42 @@ function Summarization() {
   const [studyMaterial, setStudyMaterial] = useState("");
   const [validationError, setValidationError] = useState("");
 
-  const handleGenerateSummary = () => {
+  const handleGenerateSummary = async () => {
     if (!studyMaterial.trim()) {
-      setValidationError("Please enter study material before generating a summary.");
+      setValidationError(
+        "Please enter study material before generating a summary."
+      );
       return;
     }
 
     setValidationError("");
 
-    // Backend request will be added in SCRUM-85.
+    try {
+      const response = await fetch("/api/ai/summarize", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          notes: studyMaterial,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error || "Unable to generate summary."
+        );
+      }
+
+      console.log("Generated summary:", data.summary);
+    } catch (error) {
+      console.error(
+        "Summarization request failed:",
+        error
+      );
+    }
   };
 
   return (
