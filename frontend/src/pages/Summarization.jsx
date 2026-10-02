@@ -4,6 +4,7 @@ import "./Summarization.css";
 function Summarization() {
   const [studyMaterial, setStudyMaterial] = useState("");
   const [validationError, setValidationError] = useState("");
+  const [summary, setSummary] = useState("");
 
   const handleGenerateSummary = async () => {
     if (!studyMaterial.trim()) {
@@ -14,6 +15,7 @@ function Summarization() {
     }
 
     setValidationError("");
+    setSummary("");
 
     try {
       const response = await fetch("/api/ai/summarize", {
@@ -26,20 +28,23 @@ function Summarization() {
         }),
       });
 
-      const data = await response.json();
+      const contentType = response.headers.get("content-type");
+
+      let data = {};
+
+      if (contentType?.includes("application/json")) {
+        data = await response.json();
+      }
 
       if (!response.ok) {
         throw new Error(
-          data.error || "Unable to generate summary."
+          data.error || `Request failed with status ${response.status}`
         );
       }
 
-      console.log("Generated summary:", data.summary);
+      setSummary(data.summary);
     } catch (error) {
-      console.error(
-        "Summarization request failed:",
-        error
-      );
+      console.error("Summarization request failed:", error);
     }
   };
 
@@ -79,6 +84,13 @@ function Summarization() {
         >
           Generate Summary
         </button>
+
+        {summary && (
+          <div className="summarization-result">
+            <h2>Generated Summary</h2>
+            <p>{summary}</p>
+          </div>
+        )}
       </div>
     </div>
   );
