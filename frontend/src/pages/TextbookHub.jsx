@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import DocumentCard from "../components/textbookHub/DocumentCard";
 import DocumentUploadForm from "../components/textbookHub/DocumentUploadForm";
 import { listDocuments, uploadDocument, updateDocument, deleteDocument} from "../api/documents";
@@ -45,24 +45,53 @@ function TextbookHub() {
   return matchesCategory && matchesCourse;});
 
 
+  
+    //used to be const Load documents, changed for linting purposes.
+  useEffect(() => {
+    let cancelled = false;
 
+    listDocuments()
+      .then((loadedDocuments) => {
+        if (!cancelled) {
+          setDocuments(
+            Array.isArray(loadedDocuments) ? loadedDocuments : []
+          );
+        }
+      })
+      .catch((requestError) => {
+        if (!cancelled) {
+          setError(requestError.message);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
 
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  const loadDocuments = useCallback(async () => {
+  async function loadDocuments() {
     setLoading(true);
     setError("");
+
     try {
-      setDocuments(await listDocuments());
+      const loadedDocuments = await listDocuments();
+
+      setDocuments(
+        Array.isArray(loadedDocuments) ? loadedDocuments : []
+      );
     } catch (requestError) {
       setError(requestError.message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }
 
-  useEffect(() => {
-    loadDocuments();
-  }, [loadDocuments]);
+
 
   async function handleUpload(file) {
     setUploading(true);
