@@ -196,16 +196,31 @@ function TextbookHub() {
 
 
       {loading ? (
-        <p className="hub-state" role="status">Loading documents...</p>
+        <p className="hub-state" role="status">
+          Loading documents...
+        </p>
+      ) : documents.length === 0 ? (
+        <div className="hub-empty-state">
+          <h3>No documents yet</h3>
+          <p>
+            Upload a TXT or PDF file to start building your study library.
+          </p>
+        </div>
       ) : filteredDocuments.length === 0 ? (
         <div className="hub-empty-state">
           <h3>No matching documents</h3>
-          <p>Try changing the selected category or course.</p>
+          <p>
+            Try changing the selected category or course.
+          </p>
         </div>
       ) : (
         <div className="document-grid">
           {filteredDocuments.map((document) => (
-            <DocumentCard key={document.id} document={document} onOpen={() => setSelectedDocument(document)} />
+            <DocumentCard
+              key={document.id}
+              document={document}
+              onOpen={() => setSelectedDocument(document)}
+            />
           ))}
         </div>
       )}
@@ -219,7 +234,7 @@ function TextbookHub() {
         />)}
     </section>
     
-
+  )
 
 }
 
