@@ -1,0 +1,45 @@
+.summarization-page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.summarization-page h1 {
+  margin-bottom: 0.5rem;
+}
+
+.summarization-description {
+  margin-bottom: 1.5rem;
+}
+
+.summarization-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.summarization-input {
+  width: 100%;
+  min-height: 300px;
+  padding: 1rem;
+  font: inherit;
+  line-height: 1.5;
+  resize: vertical;
+  box-sizing: border-box;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+}
+
+.summarization-button {
+  align-self: flex-start;
+  padding: 0.75rem 1.25rem;
+  font: inherit;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.summarization-validation-error {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
