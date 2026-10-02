@@ -303,19 +303,34 @@ export function createApp({
 
 // ===== FLASHCARD ENDPOINTS (Sprint 2 / FLASH-5) =====
 
+// Validate UUIDs before passing user-controlled values to PostgreSQL UUID columns.
+// PostgreSQL accepts the canonical 8-4-4-4-12 hexadecimal UUID shape regardless
+// of UUID version, so do not unnecessarily restrict the version nibble here.
+const UUID_REGEX =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const isValidUUID = (value) =>
+    typeof value === "string" &&
+    UUID_REGEX.test(value.trim());
+
 // Validate required Flashcard input
 const validateFlashcardInput = (req, res, next) => {
     const { topic_id, front, back } = req.body;
 
-    if (
-        !topic_id ||
-        typeof topic_id !== "string" ||
-        topic_id.trim() === ""
-    ) {
+    if (!topic_id || typeof topic_id !== "string" || topic_id.trim() === "") {
         return res.status(400).json({
             error: "topic_id is required"
         });
     }
+
+    if (!isValidUUID(topic_id)) {
+        return res.status(400).json({
+            error: "topic_id must be a valid UUID"
+        });
+    }
+
+    // Use the normalized value for the later Supabase query/insert.
+    req.body.topic_id = topic_id.trim();
 
     if (
         !front ||
@@ -364,9 +379,15 @@ app.get(
                 );
 
             if (req.query.topic_id) {
+                if (!isValidUUID(req.query.topic_id)) {
+                    return res.status(400).json({
+                        error: "topic_id must be a valid UUID"
+                    });
+                }
+
                 query = query.eq(
                     "topic_id",
-                    req.query.topic_id
+                    req.query.topic_id.trim()
                 );
             }
 
@@ -403,6 +424,12 @@ app.get(
     requireAuth,
     async (req, res) => {
         try {
+            if (!isValidUUID(req.params.id)) {
+                return res.status(400).json({
+                    error: "Flashcard id must be a valid UUID"
+                });
+            }
+
             const supabase =
                 createUserSupabaseClient(
                     req.accessToken
@@ -414,7 +441,7 @@ app.get(
                     .select("*")
                     .eq(
                         "id",
-                        req.params.id
+                        req.params.id.trim()
                     )
                     .eq(
                         "user_id",

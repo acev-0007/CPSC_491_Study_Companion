@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
-
+import { randomUUID } from "node:crypto";
 // =========================================================
 // SCOPE
 // =========================================================
@@ -26,9 +26,24 @@ import request from "supertest";
 
 let store;
 
+const TOPIC_1_ID =
+  "11111111-1111-4111-8111-111111111111";
+
+const MISSING_TOPIC_ID =
+  "22222222-2222-4222-8222-222222222222";
+
+const MISSING_CARD_ID =
+  "33333333-3333-4333-8333-333333333333";
+
 function resetStore() {
   store = {
-    topics: [{ id: "topic-1", user_id: "student-1", title: "OS Concepts" }],
+    topics: [
+  {
+    id: TOPIC_1_ID,
+    user_id: "student-1",
+    title: "OS Concepts"
+  }
+],
     flashcards: [],
   };
 }
@@ -69,7 +84,7 @@ function makeFakeSupabase() {
           }
 
           const row = {
-            id: `flashcard-${store.flashcards.length + 1}`,
+            id: randomUUID(),
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
             ...obj,
@@ -141,7 +156,7 @@ describe("flashcards API (FLASH-5)", () => {
     const response = await request(app)
       .post("/api/flashcards")
       .set("Cookie", `${ACCESS_COOKIE}=student-1-token`)
-      .send({ topic_id: "topic-1", front: "What is a mutex?", back: "A locking primitive." });
+      .send({ topic_id: TOPIC_1_ID, front: "What is a mutex?", back: "A locking primitive." });
 
     expect(response.status).toBe(201);
     expect(response.body.front).toBe("What is a mutex?");
@@ -163,7 +178,7 @@ describe("flashcards API (FLASH-5)", () => {
     const response = await request(app)
       .post("/api/flashcards")
       .set("Cookie", `${ACCESS_COOKIE}=student-1-token`)
-      .send({ topic_id: "topic-1", back: "Missing the front." });
+      .send({ topic_id: TOPIC_1_ID, back: "Missing the front." });
 
     expect(response.status).toBe(400);
     expect(response.body.error).toMatch(/front/i);
@@ -173,7 +188,7 @@ describe("flashcards API (FLASH-5)", () => {
     const response = await request(app)
       .post("/api/flashcards")
       .set("Cookie", `${ACCESS_COOKIE}=student-1-token`)
-      .send({ topic_id: "topic-1", front: "Missing the back." });
+      .send({ topic_id: TOPIC_1_ID, front: "Missing the back." });
 
     expect(response.status).toBe(400);
     expect(response.body.error).toMatch(/back/i);
@@ -183,7 +198,11 @@ describe("flashcards API (FLASH-5)", () => {
     const response = await request(app)
       .post("/api/flashcards")
       .set("Cookie", `${ACCESS_COOKIE}=student-1-token`)
-      .send({ topic_id: "does-not-exist", front: "Q", back: "A" });
+      .send({
+  topic_id: MISSING_TOPIC_ID,
+  front: "Q",
+  back: "A"
+});
 
     expect(response.status).toBe(400);
     expect(response.body.error).toMatch(/invalid topic_id/i);
@@ -193,7 +212,7 @@ describe("flashcards API (FLASH-5)", () => {
     const response = await request(app)
       .post("/api/flashcards")
       .set("Cookie", `${ACCESS_COOKIE}=student-2-token`)
-      .send({ topic_id: "topic-1", front: "Q", back: "A" });
+      .send({ topic_id: TOPIC_1_ID, front: "Q", back: "A" });
 
     expect(response.status).toBe(400);
     expect(response.body.error).toMatch(/invalid topic_id/i);
@@ -203,7 +222,7 @@ describe("flashcards API (FLASH-5)", () => {
     const response = await request(app)
       .post("/api/flashcards")
       .set("Cookie", `${ACCESS_COOKIE}=student-1-token`)
-      .send({ topic_id: "topic-1", front: "TRIGGER_INSERT_ERROR", back: "A" });
+      .send({ topic_id: TOPIC_1_ID, front: "TRIGGER_INSERT_ERROR", back: "A" });
 
     expect(response.status).toBe(500);
     expect(response.body.error).toMatch(/failed to create flashcard/i);
@@ -213,7 +232,7 @@ describe("flashcards API (FLASH-5)", () => {
     const response = await request(app)
       .post("/api/flashcards")
       .set("Cookie", `${ACCESS_COOKIE}=student-1-token`)
-      .send({ topic_id: "topic-1", front: "Q", back: "A", user_id: "someone-else" });
+      .send({ topic_id: TOPIC_1_ID, front: "Q", back: "A", user_id: "someone-else" });
 
     expect(response.status).toBe(201);
     expect(response.body.user_id).toBe("student-1");
@@ -225,7 +244,7 @@ describe("flashcards API (FLASH-5)", () => {
     await request(app)
       .post("/api/flashcards")
       .set("Cookie", `${ACCESS_COOKIE}=student-1-token`)
-      .send({ topic_id: "topic-1", front: "Q1", back: "A1" });
+      .send({ topic_id: TOPIC_1_ID, front: "Q1", back: "A1" });
 
     const response = await request(app)
       .get("/api/flashcards")
@@ -249,7 +268,7 @@ describe("flashcards API (FLASH-5)", () => {
     await request(app)
       .post("/api/flashcards")
       .set("Cookie", `${ACCESS_COOKIE}=student-1-token`)
-      .send({ topic_id: "topic-1", front: "Private card", back: "A" });
+      .send({ topic_id: TOPIC_1_ID, front: "Private card", back: "A" });
 
     const response = await request(app)
       .get("/api/flashcards")
@@ -260,18 +279,22 @@ describe("flashcards API (FLASH-5)", () => {
   });
 
   it("filters by topic_id when provided as a query param", async () => {
-    await request(app)
-      .post("/api/flashcards")
-      .set("Cookie", `${ACCESS_COOKIE}=student-1-token`)
-      .send({ topic_id: "topic-1", front: "Q1", back: "A1" });
+  await request(app)
+    .post("/api/flashcards")
+    .set("Cookie", `${ACCESS_COOKIE}=student-1-token`)
+    .send({
+      topic_id: TOPIC_1_ID,
+      front: "Q1",
+      back: "A1",
+    });
 
-    const response = await request(app)
-      .get("/api/flashcards?topic_id=topic-1")
-      .set("Cookie", `${ACCESS_COOKIE}=student-1-token`);
+  const response = await request(app)
+    .get(`/api/flashcards?topic_id=${TOPIC_1_ID}`)
+    .set("Cookie", `${ACCESS_COOKIE}=student-1-token`);
 
-    expect(response.status).toBe(200);
-    expect(response.body.flashcards).toHaveLength(1);
-  });
+  expect(response.status).toBe(200);
+  expect(response.body.flashcards).toHaveLength(1);
+});
 
   // ---- GET /api/flashcards/:id ----
 
@@ -279,7 +302,7 @@ describe("flashcards API (FLASH-5)", () => {
     const created = await request(app)
       .post("/api/flashcards")
       .set("Cookie", `${ACCESS_COOKIE}=student-1-token`)
-      .send({ topic_id: "topic-1", front: "Q1", back: "A1" });
+      .send({ topic_id: TOPIC_1_ID, front: "Q1", back: "A1" });
 
     const response = await request(app)
       .get(`/api/flashcards/${created.body.id}`)
@@ -291,7 +314,9 @@ describe("flashcards API (FLASH-5)", () => {
 
   it("returns 404 for a flashcard id that does not exist", async () => {
     const response = await request(app)
-      .get("/api/flashcards/does-not-exist")
+      .get(
+  `/api/flashcards/${MISSING_CARD_ID}`
+)
       .set("Cookie", `${ACCESS_COOKIE}=student-1-token`);
 
     expect(response.status).toBe(404);
@@ -301,7 +326,7 @@ describe("flashcards API (FLASH-5)", () => {
     const created = await request(app)
       .post("/api/flashcards")
       .set("Cookie", `${ACCESS_COOKIE}=student-1-token`)
-      .send({ topic_id: "topic-1", front: "Q1", back: "A1" });
+      .send({ topic_id: TOPIC_1_ID, front: "Q1", back: "A1" });
 
     const response = await request(app)
       .get(`/api/flashcards/${created.body.id}`)
@@ -309,4 +334,55 @@ describe("flashcards API (FLASH-5)", () => {
 
     expect(response.status).toBe(404);
   });
+
+  it("rejects a malformed topic_id", async () => {
+  const response = await request(app)
+    .post("/api/flashcards")
+    .set(
+      "Cookie",
+      `${ACCESS_COOKIE}=student-1-token`
+    )
+    .send({
+      topic_id: "not-a-valid-uuid",
+      front: "Q",
+      back: "A",
+    });
+
+  expect(response.status).toBe(400);
+  expect(response.body.error).toMatch(
+    /valid uuid/i
+  );
+});
+
+  it("rejects a malformed topic_id query parameter", async () => {
+  const response = await request(app)
+    .get(
+      "/api/flashcards?topic_id=not-a-valid-uuid"
+    )
+    .set(
+      "Cookie",
+      `${ACCESS_COOKIE}=student-1-token`
+    );
+
+  expect(response.status).toBe(400);
+  expect(response.body.error).toMatch(
+    /valid uuid/i
+  );
+});
+
+it("rejects a malformed flashcard id", async () => {
+  const response = await request(app)
+    .get(
+      "/api/flashcards/not-a-valid-uuid"
+    )
+    .set(
+      "Cookie",
+      `${ACCESS_COOKIE}=student-1-token`
+    );
+
+  expect(response.status).toBe(400);
+  expect(response.body.error).toMatch(
+    /valid uuid/i
+  );
+});
 });
