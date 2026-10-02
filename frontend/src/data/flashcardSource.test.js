@@ -1,5 +1,10 @@
-import { describe, it, expect } from "vitest";
-
+import {
+  afterEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { getFlashcards } from "./flashcardSource";
 import mockFlashcards from "./mockFlashcards";
 import { validateFlashcardSet, isValidFlashcard } from "./flashcardContract";
@@ -30,22 +35,94 @@ describe("mockFlashcards dataset (FLASH-1 acceptance criteria)", () => {
   });
 });
 
-describe("getFlashcards - data source interface", () => {
-  it("resolves to an array (async, so a real fetch can drop in unchanged)", async () => {
-    const cards = await getFlashcards();
-    expect(Array.isArray(cards)).toBe(true);
+describe("getFlashcards - API data source", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
-  it("returns only cards that satisfy the contract", async () => {
-    const cards = await getFlashcards();
-    cards.forEach((card) => {
-      expect(isValidFlashcard(card)).toBe(true);
+  it("retrieves flashcards from the backend API", async () => {
+    const apiCards = [
+      {
+        id: "card-1",
+        topic_id: "topic-1",
+        user_id: "user-1",
+        front: "What is virtual memory?",
+        back: "A memory management technique.",
+      },
+    ];
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        flashcards: apiCards,
+      }),
     });
+
+    const cards = await getFlashcards();
+
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/flashcards",
+      {
+        credentials: "same-origin",
+      }
+    );
+
+    expect(cards).toHaveLength(1);
+    expect(cards[0].front).toBe(
+      "What is virtual memory?"
+    );
+    expect(cards[0].back).toBe(
+      "A memory management technique."
+    );
   });
 
-  it("returns a set the study session can actually run on", async () => {
+  it("returns an empty array when the API has no flashcards", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        flashcards: [],
+      }),
+    });
+
     const cards = await getFlashcards();
-    expect(cards.length).toBeGreaterThan(0);
-    expect(validateFlashcardSet(cards).valid).toBe(true);
+
+    expect(cards).toEqual([]);
   });
+
+  it("throws when the backend request fails", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      status: 500,
+    });
+
+    await expect(
+      getFlashcards()
+    ).rejects.toThrow(
+      "Failed to load flashcards"
+    );
+  });
+
+  it("normalizes API flashcards through the shared contract", async () => {
+  vi.spyOn(globalThis, "fetch").mockResolvedValue({
+    ok: true,
+    json: async () => ({
+      flashcards: [
+        {
+          id: "card-1",
+          topic_id: "topic-1",
+          user_id: "user-1",
+          front: "What is a mutex?",
+          back: "A locking primitive.",
+        },
+      ],
+    }),
+  });
+
+  const cards = await getFlashcards();
+
+  expect(cards).toHaveLength(1);
+  expect(cards[0].id).toBe("card-1");
+  expect(cards[0].front).toBe("What is a mutex?");
+  expect(cards[0].back).toBe("A locking primitive.");
+});
 });
