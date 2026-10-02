@@ -1,0 +1,106 @@
+.session-error {
+  min-height: 100svh;
+  width: 100%;
+
+  display: grid;
+  place-items: center;
+
+  padding: 24px;
+
+  box-sizing: border-box;
+
+  background: var(--bg);
+  color: var(--text);
+}
+
+
+.session-error-card {
+  width: min(100%, 420px);
+
+  padding: 28px;
+
+  box-sizing: border-box;
+
+  border:
+    1px solid
+    var(--border);
+
+  border-radius: 14px;
+
+  background: var(--bg);
+
+  text-align: center;
+}
+
+
+.session-error-title {
+  margin: 0;
+
+  color: var(--text-h);
+
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.2;
+
+  letter-spacing: -0.3px;
+}
+
+
+.session-error-message {
+  margin: 10px 0 24px;
+
+  color: var(--text);
+
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+
+.session-error-button {
+  min-height: 44px;
+
+  padding: 10px 18px;
+
+  border:
+    1px solid
+    var(--accent-border);
+
+  border-radius: 10px;
+
+  background: var(--accent-bg);
+  color: var(--accent);
+
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+
+.session-error-button:hover {
+  border-color: var(--accent);
+}
+
+
+.session-error-button:focus-visible {
+  outline:
+    3px solid
+    var(--accent-border);
+
+  outline-offset: 2px;
+}
+
+
+@media (
+  prefers-reduced-motion:
+    reduce
+) {
+  .session-error-button {
+    transition: none;
+  }
+}
