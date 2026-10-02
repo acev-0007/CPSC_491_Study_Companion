@@ -69,12 +69,16 @@ describe("TextbookHub", () => {
     await user.upload(fileInput, file);
 
     await user.selectOptions(
-      screen.getByLabelText(/category/i),
+      screen.getByLabelText("Category", {
+        selector: "#document-category",
+      }),
       "Study Guide"
     );
 
     await user.type(
-      screen.getByLabelText(/course/i),
+      screen.getByLabelText("Course", {
+        selector: "#document-course",
+      }),
       "CPSC 491"
     );
     
