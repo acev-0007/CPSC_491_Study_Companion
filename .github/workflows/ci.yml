@@ -60,6 +60,17 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
 
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Upload frontend build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: study-companion-${{ env.BUILD_ID }}
+          path: frontend/dist/
+          if-no-files-found: error
+
       - name: Record successful main build
         if: success() && github.ref == 'refs/heads/main'
         run: |
