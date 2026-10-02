@@ -1,4 +1,5 @@
 import express from "express";
+import cors from "cors";
 import multer from "multer";
 import cookieParser from "cookie-parser";
 import path from "node:path";
@@ -32,6 +33,9 @@ import {
   requireAuth,
 } from "./middleware/requireAuth.js";
 
+import {
+  createUserSupabaseClient,
+} from "./config/supabase.js";
 
 const MAX_FILE_SIZE =
   10 * 1024 * 1024;
@@ -79,7 +83,11 @@ export function createApp({
   // ========================================
   // GLOBAL MIDDLEWARE
   // ========================================
-
+  
+  app.use(cors({
+  origin: "http://localhost:5173",
+  credentials: true,
+}));
   app.use(express.json());
   app.use(cookieParser());
 
@@ -290,6 +298,287 @@ export function createApp({
     }
   );
 
+  
+
+
+// ===== FLASHCARD ENDPOINTS (Sprint 2 / FLASH-5) =====
+
+// Validate UUIDs before passing user-controlled values to PostgreSQL UUID columns.
+// PostgreSQL accepts the canonical 8-4-4-4-12 hexadecimal UUID shape regardless
+// of UUID version, so do not unnecessarily restrict the version nibble here.
+const UUID_REGEX =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const isValidUUID = (value) =>
+    typeof value === "string" &&
+    UUID_REGEX.test(value.trim());
+
+// Validate required Flashcard input
+const validateFlashcardInput = (req, res, next) => {
+    const { topic_id, front, back } = req.body;
+
+    if (!topic_id || typeof topic_id !== "string" || topic_id.trim() === "") {
+        return res.status(400).json({
+            error: "topic_id is required"
+        });
+    }
+
+    if (!isValidUUID(topic_id)) {
+        return res.status(400).json({
+            error: "topic_id must be a valid UUID"
+        });
+    }
+
+    // Use the normalized value for the later Supabase query/insert.
+    req.body.topic_id = topic_id.trim();
+
+    if (
+        !front ||
+        typeof front !== "string" ||
+        front.trim() === ""
+    ) {
+        return res.status(400).json({
+            error: "Front can't be empty"
+        });
+    }
+
+    if (
+        !back ||
+        typeof back !== "string" ||
+        back.trim() === ""
+    ) {
+        return res.status(400).json({
+            error: "Back can't be empty"
+        });
+    }
+
+    next();
+};
+
+
+// READ ALL FLASHCARDS
+// Returns only Flashcards owned by the authenticated user.
+// Optional ?topic_id=<uuid> filters cards by Topic.
+app.get(
+    "/api/flashcards",
+    requireAuth,
+    async (req, res) => {
+        try {
+            const supabase =
+                createUserSupabaseClient(
+                    req.accessToken
+                );
+
+            let query = supabase
+                .from("flashcards")
+                .select("*")
+                .eq("user_id", req.user.id)
+                .order(
+                    "created_at",
+                    { ascending: true }
+                );
+
+            if (req.query.topic_id) {
+                if (!isValidUUID(req.query.topic_id)) {
+                    return res.status(400).json({
+                        error: "topic_id must be a valid UUID"
+                    });
+                }
+
+                query = query.eq(
+                    "topic_id",
+                    req.query.topic_id.trim()
+                );
+            }
+
+            const { data, error } =
+                await query;
+
+            if (error) {
+                throw error;
+            }
+
+            // Empty collections are valid.
+            return res.status(200).json({
+                flashcards: data || []
+            });
+
+        } catch (error) {
+            console.error(
+                "Error fetching flashcards:",
+                error
+            );
+
+            return res.status(500).json({
+                error:
+                    "Failed to fetch flashcards"
+            });
+        }
+    }
+);
+
+
+// READ ONE FLASHCARD
+app.get(
+    "/api/flashcards/:id",
+    requireAuth,
+    async (req, res) => {
+        try {
+            if (!isValidUUID(req.params.id)) {
+                return res.status(400).json({
+                    error: "Flashcard id must be a valid UUID"
+                });
+            }
+
+            const supabase =
+                createUserSupabaseClient(
+                    req.accessToken
+                );
+
+            const { data, error } =
+                await supabase
+                    .from("flashcards")
+                    .select("*")
+                    .eq(
+                        "id",
+                        req.params.id.trim()
+                    )
+                    .eq(
+                        "user_id",
+                        req.user.id
+                    )
+                    .maybeSingle();
+
+            if (error) {
+                throw error;
+            }
+
+            if (!data) {
+                return res.status(404).json({
+                    error:
+                        "Flashcard not found"
+                });
+            }
+
+            return res
+                .status(200)
+                .json(data);
+
+        } catch (error) {
+            console.error(
+                "Error fetching flashcard:",
+                error
+            );
+
+            return res.status(500).json({
+                error:
+                    "Failed to fetch flashcard"
+            });
+        }
+    }
+);
+
+
+// CREATE FLASHCARD
+app.post(
+    "/api/flashcards",
+    requireAuth,
+    validateFlashcardInput,
+    async (req, res) => {
+        try {
+            const supabase =
+                createUserSupabaseClient(
+                    req.accessToken
+                );
+
+            /*
+             * Verify that the requested Topic belongs
+             * to the authenticated user.
+             *
+             * The foreign key guarantees that a Topic
+             * exists, but does not by itself guarantee
+             * that the Topic belongs to this user.
+             */
+            const {
+                data: topic,
+                error: topicError
+            } = await supabase
+                .from("topics")
+                .select("id")
+                .eq(
+                    "id",
+                    req.body.topic_id
+                )
+                .eq(
+                    "user_id",
+                    req.user.id
+                )
+                .maybeSingle();
+
+            if (topicError) {
+                throw topicError;
+            }
+
+            if (!topic) {
+                return res.status(400).json({
+                    error: "Invalid topic_id"
+                });
+            }
+
+            /*
+             * Ownership comes from the authenticated
+             * session, not from req.body.
+             */
+            const newFlashcard = {
+                topic_id:
+                    req.body.topic_id,
+
+                user_id:
+                    req.user.id,
+
+                front:
+                    req.body.front.trim(),
+
+                back:
+                    req.body.back.trim()
+            };
+
+            const { data, error } =
+                await supabase
+                    .from("flashcards")
+                    .insert(newFlashcard)
+                    .select();
+
+            if (error) {
+                throw error;
+            }
+
+            if (
+                !data ||
+                data.length === 0
+            ) {
+                throw new Error(
+                    "Flashcard insert returned no data"
+                );
+            }
+
+            return res
+                .status(201)
+                .json(data[0]);
+
+        } catch (error) {
+            console.error(
+                "Error creating flashcard:",
+                error
+            );
+
+            return res.status(500).json({
+                error:
+                    "Failed to create flashcard"
+            });
+        }
+    }
+);
 
   // ========================================
   // UPDATE DOCUMENT METADATA
