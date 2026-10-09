@@ -66,7 +66,7 @@ function Sidebar() {
     setLoggingOut(true);
     try {
       await logoutAccount();
-      navigate("/login", { replace: true });
+      navigate("/", { replace: true });
     } catch (error) {
       setLogoutError(error.message || "Unable to log out. Please try again.");
     } finally {
