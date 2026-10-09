@@ -14,8 +14,8 @@ import {
 } from "node:crypto";
 
 import {
-  DocumentStore,
-} from "./documentStore.js";
+  SupabaseDocumentStore,
+} from "./supabaseDocumentStore.js";
 
 import {
   extractText,
@@ -51,18 +51,24 @@ function publicDocument(document) {
 
 export function createApp({
   dataDir =
-  path.resolve("data"),
+    path.resolve("data"),
 
   uploadDir =
-  path.resolve(
-    "data/uploads"
-  ),
+    path.resolve(
+      "data/uploads"
+    ),
 } = {}) {
 
   const app = express();
 
-  const store =
-    new DocumentStore(dataDir);
+  /*
+   * dataDir is retained temporarily because existing
+   * tests still pass it into createApp().
+   *
+   * Document metadata persistence now uses Supabase.
+   */
+  void dataDir;
+
 
   const upload =
     multer({
@@ -125,20 +131,20 @@ export function createApp({
   app.get(
     "/api/documents",
     requireAuth,
+
     async (req, res, next) => {
       try {
+        const store =
+          new SupabaseDocumentStore(
+            req.accessToken
+          );
+
         const documents =
           await store.listForUser(
             req.user.id
           );
 
-        documents.sort(
-          (a, b) =>
-            new Date(b.uploadedAt) -
-            new Date(a.uploadedAt)
-        );
-
-        res.json({
+        return res.json({
           documents:
             documents.map(
               publicDocument
@@ -162,6 +168,11 @@ export function createApp({
 
     async (req, res, next) => {
       try {
+        const store =
+          new SupabaseDocumentStore(
+            req.accessToken
+          );
+
         if (!req.file) {
           return res
             .status(400)
@@ -272,16 +283,17 @@ export function createApp({
         };
 
 
-        await store.add(
-          document
-        );
+        const savedDocument =
+          await store.add(
+            document
+          );
 
         return res
           .status(201)
           .json({
             document:
               publicDocument(
-                document
+                savedDocument
               ),
           });
       } catch (error) {
@@ -301,6 +313,11 @@ export function createApp({
 
     async (req, res, next) => {
       try {
+        const store =
+          new SupabaseDocumentStore(
+            req.accessToken
+          );
+
         const updatedDocument =
           await store.updateForUser(
             req.params.id,
@@ -349,6 +366,11 @@ export function createApp({
 
     async (req, res, next) => {
       try {
+        const store =
+          new SupabaseDocumentStore(
+            req.accessToken
+          );
+
         const deletedDocument =
           await store.deleteForUser(
             req.params.id,
@@ -364,24 +386,28 @@ export function createApp({
             });
         }
 
-      if (deletedDocument.storedFilename) {
-        try {
-          await unlink(
-            path.join(
-              uploadDir,
-              deletedDocument.storedFilename
-            )
-          );
-        } catch (error) {
-          if (error.code !== "ENOENT") {
-            console.error(
-              "Failed to remove uploaded file:",
-              deletedDocument.storedFilename,
-              error
+        if (
+          deletedDocument.storedFilename
+        ) {
+          try {
+            await unlink(
+              path.join(
+                uploadDir,
+                deletedDocument.storedFilename
+              )
             );
+          } catch (error) {
+            if (
+              error.code !== "ENOENT"
+            ) {
+              console.error(
+                "Failed to remove uploaded file:",
+                deletedDocument.storedFilename,
+                error
+              );
+            }
           }
         }
-      }
 
         return res.json({
           document:
