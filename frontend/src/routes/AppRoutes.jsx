@@ -1,6 +1,7 @@
 import { Routes, Route } from "react-router-dom";
 import Layout from "../components/Layout";
 import ProtectedRoute from "../components/ProtectedRoute";
+import Landing from "../pages/Landing";
 import Login from "../pages/Login";
 import Register from "../pages/Register";
 import Dashboard from "../pages/Dashboard";
@@ -11,11 +12,19 @@ import VisualGenerator from "../pages/VisualGenerator";
 import Summarization from "../pages/Summarization";
 import TextbookHub from "../pages/TextbookHub";
 import NotFound from "../pages/NotFound";
-
 function AppRoutes() {
   return (
     <Routes>
       {/* Public routes */}
+      <Route
+        path="/"
+        element={
+          <>
+            <title>AI Study Companion | Study Smarter</title>
+            <Landing />
+          </>
+        }
+      />
       <Route
         path="/login"
         element={
@@ -35,10 +44,9 @@ function AppRoutes() {
           </>
         }
       />
-
       <Route element={<Layout />}>
         <Route
-          path="/"
+          path="/dashboard"
           element={
             <ProtectedRoute>
               <>
@@ -48,7 +56,6 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/flashcards"
           element={
@@ -60,7 +67,6 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/quiz"
           element={
@@ -72,7 +78,6 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/assignments"
           element={
@@ -84,7 +89,6 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/visual-generator"
           element={
@@ -96,7 +100,6 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/summarization"
           element={
@@ -108,7 +111,6 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/textbooks"
           element={
@@ -134,5 +136,4 @@ function AppRoutes() {
     </Routes>
   );
 }
-
 export default AppRoutes;
