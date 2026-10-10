@@ -183,4 +183,113 @@ export class SupabaseDocumentStore {
 
     return fromDatabaseDocument(data);
   }
+
+
+
+
+
+  async replaceChunksForDocument(
+    documentId,
+    chunks
+  ) {
+    const {
+      error: deleteError,
+    } = await this.supabase
+      .from("document_chunks")
+      .delete()
+      .eq(
+        "document_id",
+        documentId
+      );
+
+    if (deleteError) {
+      throw deleteError;
+    }
+
+    if (!chunks.length) {
+      return [];
+    }
+
+    const rows =
+      chunks.map(
+        (chunk) => ({
+          document_id:
+            documentId,
+
+          chunk_index:
+            chunk.chunkIndex,
+
+          content:
+            chunk.content,
+
+          start_offset:
+            chunk.startOffset,
+
+          end_offset:
+            chunk.endOffset,
+        })
+      );
+
+    const {
+      data,
+      error,
+    } = await this.supabase
+      .from("document_chunks")
+      .insert(rows)
+      .select();
+
+    if (error) {
+      throw error;
+    }
+
+    return data || [];
+  }
+
+
+  async listChunksForDocument(
+    documentId
+  ) {
+    const {
+      data,
+      error,
+    } = await this.supabase
+      .from("document_chunks")
+      .select("*")
+      .eq(
+        "document_id",
+        documentId
+      )
+      .order(
+        "chunk_index",
+        {
+          ascending: true,
+        }
+      );
+
+    if (error) {
+      throw error;
+    }
+
+    return (data || []).map(
+      (row) => ({
+        id: row.id,
+
+        documentId:
+          row.document_id,
+
+        chunkIndex:
+          row.chunk_index,
+
+        content:
+          row.content,
+
+        startOffset:
+          row.start_offset,
+
+        endOffset:
+          row.end_offset,
+      })
+    );
+  }
+  
 }

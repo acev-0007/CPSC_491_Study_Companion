@@ -31,6 +31,7 @@ import {
 
 
 const mockDocuments = [];
+const mockDocumentChunks = [];
 
 
 function clone(value) {
@@ -40,13 +41,12 @@ function clone(value) {
 }
 
 
-function createFakeDocumentsQuery() {
+function createFakeQuery(tableRows) {
   let operation = "select";
   let payload = null;
+  let orderBy = null;
 
   const filters = [];
-
-  let orderBy = null;
 
 
   function matches(row) {
@@ -59,10 +59,9 @@ function createFakeDocumentsQuery() {
 
   function executeSingle() {
     if (operation === "insert") {
-      const row =
-        clone(payload);
+      const row = clone(payload);
 
-      mockDocuments.push(row);
+      tableRows.push(row);
 
       return {
         data: clone(row),
@@ -72,6 +71,7 @@ function createFakeDocumentsQuery() {
 
     return {
       data: null,
+
       error:
         new Error(
           `Unsupported fake Supabase single operation: ${operation}`
@@ -83,7 +83,7 @@ function createFakeDocumentsQuery() {
   function executeMaybeSingle() {
     if (operation === "update") {
       const index =
-        mockDocuments.findIndex(
+        tableRows.findIndex(
           matches
         );
 
@@ -94,16 +94,17 @@ function createFakeDocumentsQuery() {
         };
       }
 
-      mockDocuments[index] = {
-        ...mockDocuments[index],
+      tableRows[index] = {
+        ...tableRows[index],
         ...clone(payload),
       };
 
       return {
         data:
           clone(
-            mockDocuments[index]
+            tableRows[index]
           ),
+
         error: null,
       };
     }
@@ -111,7 +112,7 @@ function createFakeDocumentsQuery() {
 
     if (operation === "delete") {
       const index =
-        mockDocuments.findIndex(
+        tableRows.findIndex(
           matches
         );
 
@@ -123,8 +124,8 @@ function createFakeDocumentsQuery() {
       }
 
       const [
-        deletedDocument,
-      ] = mockDocuments.splice(
+        deletedRow,
+      ] = tableRows.splice(
         index,
         1
       );
@@ -132,8 +133,9 @@ function createFakeDocumentsQuery() {
       return {
         data:
           clone(
-            deletedDocument
+            deletedRow
           ),
+
         error: null,
       };
     }
@@ -141,6 +143,7 @@ function createFakeDocumentsQuery() {
 
     return {
       data: null,
+
       error:
         new Error(
           `Unsupported fake Supabase maybeSingle operation: ${operation}`
@@ -150,10 +153,63 @@ function createFakeDocumentsQuery() {
 
 
   function executeMany() {
+    if (operation === "insert") {
+      const rows =
+        Array.isArray(payload)
+          ? payload.map(clone)
+          : [clone(payload)];
+
+      tableRows.push(
+        ...rows
+      );
+
+      return {
+        data:
+          rows.map(clone),
+
+        error: null,
+      };
+    }
+
+
+    if (operation === "delete") {
+      const deletedRows =
+        tableRows
+          .filter(matches)
+          .map(clone);
+
+      for (
+        let index =
+          tableRows.length - 1;
+        index >= 0;
+        index -= 1
+      ) {
+        if (
+          matches(
+            tableRows[index]
+          )
+        ) {
+          tableRows.splice(
+            index,
+            1
+          );
+        }
+      }
+
+      return {
+        data:
+          deletedRows,
+
+        error: null,
+      };
+    }
+
+
     let rows =
-      mockDocuments
+      tableRows
         .filter(matches)
         .map(clone);
+
 
     if (orderBy) {
       rows.sort(
@@ -185,6 +241,7 @@ function createFakeDocumentsQuery() {
       );
     }
 
+
     return {
       data: rows,
       error: null,
@@ -197,12 +254,14 @@ function createFakeDocumentsQuery() {
       return query;
     },
 
+
     insert(value) {
       operation = "insert";
       payload = value;
 
       return query;
     },
+
 
     update(value) {
       operation = "update";
@@ -211,11 +270,13 @@ function createFakeDocumentsQuery() {
       return query;
     },
 
+
     delete() {
       operation = "delete";
 
       return query;
     },
+
 
     eq(column, value) {
       filters.push({
@@ -226,12 +287,14 @@ function createFakeDocumentsQuery() {
       return query;
     },
 
+
     order(
       column,
       options = {}
     ) {
       orderBy = {
         column,
+
         ascending:
           options.ascending ??
           true,
@@ -242,17 +305,20 @@ function createFakeDocumentsQuery() {
       );
     },
 
+
     single() {
       return Promise.resolve(
         executeSingle()
       );
     },
 
+
     maybeSingle() {
       return Promise.resolve(
         executeMaybeSingle()
       );
     },
+
 
     then(resolve, reject) {
       return Promise.resolve(
@@ -294,10 +360,12 @@ vi.mock(
                     },
                 };
 
+
                 const user =
                   users[
                     accessToken
                   ];
+
 
                 if (user) {
                   return {
@@ -308,6 +376,7 @@ vi.mock(
                     error: null,
                   };
                 }
+
 
                 return {
                   data: {
@@ -322,10 +391,12 @@ vi.mock(
               }
             ),
 
+
           refreshSession:
             vi.fn(),
         },
       })),
+
 
     createUserSupabaseClient:
       vi.fn(() => ({
@@ -333,16 +404,27 @@ vi.mock(
           vi.fn(
             (table) => {
               if (
-                table !==
+                table ===
                 "documents"
               ) {
-                throw new Error(
-                  `Unexpected fake Supabase table: ${table}`
+                return createFakeQuery(
+                  mockDocuments
                 );
               }
 
-              return (
-                createFakeDocumentsQuery()
+
+              if (
+                table ===
+                "document_chunks"
+              ) {
+                return createFakeQuery(
+                  mockDocumentChunks
+                );
+              }
+
+
+              throw new Error(
+                `Unexpected fake Supabase table: ${table}`
               );
             }
           ),
@@ -365,6 +447,7 @@ async function makePdf(text) {
       StandardFonts.Helvetica
     );
 
+
   page.drawText(
     text,
     {
@@ -374,6 +457,7 @@ async function makePdf(text) {
       font,
     }
   );
+
 
   return Buffer.from(
     await pdf.save()
@@ -390,6 +474,8 @@ describe(
 
     beforeEach(async () => {
       mockDocuments.length = 0;
+      mockDocumentChunks.length = 0;
+
 
       tempRoot =
         await mkdtemp(
@@ -398,6 +484,7 @@ describe(
             "textbook-hub-test-"
           )
         );
+
 
       app = createApp({
         dataDir:
@@ -470,6 +557,40 @@ describe(
         expect(
           response.body.document
             .textLength
+        ).toBeGreaterThan(0);
+
+
+        expect(
+          mockDocumentChunks
+        ).toHaveLength(1);
+
+        expect(
+          mockDocumentChunks[0]
+            .document_id
+        ).toBe(
+          response.body.document.id
+        );
+
+        expect(
+          mockDocumentChunks[0]
+            .chunk_index
+        ).toBe(0);
+
+        expect(
+          mockDocumentChunks[0]
+            .content
+        ).toContain(
+          "Operating systems manage hardware resources."
+        );
+
+        expect(
+          mockDocumentChunks[0]
+            .start_offset
+        ).toBe(0);
+
+        expect(
+          mockDocumentChunks[0]
+            .end_offset
         ).toBeGreaterThan(0);
       }
     );
@@ -545,6 +666,18 @@ describe(
           response.body.document
             .textLength
         ).toBeGreaterThan(0);
+
+
+        expect(
+          mockDocumentChunks.length
+        ).toBeGreaterThan(0);
+
+        expect(
+          mockDocumentChunks[0]
+            .document_id
+        ).toBe(
+          response.body.document.id
+        );
       }
     );
 
@@ -587,6 +720,10 @@ describe(
         ).toMatch(
           /only txt and pdf/i
         );
+
+        expect(
+          mockDocumentChunks
+        ).toHaveLength(0);
       }
     );
 
@@ -632,6 +769,11 @@ describe(
           response.body.document
             .extractionError
         ).toBeTruthy();
+
+
+        expect(
+          mockDocumentChunks
+        ).toHaveLength(0);
       }
     );
 
@@ -741,6 +883,11 @@ describe(
         ).toContain(
           "Chapter one notes"
         );
+
+
+        expect(
+          mockDocumentChunks
+        ).toHaveLength(2);
       }
     );
 
@@ -1070,6 +1217,10 @@ describe(
           mockDocuments
         ).toHaveLength(1);
 
+        expect(
+          mockDocumentChunks
+        ).toHaveLength(1);
+
 
         const storedFilename =
           mockDocuments[0]
@@ -1189,6 +1340,18 @@ describe(
 
         expect(
           mockDocuments[0].id
+        ).toBe(
+          documentId
+        );
+
+
+        expect(
+          mockDocumentChunks
+        ).toHaveLength(1);
+
+        expect(
+          mockDocumentChunks[0]
+            .document_id
         ).toBe(
           documentId
         );

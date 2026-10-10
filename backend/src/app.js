@@ -2,6 +2,7 @@ import express from "express";
 import multer from "multer";
 import cookieParser from "cookie-parser";
 import path from "node:path";
+import {chunkDocumentText,} from "./documentChunker.js";
 
 import {
   mkdir,
@@ -287,6 +288,25 @@ export function createApp({
           await store.add(
             document
           );
+
+          
+        if (
+          savedDocument.status ===
+            "ready" &&
+          savedDocument.extractedText
+        ) {
+          const chunks =
+            chunkDocumentText(
+              savedDocument.extractedText
+            );
+
+          await store
+            .replaceChunksForDocument(
+              savedDocument.id,
+              chunks
+            );
+        }
+
 
         return res
           .status(201)

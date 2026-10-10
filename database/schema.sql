@@ -78,6 +78,9 @@ CREATE TABLE document_chunks (
     chunk_index INTEGER NOT NULL,
     content TEXT NOT NULL,
 
+    start_offset INTEGER,
+    end_offset INTEGER,
+
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     UNIQUE(document_id, chunk_index)
