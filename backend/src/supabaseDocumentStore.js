@@ -292,4 +292,35 @@ export class SupabaseDocumentStore {
     );
   }
   
+
+
+
+  async getForUser(
+    id,
+    userId
+  ) {
+    const {
+      data,
+      error,
+    } = await this.supabase
+      .from("documents")
+      .select("*")
+      .eq(
+        "id",
+        id
+      )
+      .eq(
+        "user_id",
+        userId
+      )
+      .maybeSingle();
+
+    if (error) {
+      throw error;
+    }
+
+    return fromDatabaseDocument(
+      data
+    );
+  }
 }
