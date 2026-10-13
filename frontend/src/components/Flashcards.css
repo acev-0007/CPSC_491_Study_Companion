@@ -122,3 +122,15 @@
   gap: 12px;
   margin-top: 8px;
 }
+
+
+/* SCRUM-121: Temporary generation status */
+
+.flashcards-generation-notice {
+  width: 100%;
+  max-width: 480px;
+  margin: 0;
+  font-size: 14px;
+  text-align: center;
+  color: var(--text);
+}
