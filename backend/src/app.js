@@ -2,7 +2,10 @@ import express from "express";
 import multer from "multer";
 import cookieParser from "cookie-parser";
 import path from "node:path";
-import {chunkDocumentText,} from "./documentChunker.js";
+
+import {
+  chunkDocumentText,
+} from "./documentChunker.js";
 
 import {
   mkdir,
@@ -169,11 +172,6 @@ export function createApp({
 
     async (req, res, next) => {
       try {
-        const store =
-          new SupabaseDocumentStore(
-            req.accessToken
-          );
-
         if (!req.file) {
           return res
             .status(400)
@@ -182,6 +180,7 @@ export function createApp({
                 "A file is required.",
             });
         }
+
 
         let extension;
 
@@ -199,6 +198,13 @@ export function createApp({
             });
         }
 
+
+        const store =
+          new SupabaseDocumentStore(
+            req.accessToken
+          );
+
+
         await mkdir(
           uploadDir,
           {
@@ -206,11 +212,13 @@ export function createApp({
           }
         );
 
+
         const id =
           randomUUID();
 
         const storedFilename =
           `${id}${extension}`;
+
 
         await writeFile(
           path.join(
@@ -222,25 +230,11 @@ export function createApp({
         );
 
 
-        let extractedText = "";
-        let status = "ready";
-        let extractionError = null;
+        // ----------------------------------------
+        // CREATE INITIAL PROCESSING RECORD
+        // ----------------------------------------
 
-        try {
-          extractedText =
-            await extractText(
-              req.file
-            );
-        } catch (error) {
-          status = "failed";
-
-          extractionError =
-            error.message ||
-            "Text extraction failed.";
-        }
-
-
-        const document = {
+        const processingDocument = {
           id,
 
           userId:
@@ -271,38 +265,96 @@ export function createApp({
             new Date()
               .toISOString(),
 
-          status,
+          status:
+            "processing",
 
-          extractionError,
+          extractionError:
+            null,
 
           textLength:
-            extractedText.length,
+            0,
 
           storedFilename,
 
-          extractedText,
+          extractedText:
+            "",
         };
 
 
-        const savedDocument =
-          await store.add(
-            document
+        await store.add(
+          processingDocument
+        );
+
+
+        // ----------------------------------------
+        // EXTRACT TEXT
+        // ----------------------------------------
+
+        let extractedText = "";
+        let status = "ready";
+        let extractionError = null;
+
+
+        try {
+          extractedText =
+            await extractText(
+              req.file
+            );
+        } catch (error) {
+          status = "failed";
+
+          extractionError =
+            error.message ||
+            "Text extraction failed.";
+        }
+
+
+        // ----------------------------------------
+        // SAVE FINAL PROCESSING STATE
+        // ----------------------------------------
+
+        const finalDocument =
+          await store.updateProcessingState(
+            id,
+            req.user.id,
+            {
+              status,
+
+              extractionError,
+
+              textLength:
+                extractedText.length,
+
+              extractedText,
+            }
           );
 
-          
+
+        if (!finalDocument) {
+          throw new Error(
+            "Document processing record could not be updated."
+          );
+        }
+
+
+        // ----------------------------------------
+        // CREATE AI-READY CHUNKS
+        // ----------------------------------------
+
         if (
-          savedDocument.status ===
+          finalDocument.status ===
             "ready" &&
-          savedDocument.extractedText
+          finalDocument.extractedText
         ) {
           const chunks =
             chunkDocumentText(
-              savedDocument.extractedText
+              finalDocument.extractedText
             );
+
 
           await store
             .replaceChunksForDocument(
-              savedDocument.id,
+              finalDocument.id,
               chunks
             );
         }
@@ -313,7 +365,7 @@ export function createApp({
           .json({
             document:
               publicDocument(
-                savedDocument
+                finalDocument
               ),
           });
       } catch (error) {
@@ -354,6 +406,7 @@ export function createApp({
             }
           );
 
+
         if (!updatedDocument) {
           return res
             .status(404)
@@ -362,6 +415,7 @@ export function createApp({
                 "Document not found.",
             });
         }
+
 
         return res.json({
           document:
@@ -397,6 +451,7 @@ export function createApp({
             req.user.id
           );
 
+
         if (!deletedDocument) {
           return res
             .status(404)
@@ -405,6 +460,7 @@ export function createApp({
                 "Document not found.",
             });
         }
+
 
         if (
           deletedDocument.storedFilename
@@ -428,6 +484,7 @@ export function createApp({
             }
           }
         }
+
 
         return res.json({
           document:
@@ -463,7 +520,9 @@ export function createApp({
           });
       }
 
+
       console.error(error);
+
 
       return res
         .status(500)

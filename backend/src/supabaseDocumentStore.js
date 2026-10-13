@@ -111,46 +111,90 @@ export class SupabaseDocumentStore {
   }
 
 
-  async updateForUser(
+  async updateForUser(id, userId,updates) 
+  {
+      const databaseUpdates = {
+        updated_at:
+          new Date().toISOString(),
+      };
+
+      if (
+        updates.name !== undefined &&
+        updates.name !== ""
+      ) {
+        databaseUpdates.name =
+          updates.name;
+      }
+
+      if (
+        updates.category !== undefined &&
+        updates.category !== ""
+      ) {
+        databaseUpdates.category =
+          updates.category;
+      }
+
+      if (updates.course !== undefined) {
+        databaseUpdates.course =
+          updates.course ||
+          "Unassigned";
+      }
+
+      const {
+        data,
+        error,
+      } = await this.supabase
+        .from("documents")
+        .update(databaseUpdates)
+        .eq("id", id)
+        .eq("user_id", userId)
+        .select()
+        .maybeSingle();
+
+      if (error) {
+        throw error;
+      }
+
+      return fromDatabaseDocument(data);
+    }
+
+
+
+    async updateProcessingState(
     id,
     userId,
-    updates
-  ) {
-    const databaseUpdates = {
-      updated_at:
-        new Date().toISOString(),
-    };
-
-    if (
-      updates.name !== undefined &&
-      updates.name !== ""
-    ) {
-      databaseUpdates.name =
-        updates.name;
-    }
-
-    if (
-      updates.category !== undefined &&
-      updates.category !== ""
-    ) {
-      databaseUpdates.category =
-        updates.category;
-    }
-
-    if (updates.course !== undefined) {
-      databaseUpdates.course =
-        updates.course ||
-        "Unassigned";
-    }
-
+    { status,
+      extractionError,
+      textLength,
+      extractedText,}) {
     const {
       data,
       error,
     } = await this.supabase
       .from("documents")
-      .update(databaseUpdates)
-      .eq("id", id)
-      .eq("user_id", userId)
+      .update({
+        status,
+
+        extraction_error:
+          extractionError,
+
+        text_length:
+          textLength,
+
+        extracted_text:
+          extractedText,
+
+        updated_at:
+          new Date().toISOString(),
+      })
+      .eq(
+        "id",
+        id
+      )
+      .eq(
+        "user_id",
+        userId
+      )
       .select()
       .maybeSingle();
 
@@ -158,7 +202,9 @@ export class SupabaseDocumentStore {
       throw error;
     }
 
-    return fromDatabaseDocument(data);
+    return fromDatabaseDocument(
+      data
+    );
   }
 
 
