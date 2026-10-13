@@ -32,6 +32,7 @@ import {
 
 const mockDocuments = [];
 const mockDocumentChunks = [];
+const mockDocumentOperations = [];
 
 
 function clone(value) {
@@ -41,7 +42,8 @@ function clone(value) {
 }
 
 
-function createFakeQuery(tableRows) {
+function createFakeQuery(tableRows, tableName)
+{
   let operation = "select";
   let payload = null;
   let orderBy = null;
@@ -62,6 +64,13 @@ function createFakeQuery(tableRows) {
       const row = clone(payload);
 
       tableRows.push(row);
+
+      if (tableName === "documents") {
+        mockDocumentOperations.push({
+          operation: "insert",
+          data: clone(row),
+        });
+      }
 
       return {
         data: clone(row),
@@ -98,6 +107,13 @@ function createFakeQuery(tableRows) {
         ...tableRows[index],
         ...clone(payload),
       };
+
+      if (tableName === "documents") {
+        mockDocumentOperations.push({
+          operation: "update",
+          data: clone(payload),
+        });
+      }
 
       return {
         data:
@@ -408,7 +424,8 @@ vi.mock(
                 "documents"
               ) {
                 return createFakeQuery(
-                  mockDocuments
+                  mockDocuments,
+                  "documents"
                 );
               }
 
@@ -418,7 +435,8 @@ vi.mock(
                 "document_chunks"
               ) {
                 return createFakeQuery(
-                  mockDocumentChunks
+                  mockDocumentChunks,
+                  "document_chunks"
                 );
               }
 
@@ -475,6 +493,7 @@ describe(
     beforeEach(async () => {
       mockDocuments.length = 0;
       mockDocumentChunks.length = 0;
+      mockDocumentOperations.length = 0;
 
 
       tempRoot =
@@ -1278,6 +1297,95 @@ describe(
       }
     );
 
+    it(
+      "transitions a document from processing to ready after extraction",
+      async () => {
+        const response =
+          await request(app)
+            .post(
+              "/api/documents"
+            )
+            .set(
+              "Cookie",
+              `${ACCESS_COOKIE}=student-1-token`
+            )
+            .attach(
+              "file",
+
+              Buffer.from(
+                "Process scheduling determines which task runs next."
+              ),
+
+              {
+                filename:
+                  "scheduling.txt",
+
+                contentType:
+                  "text/plain",
+              }
+            );
+
+
+        expect(
+          response.status
+        ).toBe(201);
+
+        expect(
+          mockDocumentOperations
+        ).toHaveLength(2);
+
+
+        const insertOperation =
+          mockDocumentOperations[0];
+
+        expect(
+          insertOperation.operation
+        ).toBe("insert");
+
+        expect(
+          insertOperation.data.status
+        ).toBe("processing");
+
+        expect(
+          insertOperation.data.extracted_text
+        ).toBe("");
+
+        expect(
+          insertOperation.data.text_length
+        ).toBe(0);
+
+
+        const updateOperation =
+          mockDocumentOperations[1];
+
+        expect(
+          updateOperation.operation
+        ).toBe("update");
+
+        expect(
+          updateOperation.data.status
+        ).toBe("ready");
+
+        expect(
+          updateOperation.data.extraction_error
+        ).toBeNull();
+
+        expect(
+          updateOperation.data.extracted_text
+        ).toContain(
+          "Process scheduling determines which task runs next."
+        );
+
+        expect(
+          updateOperation.data.text_length
+        ).toBeGreaterThan(0);
+
+
+        expect(
+          response.body.document.status
+        ).toBe("ready");
+      }
+    );
 
     it(
       "does not allow a user to delete another user's document",
@@ -1358,4 +1466,5 @@ describe(
       }
     );
   }
+  
 );
