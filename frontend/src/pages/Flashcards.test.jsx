@@ -26,10 +26,16 @@ vi.mock("../data/flashcardSource", () => ({
 
 const { getFlashcards } = await import("../data/flashcardSource");
 
-/** Renders the page and waits for the async load to settle. */
+/**
+ * Renders the page, waits for the async load to settle, and opens the saved
+ * cards (they are hidden until "Study Saved Flashcards" is clicked).
+ */
 async function renderLoaded(cards = SAMPLE_CARDS) {
   getFlashcards.mockResolvedValue(cards);
   render(<Flashcards />);
+  await userEvent.setup().click(
+    await screen.findByRole("button", { name: "Study Saved Flashcards" })
+  );
   await screen.findByText(cards[0].front);
 }
 
@@ -350,5 +356,43 @@ describe("Flashcards page - edit/flip regression (CICD-ANT-2)", () => {
 
     expect(screen.getByText("Q2")).toBeInTheDocument();
     expect(screen.getByText("Card 2 of 3")).toBeInTheDocument();
+  });
+});
+
+// =========================================================
+// SCRUM-121: saved cards are opt-in on the generation screen
+// =========================================================
+
+describe("Flashcards page - saved cards visibility (SCRUM-121)", () => {
+  it("shows the input and hides saved cards until requested", async () => {
+    getFlashcards.mockResolvedValue(SAMPLE_CARDS);
+    render(<Flashcards />);
+
+    expect(
+      await screen.findByRole("button", { name: "Study Saved Flashcards" })
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Paste Study Notes")).toBeInTheDocument();
+    expect(screen.queryByText("Q1")).not.toBeInTheDocument();
+    expect(screen.queryByText("Card 1 of 3")).not.toBeInTheDocument();
+  });
+
+  it("reveals the saved cards when Study Saved Flashcards is clicked", async () => {
+    await renderLoaded();
+
+    expect(screen.getByText("Q1")).toBeInTheDocument();
+    expect(screen.getByText("Card 1 of 3")).toBeInTheDocument();
+  });
+
+  it("does not reveal saved cards when the stub generation finishes", async () => {
+    const user = userEvent.setup();
+    getFlashcards.mockResolvedValue(SAMPLE_CARDS);
+    render(<Flashcards />);
+    await screen.findByRole("button", { name: "Study Saved Flashcards" });
+
+    await user.type(screen.getByLabelText("Paste Study Notes"), "Some notes");
+    await user.click(screen.getByRole("button", { name: "Generate Flashcards" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(/not connected yet/i);
+    expect(screen.queryByText("Q1")).not.toBeInTheDocument();
   });
 });
