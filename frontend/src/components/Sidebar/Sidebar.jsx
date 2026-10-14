@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { logoutAccount } from "../../api/auth";
 import "./Sidebar.css";
@@ -53,13 +53,19 @@ function NavigationLinks({ onNavigate }) {
 function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileOpenPath, setMobileOpenPath] = useState(null);
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState("");
 
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [location.pathname]);
+  const mobileOpen = mobileOpenPath === location.pathname;
+
+  const toggleMobileNavigation = () => {
+    setMobileOpenPath(mobileOpen ? null : location.pathname);
+  };
+
+  const closeMobileNavigation = () => {
+    setMobileOpenPath(null);
+  };
 
   const handleLogout = async () => {
     setLogoutError("");
@@ -107,7 +113,7 @@ function Sidebar() {
             aria-expanded={mobileOpen}
             aria-label={mobileOpen ? "Close navigation" : "Open navigation"}
             className="mobile-menu-button"
-            onClick={() => setMobileOpen((open) => !open)}
+            onClick={toggleMobileNavigation}
             type="button"
           >
             <span aria-hidden="true">{mobileOpen ? "×" : "☰"}</span>
@@ -118,7 +124,7 @@ function Sidebar() {
           id="mobile-primary-navigation"
         >
           <nav className="mobile-nav-links" aria-label="Mobile primary">
-            <NavigationLinks onNavigate={() => setMobileOpen(false)} />
+            <NavigationLinks onNavigate={closeMobileNavigation} />
           </nav>
           <div className="mobile-nav-footer">
             {logoutError && <p className="sidebar-error" role="alert">{logoutError}</p>}
