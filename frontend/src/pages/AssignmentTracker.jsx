@@ -13,9 +13,9 @@ function AssignmentTracker() {
   const [message, setMessage] = useState("");
 
   const priorityOrder = {
-    High: 3,
+    High: 1,
     Medium: 2,
-    Low: 1
+    Low: 3
   };
 
   const [formData, setFormData] = useState({
@@ -148,25 +148,25 @@ function AssignmentTracker() {
     }
 
     if (sortBy == "priority-high") {
-      return priorityOrder[b.priority] - priorityOrder[a.priority];
+      return priorityOrder[a.priority] - priorityOrder[b.priority];
     }
 
     if (sortBy == "priority-low") {
-      return priorityOrder[a.priority] - priorityOrder[b.priority];
+      return priorityOrder[b.priority] - priorityOrder[a.priority];
     }
 
     return 0;
   });
 
-  const upcomingAssignments = assignments.filter(
+  const upcomingAssignments = sortedAssignments.filter(
     (assignment) => assignment.status === "Upcoming"
   );
 
-  const inProgressAssignments = assignments.filter(
+  const inProgressAssignments = sortedAssignments.filter(
     (assignment) => assignment.status === "In Progress"
   );
 
-  const completedAssignments = assignments.filter(
+  const completedAssignments = sortedAssignments.filter(
     (assignment) => assignment.status === "Completed"
   );
 
