@@ -1016,3 +1016,705 @@ describe(
     );
   }
 );
+// =========================================================
+// SCRUM-91: SESSION VALIDATION TESTS
+// =========================================================
+
+describe(
+  "GET /api/auth/me",
+  () => {
+
+    // -----------------------------------------------------
+    // Valid access token + valid refresh token
+    // -----------------------------------------------------
+
+    it(
+      "returns 200 when the access token is valid",
+      async () => {
+        getUserMock.mockResolvedValue({
+          data: {
+            user: mockUser,
+          },
+          error: null,
+        });
+
+        const app =
+          createTestApp();
+
+        const response =
+          await request(app)
+            .get("/api/auth/me")
+            .set(
+              "Cookie",
+              [
+                "asc_access_token=valid-access-token",
+                "asc_refresh_token=valid-refresh-token",
+              ]
+            );
+
+        expect(
+          response.status
+        ).toBe(200);
+
+        expect(
+          response.body
+        ).toEqual({
+          user: {
+            id: "user-123",
+            email:
+              "student@example.com",
+            displayName:
+              "Test Student",
+          },
+        });
+
+        expect(
+          getUserMock
+        ).toHaveBeenCalledWith(
+          "valid-access-token"
+        );
+
+        expect(
+          refreshSessionMock
+        ).not.toHaveBeenCalled();
+      }
+    );
+
+
+    // -----------------------------------------------------
+    // Valid access token + invalid refresh token
+    // -----------------------------------------------------
+
+    it(
+      "keeps the user authenticated when the access token is valid even if the refresh token is invalid",
+      async () => {
+        getUserMock.mockResolvedValue({
+          data: {
+            user: mockUser,
+          },
+          error: null,
+        });
+
+        const app =
+          createTestApp();
+
+        const response =
+          await request(app)
+            .get("/api/auth/me")
+            .set(
+              "Cookie",
+              [
+                "asc_access_token=valid-access-token",
+                "asc_refresh_token=invalid-refresh-token",
+              ]
+            );
+
+        expect(
+          response.status
+        ).toBe(200);
+
+        expect(
+          getUserMock
+        ).toHaveBeenCalledWith(
+          "valid-access-token"
+        );
+
+        expect(
+          refreshSessionMock
+        ).not.toHaveBeenCalled();
+      }
+    );
+
+
+    // -----------------------------------------------------
+    // Missing access token + valid refresh token
+    // -----------------------------------------------------
+
+    it(
+      "refreshes the session when the access token is missing and the refresh token is valid",
+      async () => {
+        refreshSessionMock
+          .mockResolvedValue({
+            data: {
+              user: mockUser,
+
+              session: {
+                access_token:
+                  "new-access-token",
+
+                refresh_token:
+                  "new-refresh-token",
+
+                expires_in: 3600,
+              },
+            },
+
+            error: null,
+          });
+
+        const app =
+          createTestApp();
+
+        const response =
+          await request(app)
+            .get("/api/auth/me")
+            .set(
+              "Cookie",
+              [
+                "asc_refresh_token=valid-refresh-token",
+              ]
+            );
+
+        expect(
+          response.status
+        ).toBe(200);
+
+        expect(
+          getUserMock
+        ).not.toHaveBeenCalled();
+
+        expect(
+          refreshSessionMock
+        ).toHaveBeenCalledWith({
+          refresh_token:
+            "valid-refresh-token",
+        });
+
+        const cookies =
+          response.headers[
+            "set-cookie"
+          ];
+
+        expect(
+          cookies
+        ).toBeDefined();
+
+        const cookieText =
+          cookies.join(" ");
+
+        expect(
+          cookieText
+        ).toContain(
+          "asc_access_token=new-access-token"
+        );
+
+        expect(
+          cookieText
+        ).toContain(
+          "asc_refresh_token=new-refresh-token"
+        );
+      }
+    );
+
+
+    // -----------------------------------------------------
+    // Expired access token + valid refresh token
+    // -----------------------------------------------------
+
+    it(
+      "refreshes the session when the access token is expired and the refresh token is valid",
+      async () => {
+        getUserMock.mockResolvedValue({
+          data: {
+            user: null,
+          },
+
+          error: {
+            message:
+              "JWT expired",
+          },
+        });
+
+        refreshSessionMock
+          .mockResolvedValue({
+            data: {
+              user: mockUser,
+
+              session: {
+                access_token:
+                  "refreshed-access-token",
+
+                refresh_token:
+                  "refreshed-refresh-token",
+
+                expires_in: 3600,
+              },
+            },
+
+            error: null,
+          });
+
+        const app =
+          createTestApp();
+
+        const response =
+          await request(app)
+            .get("/api/auth/me")
+            .set(
+              "Cookie",
+              [
+                "asc_access_token=expired-access-token",
+                "asc_refresh_token=valid-refresh-token",
+              ]
+            );
+
+        expect(
+          response.status
+        ).toBe(200);
+
+        expect(
+          getUserMock
+        ).toHaveBeenCalledWith(
+          "expired-access-token"
+        );
+
+        expect(
+          refreshSessionMock
+        ).toHaveBeenCalledWith({
+          refresh_token:
+            "valid-refresh-token",
+        });
+
+        const cookies =
+          response.headers[
+            "set-cookie"
+          ];
+
+        expect(
+          cookies
+        ).toBeDefined();
+
+        const cookieText =
+          cookies.join(" ");
+
+        expect(
+          cookieText
+        ).toContain(
+          "asc_access_token=refreshed-access-token"
+        );
+
+        expect(
+          cookieText
+        ).toContain(
+          "asc_refresh_token=refreshed-refresh-token"
+        );
+      }
+    );
+
+
+    // -----------------------------------------------------
+    // Invalid access token + valid refresh token
+    // -----------------------------------------------------
+
+    it(
+      "refreshes the session when the access token is invalid and the refresh token is valid",
+      async () => {
+        getUserMock.mockResolvedValue({
+          data: {
+            user: null,
+          },
+
+          error: {
+            message:
+              "Invalid access token",
+          },
+        });
+
+        refreshSessionMock
+          .mockResolvedValue({
+            data: {
+              user: mockUser,
+
+              session: {
+                access_token:
+                  "new-access-token",
+
+                refresh_token:
+                  "new-refresh-token",
+
+                expires_in: 3600,
+              },
+            },
+
+            error: null,
+          });
+
+        const app =
+          createTestApp();
+
+        const response =
+          await request(app)
+            .get("/api/auth/me")
+            .set(
+              "Cookie",
+              [
+                "asc_access_token=invalid-access-token",
+                "asc_refresh_token=valid-refresh-token",
+              ]
+            );
+
+        expect(
+          response.status
+        ).toBe(200);
+
+        expect(
+          getUserMock
+        ).toHaveBeenCalledWith(
+          "invalid-access-token"
+        );
+
+        expect(
+          refreshSessionMock
+        ).toHaveBeenCalledWith({
+          refresh_token:
+            "valid-refresh-token",
+        });
+
+        const cookies =
+          response.headers[
+            "set-cookie"
+          ];
+
+        expect(
+          cookies
+        ).toBeDefined();
+
+        const cookieText =
+          cookies.join(" ");
+
+        expect(
+          cookieText
+        ).toContain(
+          "asc_access_token=new-access-token"
+        );
+
+        expect(
+          cookieText
+        ).toContain(
+          "asc_refresh_token=new-refresh-token"
+        );
+      }
+    );
+
+
+    // -----------------------------------------------------
+    // Missing access token + invalid refresh token
+    // -----------------------------------------------------
+
+    it(
+      "returns 401 and clears stale cookies when the refresh token is invalid",
+      async () => {
+        refreshSessionMock
+          .mockResolvedValue({
+            data: {
+              user: null,
+              session: null,
+            },
+
+            error: {
+              message:
+                "Invalid refresh token",
+            },
+          });
+
+        const app =
+          createTestApp();
+
+        const response =
+          await request(app)
+            .get("/api/auth/me")
+            .set(
+              "Cookie",
+              [
+                "asc_refresh_token=invalid-refresh-token",
+              ]
+            );
+
+        expect(
+          response.status
+        ).toBe(401);
+
+        expect(
+          response.body
+        ).toEqual({
+          error:
+            "Authentication required.",
+        });
+
+        expect(
+          refreshSessionMock
+        ).toHaveBeenCalledWith({
+          refresh_token:
+            "invalid-refresh-token",
+        });
+
+        const cookies =
+          response.headers[
+            "set-cookie"
+          ];
+
+        expect(
+          cookies
+        ).toBeDefined();
+
+        const cookieText =
+          cookies.join(" ");
+
+        expect(
+          cookieText
+        ).toContain(
+          "asc_access_token=;"
+        );
+
+        expect(
+          cookieText
+        ).toContain(
+          "asc_refresh_token=;"
+        );
+      }
+    );
+
+
+    // -----------------------------------------------------
+    // Invalid access token + invalid refresh token
+    // -----------------------------------------------------
+
+    it(
+      "returns 401 and clears cookies when both tokens are invalid",
+      async () => {
+        getUserMock.mockResolvedValue({
+          data: {
+            user: null,
+          },
+
+          error: {
+            message:
+              "Invalid access token",
+          },
+        });
+
+        refreshSessionMock
+          .mockResolvedValue({
+            data: {
+              user: null,
+              session: null,
+            },
+
+            error: {
+              message:
+                "Invalid refresh token",
+            },
+          });
+
+        const app =
+          createTestApp();
+
+        const response =
+          await request(app)
+            .get("/api/auth/me")
+            .set(
+              "Cookie",
+              [
+                "asc_access_token=invalid-access-token",
+                "asc_refresh_token=invalid-refresh-token",
+              ]
+            );
+
+        expect(
+          response.status
+        ).toBe(401);
+
+        expect(
+          response.body
+        ).toEqual({
+          error:
+            "Authentication required.",
+        });
+
+        expect(
+          getUserMock
+        ).toHaveBeenCalledWith(
+          "invalid-access-token"
+        );
+
+        expect(
+          refreshSessionMock
+        ).toHaveBeenCalledWith({
+          refresh_token:
+            "invalid-refresh-token",
+        });
+
+        const cookies =
+          response.headers[
+            "set-cookie"
+          ];
+
+        expect(
+          cookies
+        ).toBeDefined();
+
+        const cookieText =
+          cookies.join(" ");
+
+        expect(
+          cookieText
+        ).toContain(
+          "asc_access_token=;"
+        );
+
+        expect(
+          cookieText
+        ).toContain(
+          "asc_refresh_token=;"
+        );
+      }
+    );
+
+
+    // -----------------------------------------------------
+    // Both tokens missing
+    // -----------------------------------------------------
+
+    it(
+      "returns 401 when both authentication cookies are missing",
+      async () => {
+        const app =
+          createTestApp();
+
+        const response =
+          await request(app)
+            .get("/api/auth/me");
+
+        expect(
+          response.status
+        ).toBe(401);
+
+        expect(
+          response.body
+        ).toEqual({
+          error:
+            "Authentication required.",
+        });
+
+        expect(
+          getUserMock
+        ).not.toHaveBeenCalled();
+
+        expect(
+          refreshSessionMock
+        ).not.toHaveBeenCalled();
+      }
+    );
+
+
+    // -----------------------------------------------------
+    // Unexpected Supabase failure during access validation
+    // -----------------------------------------------------
+
+    it(
+      "returns 500 when access-token verification fails unexpectedly",
+      async () => {
+        getUserMock.mockRejectedValue(
+          new Error(
+            "Supabase unavailable"
+          )
+        );
+
+        const app =
+          createTestApp();
+
+        const response =
+          await request(app)
+            .get("/api/auth/me")
+            .set(
+              "Cookie",
+              [
+                "asc_access_token=existing-access-token",
+                "asc_refresh_token=existing-refresh-token",
+              ]
+            );
+
+        expect(
+          response.status
+        ).toBe(500);
+
+        expect(
+          response.body
+        ).toEqual({
+          error:
+            "Unexpected server error.",
+        });
+
+        expect(
+          refreshSessionMock
+        ).not.toHaveBeenCalled();
+      }
+    );
+
+
+    // -----------------------------------------------------
+    // Unexpected Supabase failure during refresh
+    // -----------------------------------------------------
+
+    it(
+      "returns 500 when session refresh fails unexpectedly",
+      async () => {
+        getUserMock.mockResolvedValue({
+          data: {
+            user: null,
+          },
+
+          error: {
+            message:
+              "Access token expired",
+          },
+        });
+
+        refreshSessionMock
+          .mockRejectedValue(
+            new Error(
+              "Supabase unavailable"
+            )
+          );
+
+        const app =
+          createTestApp();
+
+        const response =
+          await request(app)
+            .get("/api/auth/me")
+            .set(
+              "Cookie",
+              [
+                "asc_access_token=expired-access-token",
+                "asc_refresh_token=existing-refresh-token",
+              ]
+            );
+
+        expect(
+          response.status
+        ).toBe(500);
+
+        expect(
+          response.body
+        ).toEqual({
+          error:
+            "Unexpected server error.",
+        });
+
+        expect(
+          getUserMock
+        ).toHaveBeenCalledWith(
+          "expired-access-token"
+        );
+
+        expect(
+          refreshSessionMock
+        ).toHaveBeenCalledWith({
+          refresh_token:
+            "existing-refresh-token",
+        });
+      }
+    );
+  }
+)

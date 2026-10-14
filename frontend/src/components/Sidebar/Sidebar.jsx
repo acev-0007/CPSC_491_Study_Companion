@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { NavLink, useNavigate } from "react-router-dom";
 import { logoutAccount } from "../../api/auth";
 import "./Sidebar.css";
 
@@ -53,15 +53,14 @@ function NavigationLinks({ onNavigate }) {
 
 function Sidebar() {
   const navigate = useNavigate();
-  const location = useLocation();
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState("");
 
-  useEffect(() => {
+  const closeMobileNavigation = () => {
     setMobileOpen(false);
-  }, [location.pathname]);
+  };
 
   const handleLogout = async () => {
     setLogoutError("");
@@ -128,9 +127,7 @@ function Sidebar() {
             onClick={handleLogout}
             type="button"
           >
-            {loggingOut
-              ? "Logging out..."
-              : "Log out"}
+            {loggingOut ? "Logging out..." : "Log out"}
           </button>
         </div>
       </aside>
@@ -140,6 +137,7 @@ function Sidebar() {
           <NavLink
             className="mobile-brand"
             end
+            onClick={closeMobileNavigation}
             to="/"
           >
             <span
@@ -185,9 +183,7 @@ function Sidebar() {
             aria-label="Mobile primary"
           >
             <NavigationLinks
-              onNavigate={() =>
-                setMobileOpen(false)
-              }
+              onNavigate={closeMobileNavigation}
             />
           </nav>
 
@@ -207,9 +203,7 @@ function Sidebar() {
               onClick={handleLogout}
               type="button"
             >
-              {loggingOut
-                ? "Logging out..."
-                : "Log out"}
+              {loggingOut ? "Logging out..." : "Log out"}
             </button>
           </div>
         </div>

@@ -271,4 +271,84 @@ describe("Flashcards page - loading, empty, and failure states", () => {
 
     expect(screen.queryByRole("button", { name: "Next" })).not.toBeInTheDocument();
   });
+
+  // CICD-ANT-2: the earlier empty-state test only checked Next -- extend
+  // the same gap to the Edit control, which was never covered.
+  it("does not render the edit control when the set is empty", async () => {
+    getFlashcards.mockResolvedValue([]);
+    render(<Flashcards />);
+    await screen.findByText(/no flashcards are available/i);
+
+    expect(
+      screen.queryByRole("button", { name: /edit flashcard/i })
+    ).not.toBeInTheDocument();
+  });
+});
+
+// =========================================================
+// CICD-ANT-2: Expand Flashcard Automated Regression Tests
+// =========================================================
+// These close gaps the Sprint 1 suite above didn't cover: the flip
+// indicator's accessible state, and a flip/edit-cancel interaction that
+// could silently regress if a future edit-mode change left the card
+// unable to flip again afterward.
+
+describe("Flashcards page - accessibility state (CICD-ANT-2)", () => {
+  it("reflects the flipped state via aria-pressed", async () => {
+    const user = userEvent.setup();
+    await renderLoaded();
+
+    const card = screen.getByRole("button", { name: /click to flip/i });
+    expect(card).toHaveAttribute("aria-pressed", "false");
+
+    await user.click(card);
+
+    expect(card).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("resets aria-pressed to false after navigating to the next card", async () => {
+    const user = userEvent.setup();
+    await renderLoaded();
+
+    const card = screen.getByRole("button", { name: /click to flip/i });
+    await user.click(card);
+    expect(card).toHaveAttribute("aria-pressed", "true");
+
+    await user.click(screen.getByRole("button", { name: "Next" }));
+
+    expect(
+      screen.getByRole("button", { name: /click to flip/i })
+    ).toHaveAttribute("aria-pressed", "false");
+  });
+});
+
+describe("Flashcards page - edit/flip regression (CICD-ANT-2)", () => {
+  it("can still flip a card normally after canceling an edit on it", async () => {
+    const user = userEvent.setup();
+    await renderLoaded();
+
+    // Enter edit mode, then back out without saving.
+    await user.click(screen.getByRole("button", { name: /edit flashcard/i }));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+    // Flip should work exactly as if edit mode had never been entered.
+    const card = screen.getByRole("button", { name: /click to flip/i });
+    await user.click(card);
+
+    expect(screen.getByText("A1")).toBeInTheDocument();
+    expect(card).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("can still navigate normally after canceling an edit", async () => {
+    const user = userEvent.setup();
+    await renderLoaded();
+
+    await user.click(screen.getByRole("button", { name: /edit flashcard/i }));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+    await user.click(screen.getByRole("button", { name: "Next" }));
+
+    expect(screen.getByText("Q2")).toBeInTheDocument();
+    expect(screen.getByText("Card 2 of 3")).toBeInTheDocument();
+  });
 });
