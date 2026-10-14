@@ -21,3 +21,70 @@ CREATE TABLE assignments (
 
 -- Creates organized, fast lookup directory
 CREATE INDEX index_assignments_user_duedate ON assignments(user_id, duedate ASC);
+
+-- =========================================================
+-- FLASHCARD / TOPIC SCHEMA
+-- Sprint 2 - FLASH-4 / FLASH-5
+-- =========================================================
+
+CREATE TABLE topics (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    source_text TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE flashcards (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    topic_id UUID NOT NULL
+        REFERENCES topics(id)
+        ON DELETE CASCADE,
+
+    user_id UUID NOT NULL,
+
+    front TEXT NOT NULL,
+    back TEXT NOT NULL,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+
+-- =========================================================
+-- ROW LEVEL SECURITY
+-- =========================================================
+
+ALTER TABLE topics
+ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE flashcards
+ENABLE ROW LEVEL SECURITY;
+
+
+-- Authenticated users may only access Topics they own.
+CREATE POLICY "Users can manage own topics"
+ON topics
+FOR ALL
+TO authenticated
+USING (
+    auth.uid() = user_id
+)
+WITH CHECK (
+    auth.uid() = user_id
+);
+
+
+-- Authenticated users may only access Flashcards they own.
+CREATE POLICY "Users can manage own flashcards"
+ON flashcards
+FOR ALL
+TO authenticated
+USING (
+    auth.uid() = user_id
+)
+WITH CHECK (
+    auth.uid() = user_id
+);

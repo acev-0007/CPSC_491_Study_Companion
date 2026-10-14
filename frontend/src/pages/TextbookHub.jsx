@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import DocumentCard from "../components/textbookHub/DocumentCard";
 import DocumentUploadForm from "../components/textbookHub/DocumentUploadForm";
 import { listDocuments, uploadDocument, updateDocument, deleteDocument} from "../api/documents";
@@ -22,21 +22,76 @@ function TextbookHub() {
   const [course, setCourse] = useState("");
   const [selectedDocument, setSelectedDocument] = useState(null);
 
-  const loadDocuments = useCallback(async () => {
+
+
+  const [categoryFilter, setCategoryFilter] = useState("All");
+  const [courseFilter, setCourseFilter] = useState("All");
+
+  const courseOptions = [
+  ...new Set(
+    documents
+      .map((document) => document.course)
+      .filter(Boolean)),].sort();
+
+  const filteredDocuments = documents.filter((document) => {
+  const matchesCategory =
+    categoryFilter === "All" ||
+    document.category === categoryFilter;
+
+  const matchesCourse =
+    courseFilter === "All" ||
+    document.course === courseFilter;
+
+  return matchesCategory && matchesCourse;});
+
+
+  
+    //used to be const Load documents, changed for linting purposes.
+  useEffect(() => {
+    let cancelled = false;
+
+    listDocuments()
+      .then((loadedDocuments) => {
+        if (!cancelled) {
+          setDocuments(
+            Array.isArray(loadedDocuments) ? loadedDocuments : []
+          );
+        }
+      })
+      .catch((requestError) => {
+        if (!cancelled) {
+          setError(requestError.message);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function loadDocuments() {
     setLoading(true);
     setError("");
+
     try {
-      setDocuments(await listDocuments());
+      const loadedDocuments = await listDocuments();
+
+      setDocuments(
+        Array.isArray(loadedDocuments) ? loadedDocuments : []
+      );
     } catch (requestError) {
       setError(requestError.message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }
 
-  useEffect(() => {
-    loadDocuments();
-  }, [loadDocuments]);
+
 
   async function handleUpload(file) {
     setUploading(true);
@@ -124,17 +179,77 @@ function TextbookHub() {
         </button>
       </div>
 
+
+
+
+      <div className="hub-filters">
+        <label>
+          Category
+          <select
+            value={categoryFilter}
+            onChange={(event) =>
+              setCategoryFilter(event.target.value)
+            }
+          >
+            <option value="All">All categories</option>
+
+            {CATEGORIES.map((category) => (
+              <option key={category} value={category}>
+                {category}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label>
+          Course
+          <select
+            value={courseFilter}
+            onChange={(event) =>
+              setCourseFilter(event.target.value)
+            }
+          >
+            <option value="All">All courses</option>
+
+            {courseOptions.map((course) => (
+              <option key={course} value={course}>
+                {course}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+
+
+
+
       {loading ? (
-        <p className="hub-state" role="status">Loading documents...</p>
+        <p className="hub-state" role="status">
+          Loading documents...
+        </p>
       ) : documents.length === 0 ? (
         <div className="hub-empty-state">
           <h3>No documents yet</h3>
-          <p>Upload a TXT or PDF file to start building your study library.</p>
+          <p>
+            Upload a TXT or PDF file to start building your study library.
+          </p>
+        </div>
+      ) : filteredDocuments.length === 0 ? (
+        <div className="hub-empty-state">
+          <h3>No matching documents</h3>
+          <p>
+            Try changing the selected category or course.
+          </p>
         </div>
       ) : (
         <div className="document-grid">
-          {documents.map((document) => (
-            <DocumentCard key={document.id} document={document} onOpen={() => setSelectedDocument(document)} />
+          {filteredDocuments.map((document) => (
+            <DocumentCard
+              key={document.id}
+              document={document}
+              onOpen={() => setSelectedDocument(document)}
+            />
           ))}
         </div>
       )}
@@ -147,7 +262,9 @@ function TextbookHub() {
         onClose={() => setSelectedDocument(null)}
         />)}
     </section>
-  );
+    
+  )
+
 }
 
 export default TextbookHub;

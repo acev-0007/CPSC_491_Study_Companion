@@ -11,7 +11,7 @@
 // Because it is already async, the page's loading/await handling does not
 // need to change when a real network call replaces the mock return.
 
-import mockFlashcards from "./mockFlashcards";
+
 import { normalizeFlashcards } from "./flashcardContract";
 
 /**
@@ -20,13 +20,17 @@ import { normalizeFlashcards } from "./flashcardContract";
  * a future AI response cannot break an entire study session.
  */
 export async function getFlashcards() {
-  // --- Sprint 2/3 replacement point -------------------------------------
-  // const response = await fetch("/api/flashcards");
-  // if (!response.ok) throw new Error("Failed to load flashcards");
-  // const data = await response.json();
-  // return normalizeFlashcards(data);
-  // ----------------------------------------------------------------------
-  return normalizeFlashcards(mockFlashcards);
+  const response = await fetch("/api/flashcards", {
+    credentials: "same-origin",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to load flashcards");
+  }
+
+  const data = await response.json();
+
+  return normalizeFlashcards(data.flashcards);
 }
 
 export default getFlashcards;
