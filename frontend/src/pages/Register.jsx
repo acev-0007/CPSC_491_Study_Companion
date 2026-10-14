@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { registerAccount } from "../api/auth";
+import { getCurrentUser, registerAccount } from "../api/auth";
 
 function Register() {
   const navigate = useNavigate();
@@ -14,6 +14,8 @@ function Register() {
   const [loading, setLoading] = useState(false);
   const [accountCreated, setAccountCreated] = useState(false);
   const [requiresEmailConfirmation, setRequiresEmailConfirmation] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(false);
+  const [sessionError, setSessionError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -45,6 +47,28 @@ function Register() {
     }
   };
 
+  const handleContinue = async () => {
+    if (requiresEmailConfirmation) {
+      navigate("/login");
+      return;
+    }
+
+    setSessionError("");
+    setCheckingSession(true);
+    try {
+      const result = await getCurrentUser();
+      if (result.user) {
+        navigate("/dashboard", { replace: true });
+      } else {
+        setSessionError("Your account was created, but you are not signed in. Please log in to continue.");
+      }
+    } catch {
+      setSessionError("Your account was created, but we couldn't verify your session. Try again or log in to continue.");
+    } finally {
+      setCheckingSession(false);
+    }
+  };
+
   const passwordsDoNotMatch = errorMessage === "Passwords do not match.";
 
   if (accountCreated) {
@@ -69,17 +93,25 @@ function Register() {
               <p className="auth-subtitle auth-success-copy">
                 {requiresEmailConfirmation
                   ? "Check your email to confirm your account before logging in."
-                  : "Your account is ready. You can continue to your dashboard."}
+                  : "Your account is ready. Continue to your dashboard if you are signed in."}
               </p>
             </div>
+            {sessionError && (
+              <div className="auth-message auth-message-error" role="alert">
+                <span className="auth-message-icon" aria-hidden="true">!</span>
+                <span>{sessionError} <Link to="/login">Go to Login</Link></span>
+              </div>
+            )}
             <button
               className="auth-button"
               type="button"
-              onClick={() =>
-                navigate(requiresEmailConfirmation ? "/login" : "/dashboard")
-              }
+              onClick={handleContinue}
+              disabled={checkingSession}
+              aria-busy={checkingSession}
             >
-              {requiresEmailConfirmation ? "Go to Login" : "Continue"}
+              {requiresEmailConfirmation
+                ? "Go to Login"
+                : checkingSession ? "Checking session..." : "Continue"}
             </button>
           </section>
         </main>
