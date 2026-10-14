@@ -37,6 +37,9 @@ import {
   createUserSupabaseClient,
 } from "./config/supabase.js";
 
+import assignmentRoutes
+  from "./routes/assignmentRoutes.js";
+
 const MAX_FILE_SIZE =
   10 * 1024 * 1024;
 
@@ -717,6 +720,14 @@ app.post(
     }
   );
 
+  // ========================================
+  // ASSIGNMENT TRACKER ROUTE
+  // ========================================
+  
+  app.use(
+    "/api/assignments",
+    assignmentRoutes
+  );
 
   return app;
 }
