@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import "./AssignmentTracker.css";
 import { getDeadlineStatus } from "../utils/assignmentStatus";
+import { sortAssignments } from "../utils/assignmentSorting";
 
 function AssignmentTracker() {
   const [assignments, setAssignments] = useState([]);
@@ -11,12 +12,6 @@ function AssignmentTracker() {
   const [sortBy, setSortBy] = useState("duedate");
 
   const [message, setMessage] = useState("");
-
-  const priorityOrder = {
-    High: 1,
-    Medium: 2,
-    Low: 3
-  };
 
   const [formData, setFormData] = useState({
     title: "",
@@ -87,6 +82,10 @@ function AssignmentTracker() {
             Completed
           </span>
         )}
+        <p>
+          <strong>Notes:</strong>{" "}
+          {assignment.notes}
+        </p>
       </div>
     );
   }
@@ -142,22 +141,8 @@ function AssignmentTracker() {
     })
   }
 
-  const sortedAssignments = [...assignments].sort((a, b) => {
-    if (sortBy == "duedate") {
-      return new Date(a.duedate) - new Date(b.duedate);
-    }
-
-    if (sortBy == "priority-high") {
-      return priorityOrder[a.priority] - priorityOrder[b.priority];
-    }
-
-    if (sortBy == "priority-low") {
-      return priorityOrder[b.priority] - priorityOrder[a.priority];
-    }
-
-    return 0;
-  });
-
+  const sortedAssignments = sortAssignments(assignments, sortBy);
+ 
   const upcomingAssignments = sortedAssignments.filter(
     (assignment) => assignment.status === "Upcoming"
   );
