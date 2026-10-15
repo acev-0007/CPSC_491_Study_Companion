@@ -382,22 +382,34 @@ describe("Flashcards page - edit interaction (FLASH-2)", () => {
 // =========================================================
 
 describe("Flashcards page - loading, empty, and failure states", () => {
-  it("shows a loading message while fetching cards", () => {
-    getFlashcards.mockReturnValue(
-      new Promise(() => {})
-    );
+  it("shows a loading message while fetching saved cards", async () => {
+  const user = userEvent.setup();
 
-    render(<Flashcards />);
+  getFlashcards.mockReturnValue(new Promise(() => {}));
 
-    expect(
-      screen.getByText(/loading flashcards/i)
-    ).toBeInTheDocument();
-  });
+  render(<Flashcards />);
 
+  await user.click(
+    screen.getByRole("button", {
+      name: "Study Saved Flashcards",
+    })
+  );
+
+  expect(
+    screen.getByText(/loading flashcards/i)
+  ).toBeInTheDocument();
+});
   it("shows an empty state when no cards exist", async () => {
     getFlashcards.mockResolvedValue([]);
 
     render(<Flashcards />);
+    const user = userEvent.setup();
+
+await user.click(
+  screen.getByRole("button", {
+    name: "Study Saved Flashcards",
+  })
+);
 
     expect(
       await screen.findByText(/no flashcards are available/i)
@@ -410,6 +422,13 @@ describe("Flashcards page - loading, empty, and failure states", () => {
     );
 
     render(<Flashcards />);
+    const user = userEvent.setup();
+
+await user.click(
+  screen.getByRole("button", {
+    name: "Study Saved Flashcards",
+  })
+);
 
     await waitFor(() => {
       expect(screen.getByRole("alert")).toHaveTextContent(
@@ -422,6 +441,13 @@ describe("Flashcards page - loading, empty, and failure states", () => {
     getFlashcards.mockResolvedValue([]);
 
     render(<Flashcards />);
+    const user = userEvent.setup();
+
+await user.click(
+  screen.getByRole("button", {
+    name: "Study Saved Flashcards",
+  })
+);
 
     await screen.findByText(/no flashcards are available/i);
 
@@ -434,6 +460,13 @@ describe("Flashcards page - loading, empty, and failure states", () => {
     getFlashcards.mockResolvedValue([]);
 
     render(<Flashcards />);
+    const user = userEvent.setup();
+
+await user.click(
+  screen.getByRole("button", {
+    name: "Study Saved Flashcards",
+  })
+);
 
     await screen.findByText(/no flashcards are available/i);
 
@@ -538,27 +571,33 @@ describe("Flashcards page - edit/flip regression (CICD-ANT-2)", () => {
 // =========================================================
 
 describe("Flashcards page - saved cards visibility (SCRUM-121)", () => {
-  it("shows the input and hides saved cards initially", async () => {
-    getFlashcards.mockResolvedValue(SAMPLE_CARDS);
+  it("shows the home screen without opening either deck", async () => {
+  getFlashcards.mockResolvedValue(SAMPLE_CARDS);
 
-    render(<Flashcards />);
+  render(<Flashcards />);
 
-    expect(
-      await screen.findByRole("button", {
-        name: "Study Saved Flashcards",
-      })
-    ).toBeInTheDocument();
-
-    expect(
-      screen.getByLabelText("Paste Study Notes")
-    ).toBeInTheDocument();
-
-    expect(screen.queryByText("Q1")).not.toBeInTheDocument();
-
-    expect(
-      screen.queryByText("Card 1 of 3")
-    ).not.toBeInTheDocument();
+  await waitFor(() => {
+    expect(getFlashcards).toHaveBeenCalledTimes(1);
   });
+
+  expect(
+    screen.getByRole("button", {
+      name: "Generate New Flashcards",
+    })
+  ).toBeInTheDocument();
+
+  expect(
+    screen.getByRole("button", {
+      name: "Study Saved Flashcards",
+    })
+  ).toBeInTheDocument();
+
+  expect(
+    screen.queryByLabelText("Paste Study Notes")
+  ).not.toBeInTheDocument();
+
+  expect(screen.queryByText("Q1")).not.toBeInTheDocument();
+});
 
   it("reveals saved cards when requested", async () => {
     await renderLoaded();
@@ -578,9 +617,11 @@ describe("Flashcards page - saved cards visibility (SCRUM-121)", () => {
 
     render(<Flashcards />);
 
-    await screen.findByRole("button", {
-      name: "Study Saved Flashcards",
-    });
+    await user.click(
+  screen.getByRole("button", {
+    name: "Generate New Flashcards",
+  })
+);
 
     await user.type(
       screen.getByLabelText("Paste Study Notes"),
@@ -623,9 +664,11 @@ describe("Flashcards page - AI generation (SCRUM-122)", () => {
 
     render(<Flashcards />);
 
-    await screen.findByRole("button", {
-      name: "Study Saved Flashcards",
-    });
+    await user.click(
+  screen.getByRole("button", {
+    name: "Generate New Flashcards",
+  })
+);
 
     await user.type(
       screen.getByLabelText("Paste Study Notes"),
@@ -652,5 +695,76 @@ describe("Flashcards page - AI generation (SCRUM-122)", () => {
 
     // Generation does not automatically open saved cards.
     expect(screen.queryByText("Q1")).not.toBeInTheDocument();
+  });
+});
+describe("SCRUM-123: generated flashcard study view", () => {
+  it("opens a dedicated study session with flip and navigation", async () => {
+    const user = userEvent.setup();
+
+    getFlashcards.mockResolvedValue(SAMPLE_CARDS);
+
+    generateFlashcards.mockResolvedValueOnce({
+      flashcards: [
+        { front: "Question one", back: "Answer one" },
+        { front: "Question two", back: "Answer two" },
+      ],
+      isStub: false,
+    });
+
+    render(<Flashcards />);
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Generate New Flashcards",
+      })
+    );
+
+    await user.type(
+      screen.getByLabelText("Paste Study Notes"),
+      "Study material for generation."
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Generate Flashcards",
+      })
+    );
+
+    expect(
+      await screen.findByText("Question one")
+    ).toBeInTheDocument();
+
+    expect(
+      screen.queryByLabelText("Paste Study Notes")
+    ).not.toBeInTheDocument();
+
+    expect(screen.getByText("Card 1 of 2")).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", {
+        name: /click to flip/i,
+      })
+    );
+
+    expect(screen.getByText("Answer one")).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: "Next" })
+    );
+
+    expect(screen.getByText("Question two")).toBeInTheDocument();
+    expect(screen.getByText("Card 2 of 2")).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", {
+        name: /back to flashcards/i,
+      })
+    );
+
+    expect(
+      screen.getByRole("button", {
+        name: "Generate New Flashcards",
+      })
+    ).toBeInTheDocument();
   });
 });

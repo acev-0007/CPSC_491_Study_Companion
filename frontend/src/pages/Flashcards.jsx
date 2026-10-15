@@ -15,7 +15,7 @@ function Flashcards() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
 
-  const [showSaved, setShowSaved] = useState(false);
+  const [view, setView] = useState("home");
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
@@ -48,8 +48,10 @@ function Flashcards() {
     };
   }, []);
 
-  const isGeneratedDeck = generatedCards !== null;
-  const cards = isGeneratedDeck ? generatedCards : savedCards;
+  const isGeneratedDeck = view === "generated";
+  const cards = isGeneratedDeck
+  ? (generatedCards ?? [])
+  : savedCards;
 
   const totalCards = cards.length;
   const card = cards[currentIndex];
@@ -58,6 +60,25 @@ function Flashcards() {
   const isLastCard = currentIndex === totalCards - 1;
 
   // The viewer can edit either deck without mixing their data.
+
+  function handleBackToHome() {
+  setView("home");
+  setGenerationNotice(null);
+  resetStudySession();
+}
+
+function handleOpenGeneration() {
+  setView("generate");
+  setGenerationNotice(null);
+  resetStudySession();
+}
+
+function handleShowSavedCards() {
+  setView("saved");
+  setGenerationNotice(null);
+  resetStudySession();
+}
+
   function updateActiveCards(updater) {
     if (isGeneratedDeck) {
       setGeneratedCards(updater);
@@ -123,222 +144,246 @@ function Flashcards() {
     setIsEditing(false);
   }
 
-  function handleShowSavedCards() {
-    setGeneratedCards(null);
-    setGenerationNotice(null);
-    setShowSaved(true);
-    resetStudySession();
-  }
-
   /**
    * SCRUM-123:
    * Consume the structured response from SCRUM-122.
    * Validate cards before displaying them.
    */
   async function handleGenerate(studyText) {
-    setGenerationNotice(null);
+  setGenerationNotice(null);
 
-    const result = await generateFlashcards(studyText);
+  const result = await generateFlashcards(studyText);
 
-    const { flashcards, rejectedCount } =
-      adaptGeneratedFlashcards(result.flashcards);
+  const { flashcards, rejectedCount } =
+    adaptGeneratedFlashcards(result.flashcards);
 
-    if (flashcards.length === 0) {
-      setGenerationNotice(
-        "No usable flashcards were generated from those notes. " +
-        "Try adding more detail and generating again."
-      );
-      return;
-    }
-
-    setGeneratedCards(flashcards);
-    setShowSaved(false);
-    resetStudySession();
-
-    const count =
-      `${flashcards.length} flashcard` +
-      (flashcards.length === 1 ? "" : "s");
-
-    if (rejectedCount > 0) {
-      setGenerationNotice(
-        `Generated ${count}. ` +
-        `${rejectedCount} invalid card` +
-        (rejectedCount === 1 ? " was" : "s were") +
-        " skipped."
-      );
-    } else {
-      setGenerationNotice(`Generated ${count}.`);
-    }
+  if (flashcards.length === 0) {
+    setGenerationNotice(
+      "No usable flashcards were generated. " +
+      "Try adding more detailed notes."
+    );
+    return;
   }
 
-  const showViewer =
-    totalCards > 0 &&
-    (isGeneratedDeck || showSaved);
+  setGeneratedCards(flashcards);
+  resetStudySession();
 
-  return (
-    <section className="flashcards-page">
-      <h1>Flashcards</h1>
+  const count = flashcards.length;
 
-      <StudyMaterialInput onGenerate={handleGenerate} />
+  setGenerationNotice(
+    rejectedCount > 0
+      ? `Generated ${count} flashcards. ${rejectedCount} invalid cards skipped.`
+      : `Generated ${count} flashcards.`
+  );
 
-      {generationNotice && (
-        <p
-          role="status"
-          className="flashcards-generation-notice"
-        >
-          {generationNotice}
+  // Hide the input and open the generated deck.
+  setView("generated");
+}
+
+  
+return (
+  <section className="flashcards-page">
+    <h1>Flashcards</h1>
+
+    {view === "home" && (
+      <div className="flashcards-home">
+        <h2>Study Flashcards</h2>
+        <p>
+          Generate new flashcards from your notes or
+          continue studying saved cards.
         </p>
-      )}
 
-      {!isGeneratedDeck && isLoading ? (
-        <p>Loading flashcards...</p>
-      ) : !isGeneratedDeck && loadError ? (
-        <p role="alert">{loadError}</p>
-      ) : showViewer ? (
-        <>
-          {isGeneratedDeck && (
-            <div className="flashcards-deck-label">
-              <span>AI-generated deck</span>
+        <button
+          type="button"
+          className="flashcards-primary-btn"
+          onClick={handleOpenGeneration}
+        >
+          Generate New Flashcards
+        </button>
 
-              <button
-                type="button"
-                onClick={handleShowSavedCards}
-              >
-                Back to saved cards
-              </button>
-            </div>
-          )}
+        <button
+          type="button"
+          onClick={handleShowSavedCards}
+        >
+          Study Saved Flashcards
+        </button>
+      </div>
+    )}
 
-          <p className="flashcards-progress">
-            Card {currentIndex + 1} of {totalCards}
+    {view === "generate" && (
+      <>
+        <button
+          type="button"
+          className="flashcards-back-btn"
+          onClick={handleBackToHome}
+        >
+          ← Back
+        </button>
+
+        <StudyMaterialInput onGenerate={handleGenerate} />
+
+        {generationNotice && (
+          <p
+            role="status"
+            className="flashcards-generation-notice"
+          >
+            {generationNotice}
           </p>
+        )}
+      </>
+    )}
 
-          {isEditing ? (
-            <form
-              className="flashcard-edit-form"
-              onSubmit={handleSaveEdit}
-            >
-              <label htmlFor="flashcard-front-input">
-                Front
-              </label>
-
-              <textarea
-                id="flashcard-front-input"
-                value={draftFront}
-                onChange={(event) =>
-                  setDraftFront(event.target.value)
-                }
-                rows={3}
-                required
-              />
-
-              <label htmlFor="flashcard-back-input">
-                Back
-              </label>
-
-              <textarea
-                id="flashcard-back-input"
-                value={draftBack}
-                onChange={(event) =>
-                  setDraftBack(event.target.value)
-                }
-                rows={3}
-                required
-              />
-
-              <div className="flashcard-edit-actions">
-                <button
-                  type="submit"
-                  className="flashcards-primary-btn"
-                >
-                  Save
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleCancelEdit}
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          ) : (
-            <div
-              className="flashcard"
-              role="button"
-              tabIndex={0}
-              aria-pressed={isFlipped}
-              onClick={handleFlip}
-              onKeyDown={(event) => {
-                if (
-                  event.key === "Enter" ||
-                  event.key === " "
-                ) {
-                  event.preventDefault();
-                  handleFlip();
-                }
-              }}
-            >
-              <p>{isFlipped ? card.back : card.front}</p>
-
-              <span className="flashcard-hint">
-                Click to flip
-              </span>
-            </div>
-          )}
-
-          {!isEditing && (
-            <>
-              <div className="flashcards-controls">
-                <button
-                  type="button"
-                  onClick={handlePrevious}
-                  disabled={isFirstCard}
-                >
-                  Previous
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleNext}
-                  disabled={isLastCard}
-                >
-                  Next
-                </button>
-              </div>
-
-              <button
-                type="button"
-                className="flashcard-edit-btn"
-                onClick={handleStartEdit}
-              >
-                Edit flashcard
-              </button>
-            </>
-          )}
-        </>
-      ) : !isGeneratedDeck && totalCards > 0 ? (
-        <div className="flashcards-saved">
-          <h2>Existing Flashcards</h2>
-
-          <p>
-            Continue studying cards already saved
-            to your account.
-          </p>
-
+    {(view === "generated" || view === "saved") && (
+      <>
+        <div className="flashcards-session-header">
           <button
             type="button"
-            className="flashcards-primary-btn"
-            onClick={handleShowSavedCards}
+            className="flashcards-back-btn"
+            onClick={handleBackToHome}
           >
-            Study Saved Flashcards
+            ← Back to Flashcards
           </button>
+
+          <span className="flashcards-deck-type">
+            {isGeneratedDeck
+              ? "AI-generated deck"
+              : "Saved flashcards"}
+          </span>
         </div>
-      ) : (
-        <p>No flashcards are available yet.</p>
-      )}
-    </section>
-  );
+
+        {isGeneratedDeck && generationNotice && (
+          <p
+            role="status"
+            className="flashcards-generation-notice"
+          >
+            {generationNotice}
+          </p>
+        )}
+
+        {view === "saved" && isLoading ? (
+          <p>Loading flashcards...</p>
+        ) : view === "saved" && loadError ? (
+          <p role="alert">{loadError}</p>
+        ) : totalCards === 0 ? (
+          <p>No flashcards are available yet.</p>
+        ) : (
+          <>
+            <p className="flashcards-progress">
+              Card {currentIndex + 1} of {totalCards}
+            </p>
+
+            {isEditing ? (
+              <form
+                className="flashcard-edit-form"
+                onSubmit={handleSaveEdit}
+              >
+                <label htmlFor="flashcard-front-input">
+                  Front
+                </label>
+
+                <textarea
+                  id="flashcard-front-input"
+                  value={draftFront}
+                  onChange={(event) =>
+                    setDraftFront(event.target.value)
+                  }
+                  rows={3}
+                  required
+                />
+
+                <label htmlFor="flashcard-back-input">
+                  Back
+                </label>
+
+                <textarea
+                  id="flashcard-back-input"
+                  value={draftBack}
+                  onChange={(event) =>
+                    setDraftBack(event.target.value)
+                  }
+                  rows={3}
+                  required
+                />
+
+                <div className="flashcard-edit-actions">
+                  <button
+                    type="submit"
+                    className="flashcards-primary-btn"
+                  >
+                    Save
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleCancelEdit}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div
+                className="flashcard"
+                role="button"
+                tabIndex={0}
+                aria-pressed={isFlipped}
+                onClick={handleFlip}
+                onKeyDown={(event) => {
+                  if (
+                    event.key === "Enter" ||
+                    event.key === " "
+                  ) {
+                    event.preventDefault();
+                    handleFlip();
+                  }
+                }}
+              >
+                <p>
+                  {isFlipped ? card.back : card.front}
+                </p>
+
+                <span className="flashcard-hint">
+                  Click to flip
+                </span>
+              </div>
+            )}
+
+            {!isEditing && (
+              <>
+                <div className="flashcards-controls">
+                  <button
+                    type="button"
+                    onClick={handlePrevious}
+                    disabled={isFirstCard}
+                  >
+                    Previous
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleNext}
+                    disabled={isLastCard}
+                  >
+                    Next
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  className="flashcard-edit-btn"
+                  onClick={handleStartEdit}
+                >
+                  Edit flashcard
+                </button>
+              </>
+            )}
+          </>
+        )}
+      </>
+    )}
+  </section>
+);
+
 }
 
 export default Flashcards;
