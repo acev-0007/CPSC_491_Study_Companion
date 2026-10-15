@@ -73,7 +73,7 @@ describe("Assignment Status and Deadline Tests", () => {
             duedate: "2026-10-16T12:00:00Z",
             status: "Completed",
         };
-        expect(isOverdue(assignment)).toBe(false);
+        expect(isDueSoon(assignment)).toBe(false);
         expect(getDeadlineStatus(assignment)).toBe("completed");
     });
 
@@ -125,6 +125,15 @@ describe("Assignment Status and Deadline Tests", () => {
         };
         expect(isDueSoon(assignment)).toBe(false);
     });
+
+    test("does not mark overdue assignments as due soon", () => {
+        const assignment = {
+            duedate: "2026-10-13T12:00:00Z",
+            status: "Upcoming",
+        };
+        expect(isDueSoon(assignment)).toBe(false);
+        expect(getDeadlineStatus(assignment)).toBe("overdue");
+    })
 });
 
 
