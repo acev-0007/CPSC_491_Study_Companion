@@ -23,6 +23,7 @@ import cookieParser from "cookie-parser";
 
 const {
   signUpMock,
+  verifyOtpMock,
   signInWithPasswordMock,
   setSessionMock,
   signOutMock,
@@ -30,6 +31,7 @@ const {
   refreshSessionMock,
 } = vi.hoisted(() => ({
   signUpMock: vi.fn(),
+  verifyOtpMock: vi.fn(),
 
   signInWithPasswordMock:
     vi.fn(),
@@ -53,6 +55,8 @@ vi.mock(
         auth: {
           signUp:
             signUpMock,
+
+          verifyOtp: verifyOtpMock,
 
           signInWithPassword:
             signInWithPasswordMock,
@@ -1718,3 +1722,297 @@ describe(
     );
   }
 )
+
+
+// =========================================================
+// EIGHT-DIGIT EMAIL VERIFICATION API TESTS (SCRUM-259)
+// =========================================================
+
+describe("POST /api/auth/verify-email", () => {
+  const validRequest = {
+    email: "Student@Example.com ",
+    code: "01234567",
+  };
+
+  it("verifies a valid code, normalizes email, and establishes a session", async () => {
+    verifyOtpMock.mockResolvedValue({
+      data: { user: mockUser, session: mockSession },
+      error: null,
+    });
+
+    const response = await request(createTestApp())
+      .post("/api/auth/verify-email")
+      .send(validRequest);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      message: "Email verified successfully.",
+      user: {
+        id: mockUser.id,
+        email: mockUser.email,
+        displayName: "Test Student",
+      },
+      authenticated: true,
+    });
+    expect(verifyOtpMock).toHaveBeenCalledTimes(1);
+    expect(verifyOtpMock).toHaveBeenCalledWith({
+      email: "student@example.com",
+      token: "01234567",
+      type: "signup",
+    });
+    const cookies = response.headers["set-cookie"] || [];
+    expect(cookies.some((value) => value.startsWith("asc_access_token=") && value.includes("HttpOnly"))).toBe(true);
+    expect(cookies.some((value) => value.startsWith("asc_refresh_token=") && value.includes("HttpOnly"))).toBe(true);
+  });
+
+  it.each([
+    ["missing email", { code: "01234567" }],
+    ["invalid email", { email: "not-an-email", code: "01234567" }],
+    ["non-string email", { email: 123, code: "01234567" }],
+    ["missing code", { email: "student@example.com" }],
+    ["short code", { email: "student@example.com", code: "1234567" }],
+    ["long code", { email: "student@example.com", code: "123456789" }],
+    ["letters in code", { email: "student@example.com", code: "1234abcd" }],
+    ["numeric code", { email: "student@example.com", code: 12345678 }],
+    ["empty payload", {}],
+  ])("rejects %s before contacting Supabase", async (_name, payload) => {
+    const response = await request(createTestApp())
+      .post("/api/auth/verify-email")
+      .send(payload);
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: "Enter your email address and a valid eight-digit code.",
+    });
+    expect(verifyOtpMock).not.toHaveBeenCalled();
+    expect(response.headers["set-cookie"]).toBeUndefined();
+  });
+
+  it.each(["invalid", "expired", "reused"])(
+    "rejects a %s code without establishing a session",
+    async () => {
+      // Supabase enforces code validity, expiry, and one-time use.
+      verifyOtpMock.mockResolvedValue({
+        data: { user: null, session: null },
+        error: { message: "OTP expired or invalid" },
+      });
+      const response = await request(createTestApp())
+        .post("/api/auth/verify-email")
+        .send(validRequest);
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toMatch(/invalid or has expired/i);
+      expect(response.headers["set-cookie"]).toBeUndefined();
+    }
+  );
+
+  it.each([
+    ["leading whitespace", " 01234567"],
+    ["trailing whitespace", "01234567 "],
+    ["embedded whitespace", "0123 4567"],
+    ["Unicode digits", "０１２３４５６７"],
+    ["signed digits", "+12345678"],
+    ["decimal code", "1234567.8"],
+  ])("rejects %s in a verification code before contacting Supabase", async (_label, code) => {
+    const response = await request(createTestApp())
+      .post("/api/auth/verify-email")
+      .send({ email: "student@example.com", code });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: "Enter your email address and a valid eight-digit code.",
+    });
+    expect(verifyOtpMock).not.toHaveBeenCalled();
+    expect(response.headers["set-cookie"]).toBeUndefined();
+  });
+
+  it("allows a corrected code after an invalid attempt without creating an early session", async () => {
+    verifyOtpMock
+      .mockResolvedValueOnce({
+        data: { user: null, session: null },
+        error: { message: "Token is invalid" },
+      })
+      .mockResolvedValueOnce({
+        data: { user: mockUser, session: mockSession },
+        error: null,
+      });
+
+    const app = createTestApp();
+    const first = await request(app)
+      .post("/api/auth/verify-email")
+      .send({ email: "student@example.com", code: "11111111" });
+
+    expect(first.status).toBe(400);
+    expect(first.body.error).toMatch(/invalid or has expired/i);
+    expect(first.headers["set-cookie"]).toBeUndefined();
+
+    const second = await request(app)
+      .post("/api/auth/verify-email")
+      .send({ email: "student@example.com", code: "01234567" });
+
+    expect(second.status).toBe(200);
+    expect(second.body.authenticated).toBe(true);
+    expect(second.headers["set-cookie"]?.some((cookie) => cookie.startsWith("asc_access_token="))).toBe(true);
+    expect(verifyOtpMock).toHaveBeenCalledTimes(2);
+    expect(verifyOtpMock).toHaveBeenNthCalledWith(1, {
+      email: "student@example.com", token: "11111111", type: "signup",
+    });
+    expect(verifyOtpMock).toHaveBeenNthCalledWith(2, {
+      email: "student@example.com", token: "01234567", type: "signup",
+    });
+  });
+
+  it("does not issue a new session when an already-used verification code is submitted again", async () => {
+    verifyOtpMock
+      .mockResolvedValueOnce({
+        data: { user: mockUser, session: mockSession },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: { user: null, session: null },
+        error: { message: "Token has already been used" },
+      });
+
+    const app = createTestApp();
+    const first = await request(app)
+      .post("/api/auth/verify-email")
+      .send(validRequest);
+    expect(first.status).toBe(200);
+
+    const reused = await request(app)
+      .post("/api/auth/verify-email")
+      .send(validRequest);
+    expect(reused.status).toBe(400);
+    expect(reused.body.error).toMatch(/invalid or has expired/i);
+    expect(reused.headers["set-cookie"]).toBeUndefined();
+    expect(verifyOtpMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects an incomplete provider response without setting cookies", async () => {
+    verifyOtpMock.mockResolvedValue({
+      data: { user: mockUser, session: null },
+      error: null,
+    });
+    const response = await request(createTestApp())
+      .post("/api/auth/verify-email")
+      .send(validRequest);
+
+    expect(response.status).toBe(400);
+    expect(response.headers["set-cookie"]).toBeUndefined();
+  });
+
+  it("returns a controlled server error when the verification provider throws", async () => {
+    verifyOtpMock.mockRejectedValue(new Error("provider unavailable"));
+    const response = await request(createTestApp())
+      .post("/api/auth/verify-email")
+      .send(validRequest);
+
+    expect(response.status).toBe(500);
+    expect(response.body).toEqual({ error: "Unexpected server error." });
+    expect(response.headers["set-cookie"]).toBeUndefined();
+  });
+});
+
+// =========================================================
+// LOGOUT API AND POST-LOGOUT SESSION TESTS (SCRUM-259)
+// =========================================================
+
+describe("POST /api/auth/logout", () => {
+  const activeCookies = [
+    "asc_access_token=test-access-token",
+    "asc_refresh_token=test-refresh-token",
+  ];
+
+  function expectCookiesCleared(response) {
+    const cookies = response.headers["set-cookie"] || [];
+    for (const name of ["asc_access_token", "asc_refresh_token"]) {
+      expect(cookies.some((value) =>
+        value.startsWith(`${name}=;`) &&
+        value.includes("HttpOnly") &&
+        /Expires=Thu, 01 Jan 1970|Max-Age=0/i.test(value)
+      )).toBe(true);
+    }
+  }
+
+  it("signs out and clears both authentication cookies", async () => {
+    setSessionMock.mockResolvedValue({ data: { session: mockSession }, error: null });
+    signOutMock.mockResolvedValue({ error: null });
+
+    const response = await request(createTestApp())
+      .post("/api/auth/logout")
+      .set("Cookie", activeCookies);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ message: "Logged out successfully." });
+    expect(setSessionMock).toHaveBeenCalledWith({
+      access_token: "test-access-token",
+      refresh_token: "test-refresh-token",
+    });
+    expect(signOutMock).toHaveBeenCalledWith({ scope: "local" });
+    expectCookiesCleared(response);
+  });
+
+  it("clears cookies without calling Supabase when no session exists", async () => {
+    const response = await request(createTestApp()).post("/api/auth/logout");
+
+    expect(response.status).toBe(200);
+    expect(setSessionMock).not.toHaveBeenCalled();
+    expect(signOutMock).not.toHaveBeenCalled();
+    expectCookiesCleared(response);
+  });
+
+  it("clears cookies without attempting sign-out when session restoration fails", async () => {
+    setSessionMock.mockResolvedValue({ error: { message: "bad refresh token" } });
+    const response = await request(createTestApp())
+      .post("/api/auth/logout")
+      .set("Cookie", activeCookies);
+
+    expect(response.status).toBe(200);
+    expect(signOutMock).not.toHaveBeenCalled();
+    expectCookiesCleared(response);
+  });
+
+  it("clears cookies even when the Supabase sign-out operation throws", async () => {
+    setSessionMock.mockResolvedValue({ error: null });
+    signOutMock.mockRejectedValue(new Error("provider unavailable"));
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const response = await request(createTestApp())
+        .post("/api/auth/logout")
+        .set("Cookie", activeCookies);
+      expect(response.status).toBe(200);
+      expectCookiesCleared(response);
+      expect(consoleSpy).toHaveBeenCalled();
+    } finally {
+      consoleSpy.mockRestore();
+    }
+  });
+
+  it("rejects protected requests after the browser applies logout cookie clearing", async () => {
+    setSessionMock.mockResolvedValue({ error: null });
+    signOutMock.mockResolvedValue({ error: null });
+    getUserMock.mockResolvedValue({ data: { user: mockUser }, error: null });
+    const app = createTestApp();
+    const agent = request.agent(app);
+
+    // Establish cookies through the public login endpoint.
+    signInWithPasswordMock.mockResolvedValue({
+      data: { user: mockUser, session: mockSession }, error: null,
+    });
+    const login = await agent.post("/api/auth/login").send({
+      email: mockUser.email,
+      password: "Password123!",
+    });
+    expect(login.status).toBe(200);
+    expect((await agent.get("/api/auth/me")).status).toBe(200);
+
+    const logout = await agent.post("/api/auth/logout");
+    expect(logout.status).toBe(200);
+    expectCookiesCleared(logout);
+
+    const afterLogout = await agent.get("/api/auth/me");
+    expect(afterLogout.status).toBe(401);
+    expect(afterLogout.body).toEqual({ error: "Authentication required." });
+    expect(refreshSessionMock).not.toHaveBeenCalled();
+  });
+});
