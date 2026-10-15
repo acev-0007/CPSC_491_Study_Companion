@@ -2010,6 +2010,145 @@ describe(
     );
 
 
+
+
+    it(
+      "processes a large TXT document and persists multiple chunks",
+      async () => {
+        const largeText =
+          "Operating systems scheduling and memory management. "
+            .repeat(
+              50000
+            );
+
+
+        const response =
+          await request(app)
+            .post(
+              "/api/documents"
+            )
+            .set(
+              "Cookie",
+              `${ACCESS_COOKIE}=student-1-token`
+            )
+            .attach(
+              "file",
+
+              Buffer.from(
+                largeText
+              ),
+
+              {
+                filename:
+                  "large-notes.txt",
+
+                contentType:
+                  "text/plain",
+              }
+            );
+
+
+        expect(
+          response.status
+        ).toBe(201);
+
+        expect(
+          response.body
+            .document
+            .status
+        ).toBe("ready");
+
+        expect(
+          response.body
+            .document
+            .textLength
+        ).toBeGreaterThan(
+          100000
+        );
+
+        expect(
+          mockDocumentChunks
+            .length
+        ).toBeGreaterThan(
+          1
+        );
+
+        expect(
+          mockDocumentChunks[0]
+            .chunk_index
+        ).toBe(0);
+
+        expect(
+          mockDocumentChunks[
+            mockDocumentChunks
+              .length - 1
+          ].document_id
+        ).toBe(
+          response.body
+            .document
+            .id
+        );
+      }
+    );
+
+
+
+
+    it(
+      "rejects a document larger than the upload limit",
+      async () => {
+        const oversizedFile =
+          Buffer.alloc(
+            10 * 1024 * 1024 + 1,
+            "a"
+          );
+
+
+        const response =
+          await request(app)
+            .post(
+              "/api/documents"
+            )
+            .set(
+              "Cookie",
+              `${ACCESS_COOKIE}=student-1-token`
+            )
+            .attach(
+              "file",
+              oversizedFile,
+              {
+                filename:
+                  "too-large.txt",
+
+                contentType:
+                  "text/plain",
+              }
+            );
+
+
+        expect(
+          response.status
+        ).toBe(413);
+
+        expect(
+          response.body.error
+        ).toMatch(
+          /maximum size is 10 mb/i
+        );
+
+        expect(
+          mockDocuments
+        ).toHaveLength(0);
+
+        expect(
+          mockDocumentChunks
+        ).toHaveLength(0);
+      }
+    );
+
+
+    
+
     it(
       "does not allow a user to delete another user's document",
 
