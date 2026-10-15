@@ -119,6 +119,22 @@ router.post(
           });
       }
 
+      // Supabase may return an obfuscated user rather than an error when
+      // signup is attempted with an already-confirmed email address.
+      // Such users have an empty identities array; do not treat them as
+      // newly registered or send them to the verification page.
+      if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        return res.status(409).json({
+          error: "An account with this email already exists. Please log in instead.",
+        });
+      }
+
+      if (!data?.user) {
+        return res.status(502).json({
+          error: "We couldn't complete registration. Please try again.",
+        });
+      }
+
       // Only create cookies when signup establishes a valid session.
       if (data.session) {
         setSessionCookies(
