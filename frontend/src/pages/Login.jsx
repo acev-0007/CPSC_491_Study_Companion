@@ -25,7 +25,11 @@ function Login() {
       });
       navigate("/dashboard", { replace: true });
     } catch (error) {
-      setErrorMessage(error.message);
+      setErrorMessage(
+        error.status === 401
+          ? "We couldn’t sign you in. Check your email and password, or create an account."
+          : error.message || "Unable to log in right now. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -92,7 +96,15 @@ function Login() {
             {errorMessage && (
               <div className="auth-message auth-message-error" role="alert">
                 <span className="auth-message-icon" aria-hidden="true">!</span>
-                <span>{errorMessage}</span>
+                <span>
+                  {errorMessage}
+                  {errorMessage.includes("create an account") && (
+                    <>
+                      {" "}
+                      <Link to="/register">Sign up</Link>
+                    </>
+                  )}
+                </span>
               </div>
             )}
             <button className="auth-button" type="submit" disabled={loading} aria-busy={loading}>
