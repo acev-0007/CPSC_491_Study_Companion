@@ -27,7 +27,7 @@ function Login() {
     } catch (error) {
       setErrorMessage(
         error.status === 401
-          ? "We couldn’t sign you in. Check your email and password, or create an account."
+          ? "Incorrect email or password. Please try again."
           : error.message || "Unable to log in right now. Please try again."
       );
     } finally {
@@ -96,15 +96,7 @@ function Login() {
             {errorMessage && (
               <div className="auth-message auth-message-error" role="alert">
                 <span className="auth-message-icon" aria-hidden="true">!</span>
-                <span>
-                  {errorMessage}
-                  {errorMessage.includes("create an account") && (
-                    <>
-                      {" "}
-                      <Link to="/register">Sign up</Link>
-                    </>
-                  )}
-                </span>
+                <span>{errorMessage}</span>
               </div>
             )}
             <button className="auth-button" type="submit" disabled={loading} aria-busy={loading}>
