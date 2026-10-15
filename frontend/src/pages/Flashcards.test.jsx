@@ -279,7 +279,7 @@ describe("Flashcards page - edit interaction (FLASH-2)", () => {
     await user.type(front, "Edited question");
 
     await user.click(
-      screen.getByRole("button", { name: "Save" })
+      screen.getByRole("button", { name: "Apply Changes" })
     );
 
     expect(
@@ -330,7 +330,7 @@ describe("Flashcards page - edit interaction (FLASH-2)", () => {
     await user.type(front, "Changed card 2");
 
     await user.click(
-      screen.getByRole("button", { name: "Save" })
+      screen.getByRole("button", { name: "Apply Changes" })
     );
 
     await user.click(
@@ -370,7 +370,7 @@ describe("Flashcards page - edit interaction (FLASH-2)", () => {
     );
 
     await user.click(
-      screen.getByRole("button", { name: "Save" })
+      screen.getByRole("button", { name: "Apply Changes" })
     );
 
     expect(screen.getByText("Q1")).toBeInTheDocument();
@@ -432,8 +432,8 @@ await user.click(
 
     await waitFor(() => {
       expect(screen.getByRole("alert")).toHaveTextContent(
-        /could not load flashcards/i
-      );
+  /could not load saved flashcards/i
+);
     });
   });
 

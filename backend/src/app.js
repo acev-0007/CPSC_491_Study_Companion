@@ -126,6 +126,82 @@ export function createApp({
 
 
   // ========================================
+  // CREATE TOPIC (FLASH-TEST-1)
+  // ========================================
+  //
+  // Creates a user-owned topic for a generated
+  // flashcard deck. The database generates the UUID.
+  // Ownership is derived from the authenticated session.
+
+  app.post(
+    "/api/topics",
+    requireAuth,
+    async (req, res) => {
+      const { title, source_text } = req.body ?? {};
+
+      if (
+        typeof title !== "string" ||
+        !title.trim() ||
+        title.trim().length > 255
+      ) {
+        return res.status(400).json({
+          error: "A topic title (1-255 characters) is required.",
+        });
+      }
+
+      if (
+        source_text !== undefined &&
+        source_text !== null &&
+        typeof source_text !== "string"
+      ) {
+        return res.status(400).json({
+          error: "source_text must be a string.",
+        });
+      }
+
+      try {
+        const supabase = createUserSupabaseClient(
+          req.accessToken
+        );
+
+        const newTopic = {
+          user_id: req.user.id,
+          title: title.trim(),
+          source_text:
+            typeof source_text === "string"
+              ? source_text
+              : null,
+        };
+
+        const { data, error } = await supabase
+          .from("topics")
+          .insert(newTopic)
+          .select("id, user_id, title, source_text")
+          .single();
+
+        if (error) {
+          throw error;
+        }
+
+        if (!data?.id) {
+          throw new Error(
+            "Topic creation returned no ID."
+          );
+        }
+
+        return res.status(201).json(data);
+      } catch (error) {
+        console.error("Error creating topic:", error);
+
+        return res.status(500).json({
+          error: "Failed to create topic.",
+        });
+      }
+    }
+  );
+
+
+  // ========================================
   // HEALTH CHECK
   // ========================================
 

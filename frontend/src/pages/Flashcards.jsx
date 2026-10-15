@@ -1,6 +1,9 @@
 
 import { useEffect, useState } from "react";
 
+import {
+  saveGeneratedFlashcards,
+} from "../services/flashcardPersistence";
 import { getFlashcards } from "../data/flashcardSource";
 import { adaptGeneratedFlashcards } from "../data/generatedFlashcardAdapter";
 import { generateFlashcards } from "../services/flashcardGeneration";
@@ -9,6 +12,9 @@ import "../components/Flashcards.css";
 
 function Flashcards() {
   // Saved and generated decks remain separate.
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveResult, setSaveResult] = useState(null);
+  const [deckTitle, setDeckTitle] = useState("");
   const [savedCards, setSavedCards] = useState([]);
   const [generatedCards, setGeneratedCards] = useState(null);
 
@@ -73,10 +79,22 @@ function handleOpenGeneration() {
   resetStudySession();
 }
 
-function handleShowSavedCards() {
+async function handleShowSavedCards() {
   setView("saved");
   setGenerationNotice(null);
   resetStudySession();
+
+  setIsLoading(true);
+  setLoadError(null);
+
+  try {
+    const refreshed = await getFlashcards();
+    setSavedCards(refreshed);
+  } catch {
+    setLoadError("Could not load saved flashcards.");
+  } finally {
+    setIsLoading(false);
+  }
 }
 
   function updateActiveCards(updater) {
@@ -166,6 +184,8 @@ function handleShowSavedCards() {
   }
 
   setGeneratedCards(flashcards);
+  setDeckTitle("");
+  setSaveResult(null);
   resetStudySession();
 
   const count = flashcards.length;
@@ -179,6 +199,55 @@ function handleShowSavedCards() {
   // Hide the input and open the generated deck.
   setView("generated");
 }
+
+
+
+async function handleSaveDeck() {
+  if (
+    isSaving ||
+    !generatedCards?.length ||
+    saveResult?.status === "success"
+  ) {
+    return;
+  }
+
+  setIsSaving(true);
+  setSaveResult(null);
+
+  try {
+    const result = await saveGeneratedFlashcards({
+      title: deckTitle,
+      cards: generatedCards,
+    });
+
+    setSaveResult(result);
+
+
+    if (result.status === "success") {
+      try {
+        const refreshed = await getFlashcards();
+
+        setSavedCards(refreshed);
+        setLoadError(null);
+        setIsLoading(false);
+      } catch {
+        setLoadError(
+          "Saved, but could not refresh saved flashcards."
+        );
+      }
+    }
+  } catch {
+  setSaveResult({
+    status: "failed",
+    topicId: null,
+    error:
+      "The save result could not be confirmed. " +
+      "Check your saved flashcards before trying again.",
+  });
+}
+}
+
+
 
   
 return (
@@ -260,6 +329,64 @@ return (
           </p>
         )}
 
+
+{isGeneratedDeck && totalCards > 0 && (
+  <div className="flashcards-save-panel">
+    <label htmlFor="flashcards-deck-title">
+      Deck title
+    </label>
+
+    <input
+      id="flashcards-deck-title"
+      type="text"
+      maxLength={255}
+      value={deckTitle}
+      onChange={(event) => setDeckTitle(event.target.value)}
+      placeholder="e.g. Operating Systems - Chapter 3"
+      disabled={isSaving || saveResult?.status === "success"}
+    />
+
+    <button
+      type="button"
+      className="flashcards-primary-btn"
+      onClick={handleSaveDeck}
+      disabled={
+        isSaving ||
+        !deckTitle.trim() ||
+        saveResult?.status === "success" ||
+        saveResult?.status === "partial" ||
+        (saveResult?.status === "failed" && !!saveResult.topicId)
+      }
+    >
+      {isSaving ? "Saving..." : "Save Flashcards"}
+    </button>
+
+    {saveResult?.status === "success" && (
+      <p role="status">
+        Successfully saved {saveResult.savedCards.length} flashcards.
+      </p>
+    )}
+
+    {saveResult?.status === "partial" && (
+      <p role="alert">
+        Saved {saveResult.savedCards.length} flashcards.
+        Some saves failed or could not be confirmed.
+        Check your saved flashcards before retrying.
+      </p>
+    )}
+
+    {saveResult?.status === "failed" && (
+      <p role="alert">
+        {saveResult.error || "Could not save flashcards."}
+        {saveResult.topicId
+          ? " Check your saved flashcards before retrying."
+          : ""}
+      </p>
+    )}
+  </div>
+)}
+
+
         {view === "saved" && isLoading ? (
           <p>Loading flashcards...</p>
         ) : view === "saved" && loadError ? (
@@ -310,7 +437,7 @@ return (
                     type="submit"
                     className="flashcards-primary-btn"
                   >
-                    Save
+                    Apply Changes
                   </button>
 
                   <button
