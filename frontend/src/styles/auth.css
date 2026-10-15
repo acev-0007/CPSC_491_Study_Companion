@@ -452,3 +452,22 @@
     padding: 22px 16px 20px;
   }
 }
+
+/* Registration confirmation-required state */
+.auth-confirmation-email {
+  overflow-wrap: anywhere;
+  margin: -12px 0 17px;
+  padding: 12px 14px;
+  border: 1px solid var(--auth-border);
+  border-radius: 9px;
+  background: var(--auth-surface);
+  color: var(--auth-heading);
+  font-size: 14px;
+  font-weight: 600;
+}
+.auth-confirmation-tip {
+  margin: 0 0 19px;
+  color: var(--auth-text);
+  font-size: 13px;
+  line-height: 1.5;
+}
