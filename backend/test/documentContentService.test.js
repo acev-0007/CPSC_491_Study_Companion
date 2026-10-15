@@ -72,6 +72,26 @@ const mockDocuments = [
     created_at:
       "2026-10-11T12:10:00.000Z",
   },
+  {
+    id: "doc-4",
+    user_id: "student-1",
+    name: "no-chunks.txt",
+    type: "txt",
+    mime_type: "text/plain",
+    size: 90,
+    category: "Lecture Notes",
+    course: "CPSC 491",
+    status: "ready",
+    extraction_error: null,
+    text_length: 33,
+    extracted_text:
+        "Fallback extracted document text.",
+    stored_filename:
+        "doc-4.txt",
+    created_at:
+        "2026-10-11T12:15:00.000Z",
+},
+
 ];
 
 
@@ -354,6 +374,32 @@ describe(
       }
     );
 
+    it(
+    "returns extracted text when a ready document has no chunks",
+    async () => {
+        const result =
+        await service
+            .getAiReadyContent(
+            "doc-4",
+            "student-1"
+            );
+
+
+        expect(
+        result.status
+        ).toBe("ready");
+
+        expect(
+        result.text
+        ).toBe(
+        "Fallback extracted document text."
+        );
+
+        expect(
+        result.chunks
+        ).toEqual([]);
+    }
+    );
 
     it(
       "does not return AI-ready content for a failed document",

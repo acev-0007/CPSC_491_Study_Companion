@@ -281,9 +281,33 @@ export function createApp({
         };
 
 
-        await store.add(
-          processingDocument
-        );
+        try {
+          await store.add(
+            processingDocument
+          );
+        } catch (error) {
+          try {
+            await unlink(
+              path.join(
+                uploadDir,
+                storedFilename
+              )
+            );
+          } catch (cleanupError) {
+            if (
+              cleanupError.code !==
+              "ENOENT"
+            ) {
+              console.error(
+                "Failed to clean up orphaned upload:",
+                storedFilename,
+                cleanupError
+              );
+            }
+          }
+
+          throw error;
+        }
 
 
         // ----------------------------------------
@@ -310,17 +334,61 @@ export function createApp({
 
 
         // ----------------------------------------
-        // SAVE FINAL PROCESSING STATE
+        // HANDLE EXTRACTION FAILURE
         // ----------------------------------------
 
-        const finalDocument =
+        if (status === "failed") {
+          const failedDocument =
+            await store.updateProcessingState(
+              id,
+              req.user.id,
+              {
+                status:
+                  "failed",
+
+                extractionError,
+
+                textLength:
+                  0,
+
+                extractedText:
+                  "",
+              }
+            );
+
+
+          if (!failedDocument) {
+            throw new Error(
+              "Document processing record could not be updated."
+            );
+          }
+
+
+          return res
+            .status(201)
+            .json({
+              document:
+                publicDocument(
+                  failedDocument
+                ),
+            });
+        }
+
+
+        // ----------------------------------------
+        // SAVE EXTRACTED CONTENT WHILE PROCESSING
+        // ----------------------------------------
+
+        const processingDocumentWithText =
           await store.updateProcessingState(
             id,
             req.user.id,
             {
-              status,
+              status:
+                "processing",
 
-              extractionError,
+              extractionError:
+                null,
 
               textLength:
                 extractedText.length,
@@ -330,7 +398,7 @@ export function createApp({
           );
 
 
-        if (!finalDocument) {
+        if (!processingDocumentWithText) {
           throw new Error(
             "Document processing record could not be updated."
           );
@@ -341,22 +409,67 @@ export function createApp({
         // CREATE AI-READY CHUNKS
         // ----------------------------------------
 
-        if (
-          finalDocument.status ===
-            "ready" &&
-          finalDocument.extractedText
-        ) {
+        try {
           const chunks =
             chunkDocumentText(
-              finalDocument.extractedText
+              extractedText
             );
 
 
           await store
             .replaceChunksForDocument(
-              finalDocument.id,
+              id,
               chunks
             );
+        } catch (error) {
+          await store.updateProcessingState(
+            id,
+            req.user.id,
+            {
+              status:
+                "failed",
+
+              extractionError:
+                "Chunk persistence failed.",
+
+              textLength:
+                extractedText.length,
+
+              extractedText,
+            }
+          );
+
+          throw error;
+        }
+
+
+        // ----------------------------------------
+        // MARK DOCUMENT READY
+        // ----------------------------------------
+
+        const readyDocument =
+          await store.updateProcessingState(
+            id,
+            req.user.id,
+            {
+              status:
+                "ready",
+
+              extractionError:
+                null,
+
+              textLength:
+                extractedText.length,
+
+              extractedText,
+            }
+          );
+
+
+        if (!readyDocument) {
+          throw new Error(
+            "Document processing record could not be updated."
+          );
         }
 
 
@@ -365,14 +478,16 @@ export function createApp({
           .json({
             document:
               publicDocument(
-                finalDocument
+                readyDocument
               ),
           });
+
       } catch (error) {
         next(error);
       }
     }
   );
+          
 
 
   // ========================================

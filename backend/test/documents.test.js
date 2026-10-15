@@ -12,6 +12,7 @@ import request from "supertest";
 import {
   access,
   mkdtemp,
+  readdir,
   rm,
 } from "node:fs/promises";
 
@@ -34,6 +35,9 @@ const mockDocuments = [];
 const mockDocumentChunks = [];
 const mockDocumentOperations = [];
 
+let failNextDocumentInsert = false;
+let failNextChunkInsert = false;
+
 
 function clone(value) {
   return JSON.parse(
@@ -42,8 +46,10 @@ function clone(value) {
 }
 
 
-function createFakeQuery(tableRows, tableName)
-{
+function createFakeQuery(
+  tableRows,
+  tableName
+) {
   let operation = "select";
   let payload = null;
   let orderBy = null;
@@ -61,25 +67,55 @@ function createFakeQuery(tableRows, tableName)
 
   function executeSingle() {
     if (operation === "insert") {
+      if (
+        tableName === "documents" &&
+        failNextDocumentInsert
+      ) {
+        failNextDocumentInsert = false;
+
+        return {
+          data: null,
+
+          error:
+            new Error(
+              "Simulated document insert failure"
+            ),
+        };
+      }
+
+
       const row = clone(payload);
 
       tableRows.push(row);
 
-      if (tableName === "documents") {
+
+      if (
+        tableName ===
+        "documents"
+      ) {
         mockDocumentOperations.push({
-          operation: "insert",
-          data: clone(row),
+          operation:
+            "insert",
+
+          data:
+            clone(row),
         });
       }
 
+
       return {
-        data: clone(row),
-        error: null,
+        data:
+          clone(row),
+
+        error:
+          null,
       };
     }
 
+
     return {
-      data: null,
+      data:
+        null,
 
       error:
         new Error(
@@ -96,24 +132,37 @@ function createFakeQuery(tableRows, tableName)
           matches
         );
 
+
       if (index === -1) {
         return {
-          data: null,
-          error: null,
+          data:
+            null,
+
+          error:
+            null,
         };
       }
+
 
       tableRows[index] = {
         ...tableRows[index],
         ...clone(payload),
       };
 
-      if (tableName === "documents") {
+
+      if (
+        tableName ===
+        "documents"
+      ) {
         mockDocumentOperations.push({
-          operation: "update",
-          data: clone(payload),
+          operation:
+            "update",
+
+          data:
+            clone(payload),
         });
       }
+
 
       return {
         data:
@@ -121,7 +170,8 @@ function createFakeQuery(tableRows, tableName)
             tableRows[index]
           ),
 
-        error: null,
+        error:
+          null,
       };
     }
 
@@ -132,12 +182,17 @@ function createFakeQuery(tableRows, tableName)
           matches
         );
 
+
       if (index === -1) {
         return {
-          data: null,
-          error: null,
+          data:
+            null,
+
+          error:
+            null,
         };
       }
+
 
       const [
         deletedRow,
@@ -146,19 +201,22 @@ function createFakeQuery(tableRows, tableName)
         1
       );
 
+
       return {
         data:
           clone(
             deletedRow
           ),
 
-        error: null,
+        error:
+          null,
       };
     }
 
 
     return {
-      data: null,
+      data:
+        null,
 
       error:
         new Error(
@@ -170,20 +228,48 @@ function createFakeQuery(tableRows, tableName)
 
   function executeMany() {
     if (operation === "insert") {
+      if (
+        tableName ===
+          "document_chunks" &&
+        failNextChunkInsert
+      ) {
+        failNextChunkInsert = false;
+
+        return {
+          data:
+            null,
+
+          error:
+            new Error(
+              "Simulated chunk insert failure"
+            ),
+        };
+      }
+
+
       const rows =
         Array.isArray(payload)
-          ? payload.map(clone)
-          : [clone(payload)];
+          ? payload.map(
+              clone
+            )
+          : [
+              clone(payload),
+            ];
+
 
       tableRows.push(
         ...rows
       );
 
+
       return {
         data:
-          rows.map(clone),
+          rows.map(
+            clone
+          ),
 
-        error: null,
+        error:
+          null,
       };
     }
 
@@ -191,13 +277,20 @@ function createFakeQuery(tableRows, tableName)
     if (operation === "delete") {
       const deletedRows =
         tableRows
-          .filter(matches)
-          .map(clone);
+          .filter(
+            matches
+          )
+          .map(
+            clone
+          );
+
 
       for (
         let index =
           tableRows.length - 1;
+
         index >= 0;
+
         index -= 1
       ) {
         if (
@@ -212,29 +305,40 @@ function createFakeQuery(tableRows, tableName)
         }
       }
 
+
       return {
         data:
           deletedRows,
 
-        error: null,
+        error:
+          null,
       };
     }
 
 
     let rows =
       tableRows
-        .filter(matches)
-        .map(clone);
+        .filter(
+          matches
+        )
+        .map(
+          clone
+        );
 
 
     if (orderBy) {
       rows.sort(
         (a, b) => {
           const aValue =
-            a[orderBy.column];
+            a[
+              orderBy.column
+            ];
 
           const bValue =
-            b[orderBy.column];
+            b[
+              orderBy.column
+            ];
+
 
           if (
             aValue ===
@@ -243,13 +347,16 @@ function createFakeQuery(tableRows, tableName)
             return 0;
           }
 
+
           const direction =
             orderBy.ascending
               ? 1
               : -1;
 
+
           return (
-            aValue > bValue
+            aValue >
+            bValue
               ? direction
               : -direction
           );
@@ -259,8 +366,11 @@ function createFakeQuery(tableRows, tableName)
 
 
     return {
-      data: rows,
-      error: null,
+      data:
+        rows,
+
+      error:
+        null,
     };
   }
 
@@ -272,29 +382,39 @@ function createFakeQuery(tableRows, tableName)
 
 
     insert(value) {
-      operation = "insert";
-      payload = value;
+      operation =
+        "insert";
+
+      payload =
+        value;
 
       return query;
     },
 
 
     update(value) {
-      operation = "update";
-      payload = value;
+      operation =
+        "update";
+
+      payload =
+        value;
 
       return query;
     },
 
 
     delete() {
-      operation = "delete";
+      operation =
+        "delete";
 
       return query;
     },
 
 
-    eq(column, value) {
+    eq(
+      column,
+      value
+    ) {
       filters.push({
         column,
         value,
@@ -312,9 +432,11 @@ function createFakeQuery(tableRows, tableName)
         column,
 
         ascending:
-          options.ascending ??
+          options
+            .ascending ??
           true,
       };
+
 
       return Promise.resolve(
         executeMany()
@@ -336,7 +458,10 @@ function createFakeQuery(tableRows, tableName)
     },
 
 
-    then(resolve, reject) {
+    then(
+      resolve,
+      reject
+    ) {
       return Promise.resolve(
         executeMany()
       ).then(
@@ -353,125 +478,142 @@ function createFakeQuery(tableRows, tableName)
 
 vi.mock(
   "../src/config/supabase.js",
+
   () => ({
     createSupabaseClient:
-      vi.fn(() => ({
-        auth: {
-          getUser:
-            vi.fn(
-              async (
-                accessToken
-              ) => {
-                const users = {
-                  "student-1-token":
-                    {
-                      id:
-                        "student-1",
-                    },
+      vi.fn(
+        () => ({
+          auth: {
+            getUser:
+              vi.fn(
+                async (
+                  accessToken
+                ) => {
+                  const users = {
+                    "student-1-token":
+                      {
+                        id:
+                          "student-1",
+                      },
 
-                  "student-2-token":
-                    {
-                      id:
-                        "student-2",
-                    },
-                };
-
-
-                const user =
-                  users[
-                    accessToken
-                  ];
+                    "student-2-token":
+                      {
+                        id:
+                          "student-2",
+                      },
+                  };
 
 
-                if (user) {
+                  const user =
+                    users[
+                      accessToken
+                    ];
+
+
+                  if (user) {
+                    return {
+                      data: {
+                        user,
+                      },
+
+                      error:
+                        null,
+                    };
+                  }
+
+
                   return {
                     data: {
-                      user,
+                      user:
+                        null,
                     },
 
-                    error: null,
+                    error:
+                      new Error(
+                        "Invalid test token"
+                      ),
                   };
                 }
+              ),
 
 
-                return {
-                  data: {
-                    user: null,
-                  },
-
-                  error:
-                    new Error(
-                      "Invalid test token"
-                    ),
-                };
-              }
-            ),
-
-
-          refreshSession:
-            vi.fn(),
-        },
-      })),
+            refreshSession:
+              vi.fn(),
+          },
+        })
+      ),
 
 
     createUserSupabaseClient:
-      vi.fn(() => ({
-        from:
-          vi.fn(
-            (table) => {
-              if (
-                table ===
-                "documents"
-              ) {
-                return createFakeQuery(
-                  mockDocuments,
+      vi.fn(
+        () => ({
+          from:
+            vi.fn(
+              (table) => {
+                if (
+                  table ===
                   "documents"
-                );
-              }
+                ) {
+                  return createFakeQuery(
+                    mockDocuments,
+                    "documents"
+                  );
+                }
 
 
-              if (
-                table ===
-                "document_chunks"
-              ) {
-                return createFakeQuery(
-                  mockDocumentChunks,
+                if (
+                  table ===
                   "document_chunks"
+                ) {
+                  return createFakeQuery(
+                    mockDocumentChunks,
+                    "document_chunks"
+                  );
+                }
+
+
+                throw new Error(
+                  `Unexpected fake Supabase table: ${table}`
                 );
               }
-
-
-              throw new Error(
-                `Unexpected fake Supabase table: ${table}`
-              );
-            }
-          ),
-      })),
+            ),
+        })
+      ),
   })
 );
 
 
 async function makePdf(text) {
   const pdf =
-    await PDFDocument.create();
+    await PDFDocument
+      .create();
+
 
   const page =
     pdf.addPage(
       [612, 792]
     );
 
+
   const font =
     await pdf.embedFont(
-      StandardFonts.Helvetica
+      StandardFonts
+        .Helvetica
     );
 
 
   page.drawText(
     text,
     {
-      x: 72,
-      y: 720,
-      size: 12,
+      x:
+        72,
+
+      y:
+        720,
+
+      size:
+        12,
+
       font,
     }
   );
@@ -485,58 +627,81 @@ async function makePdf(text) {
 
 describe(
   "document API",
+
   () => {
     let tempRoot;
     let app;
 
 
-    beforeEach(async () => {
-      mockDocuments.length = 0;
-      mockDocumentChunks.length = 0;
-      mockDocumentOperations.length = 0;
+    beforeEach(
+      async () => {
+        mockDocuments.length =
+          0;
+
+        mockDocumentChunks.length =
+          0;
+
+        mockDocumentOperations.length =
+          0;
+
+        failNextDocumentInsert =
+          false;
+
+        failNextChunkInsert =
+          false;
 
 
-      tempRoot =
-        await mkdtemp(
-          path.join(
-            os.tmpdir(),
-            "textbook-hub-test-"
-          )
+        tempRoot =
+          await mkdtemp(
+            path.join(
+              os.tmpdir(),
+              "textbook-hub-test-"
+            )
+          );
+
+
+        app =
+          createApp({
+            dataDir:
+              path.join(
+                tempRoot,
+                "data"
+              ),
+
+            uploadDir:
+              path.join(
+                tempRoot,
+                "uploads"
+              ),
+          });
+      }
+    );
+
+
+    afterEach(
+      async () => {
+        await rm(
+          tempRoot,
+          {
+            recursive:
+              true,
+
+            force:
+              true,
+          }
         );
-
-
-      app = createApp({
-        dataDir:
-          path.join(
-            tempRoot,
-            "data"
-          ),
-
-        uploadDir:
-          path.join(
-            tempRoot,
-            "uploads"
-          ),
-      });
-    });
-
-
-    afterEach(async () => {
-      await rm(
-        tempRoot,
-        {
-          recursive: true,
-          force: true,
-        }
-      );
-    });
+      }
+    );
 
 
     it(
       "uploads and extracts a valid TXT file",
+
       async () => {
         const response =
-          await request(app)
+          await request(
+            app
+          )
             .post(
               "/api/documents"
             )
@@ -563,74 +728,116 @@ describe(
 
         expect(
           response.status
-        ).toBe(201);
+        ).toBe(
+          201
+        );
+
 
         expect(
-          response.body.document.status
-        ).toBe("ready");
+          response.body
+            .document
+            .status
+        ).toBe(
+          "ready"
+        );
+
 
         expect(
-          response.body.document.type
-        ).toBe("txt");
+          response.body
+            .document
+            .type
+        ).toBe(
+          "txt"
+        );
+
 
         expect(
-          response.body.document
+          response.body
+            .document
             .textLength
-        ).toBeGreaterThan(0);
+        ).toBeGreaterThan(
+          0
+        );
 
 
         expect(
           mockDocumentChunks
-        ).toHaveLength(1);
-
-        expect(
-          mockDocumentChunks[0]
-            .document_id
-        ).toBe(
-          response.body.document.id
+        ).toHaveLength(
+          1
         );
 
-        expect(
-          mockDocumentChunks[0]
-            .chunk_index
-        ).toBe(0);
 
         expect(
-          mockDocumentChunks[0]
-            .content
+          mockDocumentChunks[
+            0
+          ].document_id
+        ).toBe(
+          response.body
+            .document
+            .id
+        );
+
+
+        expect(
+          mockDocumentChunks[
+            0
+          ].chunk_index
+        ).toBe(
+          0
+        );
+
+
+        expect(
+          mockDocumentChunks[
+            0
+          ].content
         ).toContain(
           "Operating systems manage hardware resources."
         );
 
-        expect(
-          mockDocumentChunks[0]
-            .start_offset
-        ).toBe(0);
 
         expect(
-          mockDocumentChunks[0]
-            .end_offset
-        ).toBeGreaterThan(0);
+          mockDocumentChunks[
+            0
+          ].start_offset
+        ).toBe(
+          0
+        );
+
+
+        expect(
+          mockDocumentChunks[
+            0
+          ].end_offset
+        ).toBeGreaterThan(
+          0
+        );
       }
     );
 
 
     it(
       "rejects document access without authentication",
+
       async () => {
         const response =
-          await request(app)
-            .get(
-              "/api/documents"
-            );
+          await request(
+            app
+          ).get(
+            "/api/documents"
+          );
 
 
         expect(
           response.status
-        ).toBe(401);
+        ).toBe(
+          401
+        );
+
 
         expect(
-          response.body.error
+          response.body
+            .error
         ).toMatch(
           /authentication required/i
         );
@@ -640,6 +847,7 @@ describe(
 
     it(
       "uploads and extracts a valid digital PDF",
+
       async () => {
         const pdf =
           await makePdf(
@@ -648,7 +856,9 @@ describe(
 
 
         const response =
-          await request(app)
+          await request(
+            app
+          )
             .post(
               "/api/documents"
             )
@@ -671,31 +881,54 @@ describe(
 
         expect(
           response.status
-        ).toBe(201);
-
-        expect(
-          response.body.document.status
-        ).toBe("ready");
-
-        expect(
-          response.body.document.type
-        ).toBe("pdf");
-
-        expect(
-          response.body.document
-            .textLength
-        ).toBeGreaterThan(0);
-
-
-        expect(
-          mockDocumentChunks.length
-        ).toBeGreaterThan(0);
-
-        expect(
-          mockDocumentChunks[0]
-            .document_id
         ).toBe(
-          response.body.document.id
+          201
+        );
+
+
+        expect(
+          response.body
+            .document
+            .status
+        ).toBe(
+          "ready"
+        );
+
+
+        expect(
+          response.body
+            .document
+            .type
+        ).toBe(
+          "pdf"
+        );
+
+
+        expect(
+          response.body
+            .document
+            .textLength
+        ).toBeGreaterThan(
+          0
+        );
+
+
+        expect(
+          mockDocumentChunks
+            .length
+        ).toBeGreaterThan(
+          0
+        );
+
+
+        expect(
+          mockDocumentChunks[
+            0
+          ].document_id
+        ).toBe(
+          response.body
+            .document
+            .id
         );
       }
     );
@@ -703,9 +936,12 @@ describe(
 
     it(
       "rejects an invalid file type",
+
       async () => {
         const response =
-          await request(app)
+          await request(
+            app
+          )
             .post(
               "/api/documents"
             )
@@ -732,26 +968,36 @@ describe(
 
         expect(
           response.status
-        ).toBe(400);
+        ).toBe(
+          400
+        );
+
 
         expect(
-          response.body.error
+          response.body
+            .error
         ).toMatch(
           /only txt and pdf/i
         );
 
+
         expect(
           mockDocumentChunks
-        ).toHaveLength(0);
+        ).toHaveLength(
+          0
+        );
       }
     );
 
 
     it(
       "keeps the document but marks it failed when extraction fails",
+
       async () => {
         const response =
-          await request(app)
+          await request(
+            app
+          )
             .post(
               "/api/documents"
             )
@@ -778,29 +1024,43 @@ describe(
 
         expect(
           response.status
-        ).toBe(201);
+        ).toBe(
+          201
+        );
+
 
         expect(
-          response.body.document.status
-        ).toBe("failed");
+          response.body
+            .document
+            .status
+        ).toBe(
+          "failed"
+        );
+
 
         expect(
-          response.body.document
+          response.body
+            .document
             .extractionError
         ).toBeTruthy();
 
 
         expect(
           mockDocumentChunks
-        ).toHaveLength(0);
+        ).toHaveLength(
+          0
+        );
       }
     );
 
 
     it(
       "returns an uploaded item in the current user's document list",
+
       async () => {
-        await request(app)
+        await request(
+          app
+        )
           .post(
             "/api/documents"
           )
@@ -825,7 +1085,9 @@ describe(
           );
 
 
-        await request(app)
+        await request(
+          app
+        )
           .post(
             "/api/documents"
           )
@@ -851,7 +1113,9 @@ describe(
 
 
         const response =
-          await request(app)
+          await request(
+            app
+          )
             .get(
               "/api/documents"
             )
@@ -863,35 +1127,54 @@ describe(
 
         expect(
           response.status
-        ).toBe(200);
+        ).toBe(
+          200
+        );
+
 
         expect(
-          response.body.documents
-        ).toHaveLength(1);
+          response.body
+            .documents
+        ).toHaveLength(
+          1
+        );
+
 
         expect(
-          response.body.documents[0]
-            .name
+          response.body
+            .documents[
+              0
+            ].name
         ).toBe(
           "chapter-1.txt"
         );
 
+
         expect(
-          response.body.documents[0]
-        ).not.toHaveProperty(
-          "extractedText"
-        );
+          response.body
+            .documents[
+              0
+            ]
+        ).not
+          .toHaveProperty(
+            "extractedText"
+          );
 
 
         expect(
           mockDocuments
-        ).toHaveLength(2);
+        ).toHaveLength(
+          2
+        );
 
 
         const storedDocument =
           mockDocuments.find(
-            (document) =>
-              document.user_id ===
+            (
+              document
+            ) =>
+              document
+                .user_id ===
               "student-1"
           );
 
@@ -906,16 +1189,21 @@ describe(
 
         expect(
           mockDocumentChunks
-        ).toHaveLength(2);
+        ).toHaveLength(
+          2
+        );
       }
     );
 
 
     it(
       "updates document metadata",
+
       async () => {
         const uploadResponse =
-          await request(app)
+          await request(
+            app
+          )
             .post(
               "/api/documents"
             )
@@ -949,17 +1237,24 @@ describe(
 
 
         expect(
-          uploadResponse.status
-        ).toBe(201);
+          uploadResponse
+            .status
+        ).toBe(
+          201
+        );
 
 
         const documentId =
-          uploadResponse.body
-            .document.id;
+          uploadResponse
+            .body
+            .document
+            .id;
 
 
         const response =
-          await request(app)
+          await request(
+            app
+          )
             .patch(
               `/api/documents/${documentId}`
             )
@@ -981,23 +1276,33 @@ describe(
 
         expect(
           response.status
-        ).toBe(200);
+        ).toBe(
+          200
+        );
+
 
         expect(
-          response.body.document.name
+          response.body
+            .document
+            .name
         ).toBe(
           "chapter-1-review.txt"
         );
 
+
         expect(
-          response.body.document
+          response.body
+            .document
             .category
         ).toBe(
           "Lecture Notes"
         );
 
+
         expect(
-          response.body.document.course
+          response.body
+            .document
+            .course
         ).toBe(
           "CPSC 491 Software Engineering"
         );
@@ -1005,26 +1310,33 @@ describe(
 
         const storedDocument =
           mockDocuments.find(
-            (document) =>
+            (
+              document
+            ) =>
               document.id ===
               documentId
           );
 
 
         expect(
-          storedDocument.name
+          storedDocument
+            .name
         ).toBe(
           "chapter-1-review.txt"
         );
 
+
         expect(
-          storedDocument.category
+          storedDocument
+            .category
         ).toBe(
           "Lecture Notes"
         );
 
+
         expect(
-          storedDocument.course
+          storedDocument
+            .course
         ).toBe(
           "CPSC 491 Software Engineering"
         );
@@ -1034,9 +1346,12 @@ describe(
 
     it(
       "normalizes a cleared course to Unassigned",
+
       async () => {
         const uploadResponse =
-          await request(app)
+          await request(
+            app
+          )
             .post(
               "/api/documents"
             )
@@ -1066,17 +1381,24 @@ describe(
 
 
         expect(
-          uploadResponse.status
-        ).toBe(201);
+          uploadResponse
+            .status
+        ).toBe(
+          201
+        );
 
 
         const documentId =
-          uploadResponse.body
-            .document.id;
+          uploadResponse
+            .body
+            .document
+            .id;
 
 
         const response =
-          await request(app)
+          await request(
+            app
+          )
             .patch(
               `/api/documents/${documentId}`
             )
@@ -1085,16 +1407,22 @@ describe(
               `${ACCESS_COOKIE}=student-1-token`
             )
             .send({
-              course: "",
+              course:
+                "",
             });
 
 
         expect(
           response.status
-        ).toBe(200);
+        ).toBe(
+          200
+        );
+
 
         expect(
-          response.body.document.course
+          response.body
+            .document
+            .course
         ).toBe(
           "Unassigned"
         );
@@ -1102,14 +1430,17 @@ describe(
 
         const storedDocument =
           mockDocuments.find(
-            (document) =>
+            (
+              document
+            ) =>
               document.id ===
               documentId
           );
 
 
         expect(
-          storedDocument.course
+          storedDocument
+            .course
         ).toBe(
           "Unassigned"
         );
@@ -1119,9 +1450,12 @@ describe(
 
     it(
       "does not allow a user to update another user's document",
+
       async () => {
         const uploadResponse =
-          await request(app)
+          await request(
+            app
+          )
             .post(
               "/api/documents"
             )
@@ -1147,17 +1481,24 @@ describe(
 
 
         expect(
-          uploadResponse.status
-        ).toBe(201);
+          uploadResponse
+            .status
+        ).toBe(
+          201
+        );
 
 
         const documentId =
-          uploadResponse.body
-            .document.id;
+          uploadResponse
+            .body
+            .document
+            .id;
 
 
         const response =
-          await request(app)
+          await request(
+            app
+          )
             .patch(
               `/api/documents/${documentId}`
             )
@@ -1173,19 +1514,24 @@ describe(
 
         expect(
           response.status
-        ).toBe(404);
+        ).toBe(
+          404
+        );
 
 
         const storedDocument =
           mockDocuments.find(
-            (document) =>
+            (
+              document
+            ) =>
               document.id ===
               documentId
           );
 
 
         expect(
-          storedDocument.name
+          storedDocument
+            .name
         ).toBe(
           "private.txt"
         );
@@ -1195,9 +1541,12 @@ describe(
 
     it(
       "deletes an owned document and its uploaded file",
+
       async () => {
         const uploadResponse =
-          await request(app)
+          await request(
+            app
+          )
             .post(
               "/api/documents"
             )
@@ -1223,26 +1572,38 @@ describe(
 
 
         expect(
-          uploadResponse.status
-        ).toBe(201);
+          uploadResponse
+            .status
+        ).toBe(
+          201
+        );
 
 
         const documentId =
-          uploadResponse.body
-            .document.id;
+          uploadResponse
+            .body
+            .document
+            .id;
 
 
         expect(
           mockDocuments
-        ).toHaveLength(1);
+        ).toHaveLength(
+          1
+        );
+
 
         expect(
           mockDocumentChunks
-        ).toHaveLength(1);
+        ).toHaveLength(
+          1
+        );
 
 
         const storedFilename =
-          mockDocuments[0]
+          mockDocuments[
+            0
+          ]
             .stored_filename;
 
 
@@ -1263,7 +1624,9 @@ describe(
 
 
         const response =
-          await request(app)
+          await request(
+            app
+          )
             .delete(
               `/api/documents/${documentId}`
             )
@@ -1275,10 +1638,15 @@ describe(
 
         expect(
           response.status
-        ).toBe(200);
+        ).toBe(
+          200
+        );
+
 
         expect(
-          response.body.document.id
+          response.body
+            .document
+            .id
         ).toBe(
           documentId
         );
@@ -1286,22 +1654,29 @@ describe(
 
         expect(
           mockDocuments
-        ).toHaveLength(0);
+        ).toHaveLength(
+          0
+        );
 
 
         await expect(
           access(
             storedFilePath
           )
-        ).rejects.toThrow();
+        ).rejects
+          .toThrow();
       }
     );
 
+
     it(
       "transitions a document from processing to ready after extraction",
+
       async () => {
         const response =
-          await request(app)
+          await request(
+            app
+          )
             .post(
               "/api/documents"
             )
@@ -1328,70 +1703,321 @@ describe(
 
         expect(
           response.status
-        ).toBe(201);
+        ).toBe(
+          201
+        );
+
 
         expect(
           mockDocumentOperations
-        ).toHaveLength(2);
+        ).toHaveLength(
+          3
+        );
 
 
         const insertOperation =
-          mockDocumentOperations[0];
+          mockDocumentOperations[
+            0
+          ];
+
 
         expect(
-          insertOperation.operation
-        ).toBe("insert");
+          insertOperation
+            .operation
+        ).toBe(
+          "insert"
+        );
+
 
         expect(
-          insertOperation.data.status
-        ).toBe("processing");
+          insertOperation
+            .data
+            .status
+        ).toBe(
+          "processing"
+        );
+
 
         expect(
-          insertOperation.data.extracted_text
-        ).toBe("");
+          insertOperation
+            .data
+            .extracted_text
+        ).toBe(
+          ""
+        );
+
 
         expect(
-          insertOperation.data.text_length
-        ).toBe(0);
+          insertOperation
+            .data
+            .text_length
+        ).toBe(
+          0
+        );
 
 
-        const updateOperation =
-          mockDocumentOperations[1];
+        const processingUpdate =
+          mockDocumentOperations[
+            1
+          ];
+
 
         expect(
-          updateOperation.operation
-        ).toBe("update");
+          processingUpdate
+            .operation
+        ).toBe(
+          "update"
+        );
+
 
         expect(
-          updateOperation.data.status
-        ).toBe("ready");
+          processingUpdate
+            .data
+            .status
+        ).toBe(
+          "processing"
+        );
+
 
         expect(
-          updateOperation.data.extraction_error
+          processingUpdate
+            .data
+            .extraction_error
         ).toBeNull();
 
+
         expect(
-          updateOperation.data.extracted_text
+          processingUpdate
+            .data
+            .extracted_text
         ).toContain(
           "Process scheduling determines which task runs next."
         );
 
+
         expect(
-          updateOperation.data.text_length
-        ).toBeGreaterThan(0);
+          processingUpdate
+            .data
+            .text_length
+        ).toBeGreaterThan(
+          0
+        );
+
+
+        const readyUpdate =
+          mockDocumentOperations[
+            2
+          ];
 
 
         expect(
-          response.body.document.status
-        ).toBe("ready");
+          readyUpdate
+            .operation
+        ).toBe(
+          "update"
+        );
+
+
+        expect(
+          readyUpdate
+            .data
+            .status
+        ).toBe(
+          "ready"
+        );
+
+
+        expect(
+          readyUpdate
+            .data
+            .extraction_error
+        ).toBeNull();
+
+
+        expect(
+          readyUpdate
+            .data
+            .extracted_text
+        ).toContain(
+          "Process scheduling determines which task runs next."
+        );
+
+
+        expect(
+          readyUpdate
+            .data
+            .text_length
+        ).toBeGreaterThan(
+          0
+        );
+
+
+        expect(
+          response.body
+            .document
+            .status
+        ).toBe(
+          "ready"
+        );
       }
     );
 
+
+    it(
+      "removes the local file when document persistence fails",
+
+      async () => {
+        failNextDocumentInsert =
+          true;
+
+
+        const response =
+          await request(
+            app
+          )
+            .post(
+              "/api/documents"
+            )
+            .set(
+              "Cookie",
+              `${ACCESS_COOKIE}=student-1-token`
+            )
+            .attach(
+              "file",
+
+              Buffer.from(
+                "Persistence failure test"
+              ),
+
+              {
+                filename:
+                  "failure.txt",
+
+                contentType:
+                  "text/plain",
+              }
+            );
+
+
+        expect(
+          response.status
+        ).toBe(
+          500
+        );
+
+
+        const files =
+          await readdir(
+            path.join(
+              tempRoot,
+              "uploads"
+            )
+          ).catch(
+            () => []
+          );
+
+
+        expect(
+          files
+        ).toHaveLength(
+          0
+        );
+
+
+        expect(
+          mockDocuments
+        ).toHaveLength(
+          0
+        );
+      }
+    );
+
+
+    it(
+      "marks a document failed when chunk persistence fails",
+
+      async () => {
+        failNextChunkInsert =
+          true;
+
+
+        const response =
+          await request(
+            app
+          )
+            .post(
+              "/api/documents"
+            )
+            .set(
+              "Cookie",
+              `${ACCESS_COOKIE}=student-1-token`
+            )
+            .attach(
+              "file",
+
+              Buffer.from(
+                "Chunk persistence failure test"
+              ),
+
+              {
+                filename:
+                  "chunk-failure.txt",
+
+                contentType:
+                  "text/plain",
+              }
+            );
+
+
+        expect(
+          response.status
+        ).toBe(
+          500
+        );
+
+
+        expect(
+          mockDocuments
+        ).toHaveLength(
+          1
+        );
+
+
+        expect(
+          mockDocuments[
+            0
+          ].status
+        ).toBe(
+          "failed"
+        );
+
+
+        expect(
+          mockDocuments[
+            0
+          ].extraction_error
+        ).toBe(
+          "Chunk persistence failed."
+        );
+
+
+        expect(
+          mockDocumentChunks
+        ).toHaveLength(
+          0
+        );
+      }
+    );
+
+
     it(
       "does not allow a user to delete another user's document",
+
       async () => {
         const uploadResponse =
-          await request(app)
+          await request(
+            app
+          )
             .post(
               "/api/documents"
             )
@@ -1417,17 +2043,24 @@ describe(
 
 
         expect(
-          uploadResponse.status
-        ).toBe(201);
+          uploadResponse
+            .status
+        ).toBe(
+          201
+        );
 
 
         const documentId =
-          uploadResponse.body
-            .document.id;
+          uploadResponse
+            .body
+            .document
+            .id;
 
 
         const response =
-          await request(app)
+          await request(
+            app
+          )
             .delete(
               `/api/documents/${documentId}`
             )
@@ -1439,15 +2072,22 @@ describe(
 
         expect(
           response.status
-        ).toBe(404);
+        ).toBe(
+          404
+        );
 
 
         expect(
           mockDocuments
-        ).toHaveLength(1);
+        ).toHaveLength(
+          1
+        );
+
 
         expect(
-          mockDocuments[0].id
+          mockDocuments[
+            0
+          ].id
         ).toBe(
           documentId
         );
@@ -1455,16 +2095,19 @@ describe(
 
         expect(
           mockDocumentChunks
-        ).toHaveLength(1);
+        ).toHaveLength(
+          1
+        );
+
 
         expect(
-          mockDocumentChunks[0]
-            .document_id
+          mockDocumentChunks[
+            0
+          ].document_id
         ).toBe(
           documentId
         );
       }
     );
   }
-  
 );
