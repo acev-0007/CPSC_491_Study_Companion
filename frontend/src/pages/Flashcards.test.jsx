@@ -639,8 +639,12 @@ describe("Flashcards page - AI generation (SCRUM-122)", () => {
     );
 
     expect(
+    await screen.findByText("What is encapsulation?")
+    ).toBeInTheDocument();
+
+    expect(
       await screen.findByRole("status")
-    ).toHaveTextContent(/successfully returned 1 flashcard/i);
+    ).toHaveTextContent(/generated 1 flashcard/i);
 
     expect(generateFlashcards).toHaveBeenCalledWith(
       "Encapsulation hides internal object state."
