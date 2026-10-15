@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import Flashcards from "./Flashcards";
+import Flashcards from "../../pages/Flashcards";
 
 // TECHNIQUE: black-box component testing. Tests drive the page the way a
 // student does -- find controls by their visible label or role, click them,
@@ -20,11 +20,11 @@ const SAMPLE_CARDS = [
   { id: 3, front: "Q3", back: "A3" },
 ];
 
-vi.mock("../data/flashcardSource", () => ({
+vi.mock("../../data/flashcardSource", () => ({
   getFlashcards: vi.fn(),
 }));
 
-const { getFlashcards } = await import("../data/flashcardSource");
+const { getFlashcards } = await import("../../data/flashcardSource");
 
 /** Renders the page and waits for the async load to settle. */
 async function renderLoaded(cards = SAMPLE_CARDS) {

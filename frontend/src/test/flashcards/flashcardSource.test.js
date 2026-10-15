@@ -5,9 +5,9 @@ import {
   it,
   vi,
 } from "vitest";
-import { getFlashcards } from "./flashcardSource";
-import mockFlashcards from "./mockFlashcards";
-import { validateFlashcardSet, isValidFlashcard } from "./flashcardContract";
+import { getFlashcards } from "../../data/flashcardSource";
+import mockFlashcards from "../../data/mockFlashcards";
+import { validateFlashcardSet, isValidFlashcard } from "../../data/flashcardContract";
 
 // TECHNIQUE: black-box testing of the data-source seam. These tests call
 // getFlashcards() through its public async interface and assert only on the
