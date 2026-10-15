@@ -81,24 +81,34 @@ function Flashcards() {
     setIsEditing(false);
   }
 
-  // SCRUM-121: generation is still a stub, so no cards are produced yet.
-  // SCRUM-122/123 will replace the notice with validated, displayed cards.
-  async function handleGenerate(studyText) {
+  
+/**
+ * SCRUM-122:
+ * Sends validated study material to the shared AI service.
+ *
+ * SCRUM-123 will handle validating individual cards,
+ * assigning IDs, and displaying them in the viewer.
+ */
+async function handleGenerate(studyText) {
   setGenerationNotice(null);
 
   const result = await generateFlashcards(studyText);
 
-  if (result.isStub) {
+  const count = result.flashcards.length;
+
+  if (count === 0) {
     setGenerationNotice(
-      "AI flashcard generation is not connected yet. " +
-      "Your study notes were validated successfully."
+      "The AI service returned no flashcards."
     );
     return;
   }
 
-  // SCRUM-122/123:
-  // Validate and display generated cards here.
+  setGenerationNotice(
+    `AI service successfully returned ${count} flashcard(s). ` +
+    "Displaying generated cards will be implemented in SCRUM-123."
+  );
 }
+
 
   // Rendered in every state so students can always enter notes. It sits at the
   // same position in each branch below, so typed text survives the initial load.

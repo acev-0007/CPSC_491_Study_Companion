@@ -1,19 +1,21 @@
 // Flashcard generation service.
 //
-// The body of generateFlashcards() is a TEMPORARY STUB. It waits briefly (so the
-// loading state is real) and returns no cards. It does NOT call Claude.
+// generateFlashcards() sends validated study notes to the shared AI backend
+// (POST /api/ai/flashcards) and returns the structured response. All AI-provider
+// work happens in that backend route; this file only makes the HTTP request, so
+// no provider code lives in React.
 //
-//   SCRUM-122: replace the stub body with a POST to the agreed AI endpoint
-//              (proposed: POST /api/ai/flashcards with { notes }) and return
-//              { flashcards: data.flashcards, isStub: false }.
-//   SCRUM-123: pass result.flashcards through normalizeFlashcards() from
-//              data/flashcardContract.js before anything is displayed.
+// Agreed contract (Sprint 3):
+//   Request:  { "notes": "<study text>" }
+//   Success:  { "flashcards": [ { "front": "...", "back": "..." } ] }
+//   Error:    non-2xx + { "error": "Flashcard generation failed." }
 //
-// Returning { flashcards } mirrors the proposed response contract, so swapping
-// the stub for the real call should not change the caller.
+// The generated cards carry no IDs. Validating each card, assigning IDs, and
+// passing them through normalizeFlashcards() is SCRUM-123, not done here.
 
 export const MAX_STUDY_TEXT_LENGTH = 20000;
-export const STUB_DELAY_MS = 800;
+export const GENERATE_ENDPOINT = "/api/ai/flashcards";
+export const GENERIC_ERROR = "Flashcard generation failed.";
 
 /**
  * Checks pasted study notes before generation.
@@ -45,6 +47,10 @@ export function validateStudyText(studyText) {
  * Requests flashcards for the given study text.
  * Rejects if the text fails validation, so invalid input can never reach the
  * AI backend even if a caller skips the UI check.
+ *
+ * Resolves with { flashcards, isStub: false }. Rejects with an Error whose
+ * message is safe to show the user for: network failure, non-2xx responses,
+ * unreadable JSON, or a response without a flashcards array.
  */
 export async function generateFlashcards(studyText) {
   const check = validateStudyText(studyText);
@@ -52,9 +58,34 @@ export async function generateFlashcards(studyText) {
     throw new Error(check.error);
   }
 
-  // TEMPORARY STUB (SCRUM-121). Replaced in SCRUM-122.
-  await new Promise((resolve) => setTimeout(resolve, STUB_DELAY_MS));
-  return { flashcards: [], isStub: true };
+  let response;
+  try {
+    response = await fetch(GENERATE_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({ notes: check.text }),
+    });
+  } catch {
+    throw new Error(GENERIC_ERROR);
+  }
+
+  // The body may be missing or not JSON (e.g. a proxy error page).
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(
+      typeof data?.error === "string" && data.error.trim() !== ""
+        ? data.error
+        : GENERIC_ERROR
+    );
+  }
+
+  if (!data || !Array.isArray(data.flashcards)) {
+    throw new Error(GENERIC_ERROR);
+  }
+
+  return { flashcards: data.flashcards, isStub: false };
 }
 
 export default generateFlashcards;
