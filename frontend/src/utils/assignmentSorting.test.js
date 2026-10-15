@@ -95,6 +95,34 @@ describe("Assignment Sorting Tests", () => {
         ]);
     });
 
+    test("sorts overdue assignments by due date", () => {
+        const assignments = [
+            {
+                id: "1",
+                duedate: "2026-10-20",
+                priority: "Low",
+                status: "Upcoming",
+            },
+            {
+                id: "2",
+                duedate: "2026-10-10",
+                priority: "High",
+                status: "Upcoming",
+            },
+            {
+                id: "3",
+                duedate: "2026-10-15",
+                priority: "Medium",
+                status: "In Progress",
+            },
+        ];
+
+        const result = sortAssignments(assignments, "duedate");
+        expect(result.map(a => a.id)).toEqual([
+            "2", "3", "1"
+        ]);
+    });
+
     test("sort assignments with different statues", () => {
         const result = sortAssignments(mockAssignments, "priority-high");
         expect(result.map(a => a.id)).toEqual([
