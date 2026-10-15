@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 
 import { getFlashcards } from "../data/flashcardSource";
+import { generateFlashcards } from "../services/flashcardGeneration";
+import StudyMaterialInput from "../components/StudyMaterialInput";
 import "../components/Flashcards.css";
 
 function Flashcards() {
@@ -13,7 +15,8 @@ function Flashcards() {
   const [isEditing, setIsEditing] = useState(false);
   const [draftFront, setDraftFront] = useState("");
   const [draftBack, setDraftBack] = useState("");
-
+  const [generationNotice, setGenerationNotice] = useState(null);
+  const [showSaved, setShowSaved] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -78,10 +81,53 @@ function Flashcards() {
     setIsEditing(false);
   }
 
+  
+/**
+ * SCRUM-122:
+ * Sends validated study material to the shared AI service.
+ *
+ * SCRUM-123 will handle validating individual cards,
+ * assigning IDs, and displaying them in the viewer.
+ */
+async function handleGenerate(studyText) {
+  setGenerationNotice(null);
+
+  const result = await generateFlashcards(studyText);
+
+  const count = result.flashcards.length;
+
+  if (count === 0) {
+    setGenerationNotice(
+      "The AI service returned no flashcards."
+    );
+    return;
+  }
+
+  setGenerationNotice(
+    `AI service successfully returned ${count} flashcard(s). ` +
+    "Displaying generated cards will be implemented in SCRUM-123."
+  );
+}
+
+
+  // Rendered in every state so students can always enter notes. It sits at the
+  // same position in each branch below, so typed text survives the initial load.
+  const generationPanel = (
+    <>
+      <StudyMaterialInput onGenerate={handleGenerate} />
+      {generationNotice && (
+        <p role="status" className="flashcards-generation-notice">
+          {generationNotice}
+        </p>
+      )}
+    </>
+  );
+
   if (isLoading) {
     return (
       <section className="flashcards-page">
         <h1>Flashcards</h1>
+        {generationPanel}
         <p>Loading flashcards...</p>
       </section>
     );
@@ -91,6 +137,7 @@ function Flashcards() {
     return (
       <section className="flashcards-page">
         <h1>Flashcards</h1>
+        {generationPanel}
         <p role="alert">{loadError}</p>
       </section>
     );
@@ -100,7 +147,30 @@ function Flashcards() {
     return (
       <section className="flashcards-page">
         <h1>Flashcards</h1>
+        {generationPanel}
         <p>No flashcards are available yet.</p>
+      </section>
+    );
+  }
+
+  // Saved cards stay out of the way until the student asks for them, so the
+  // page opens on the generation workflow. Generating never reveals them.
+  if (!showSaved) {
+    return (
+      <section className="flashcards-page">
+        <h1>Flashcards</h1>
+        {generationPanel}
+        <div className="flashcards-saved">
+          <h2>Existing Flashcards</h2>
+          <p>Continue studying cards already saved to your account.</p>
+          <button
+            type="button"
+            className="flashcards-primary-btn"
+            onClick={() => setShowSaved(true)}
+          >
+            Study Saved Flashcards
+          </button>
+        </div>
       </section>
     );
   }
@@ -108,6 +178,7 @@ function Flashcards() {
   return (
     <section className="flashcards-page">
       <h1>Flashcards</h1>
+      {generationPanel}
       <p className="flashcards-progress">
         Card {currentIndex + 1} of {totalCards}
       </p>
