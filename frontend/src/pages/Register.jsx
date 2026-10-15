@@ -13,7 +13,6 @@ function Register() {
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [accountCreated, setAccountCreated] = useState(false);
-  const [requiresEmailConfirmation, setRequiresEmailConfirmation] = useState(false);
   const [checkingSession, setCheckingSession] = useState(false);
   const [sessionError, setSessionError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -38,7 +37,13 @@ function Register() {
         email: formData.email,
         password: formData.password,
       });
-      setRequiresEmailConfirmation(result.requiresEmailConfirmation);
+      if (result.requiresEmailConfirmation) {
+        navigate("/auth/confirm", {
+          replace: true,
+          state: { email: formData.email.trim().toLowerCase() },
+        });
+        return;
+      }
       setAccountCreated(true);
     } catch (error) {
       setErrorMessage(error.message);
@@ -48,11 +53,6 @@ function Register() {
   };
 
   const handleContinue = async () => {
-    if (requiresEmailConfirmation) {
-      navigate("/login");
-      return;
-    }
-
     setSessionError("");
     setCheckingSession(true);
     try {
@@ -91,9 +91,7 @@ function Register() {
             <div className="auth-intro">
               <h1 id="register-success-heading" className="auth-heading">Account created</h1>
               <p className="auth-subtitle auth-success-copy">
-                {requiresEmailConfirmation
-                  ? "Check your email to confirm your account before logging in."
-                  : "Your account is ready. Continue to your dashboard if you are signed in."}
+                Your account is ready. Continue to your dashboard if you are signed in.
               </p>
             </div>
             {sessionError && (
@@ -109,9 +107,7 @@ function Register() {
               disabled={checkingSession}
               aria-busy={checkingSession}
             >
-              {requiresEmailConfirmation
-                ? "Go to Login"
-                : checkingSession ? "Checking session..." : "Continue"}
+              {checkingSession ? "Checking session..." : "Continue"}
             </button>
           </section>
         </main>

@@ -4,6 +4,7 @@ import ProtectedRoute from "../components/ProtectedRoute";
 import Landing from "../pages/Landing";
 import Login from "../pages/Login";
 import Register from "../pages/Register";
+import EmailConfirmation from "../pages/EmailConfirmation";
 import Dashboard from "../pages/Dashboard";
 import Flashcards from "../pages/Flashcards";
 import Quiz from "../pages/Quiz";
@@ -41,6 +42,15 @@ function AppRoutes() {
           <>
             <title>Register | AI Study Companion</title>
             <Register />
+          </>
+        }
+      />
+      <Route
+        path="/auth/confirm"
+        element={
+          <>
+            <title>Confirm Email | AI Study Companion</title>
+            <EmailConfirmation />
           </>
         }
       />
