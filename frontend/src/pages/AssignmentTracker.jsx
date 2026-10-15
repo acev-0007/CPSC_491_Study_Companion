@@ -5,19 +5,18 @@ import { getDeadlineStatus } from "../utils/assignmentStatus";
 function AssignmentTracker() {
   const [assignments, setAssignments] = useState([]);
 
+  // sortBy stores the user's selected sorting method
+  // setSortBy updates that selection
+  // "duedate" amakes the due-date sorting default
+  const [sortBy, setSortBy] = useState("duedate");
+
   const [message, setMessage] = useState("");
 
-  const upcomingAssignments = assignments.filter(
-    (assignment) => assignment.status === "Upcoming"
-  );
-
-  const inProgressAssignments = assignments.filter(
-    (assignment) => assignment.status === "In Progress"
-  );
-
-  const completedAssignments = assignments.filter(
-    (assignment) => assignment.status === "Completed"
-  );
+  const priorityOrder = {
+    High: 1,
+    Medium: 2,
+    Low: 3
+  };
 
   const [formData, setFormData] = useState({
     title: "",
@@ -142,6 +141,34 @@ function AssignmentTracker() {
       [name]: value,
     })
   }
+
+  const sortedAssignments = [...assignments].sort((a, b) => {
+    if (sortBy == "duedate") {
+      return new Date(a.duedate) - new Date(b.duedate);
+    }
+
+    if (sortBy == "priority-high") {
+      return priorityOrder[a.priority] - priorityOrder[b.priority];
+    }
+
+    if (sortBy == "priority-low") {
+      return priorityOrder[b.priority] - priorityOrder[a.priority];
+    }
+
+    return 0;
+  });
+
+  const upcomingAssignments = sortedAssignments.filter(
+    (assignment) => assignment.status === "Upcoming"
+  );
+
+  const inProgressAssignments = sortedAssignments.filter(
+    (assignment) => assignment.status === "In Progress"
+  );
+
+  const completedAssignments = sortedAssignments.filter(
+    (assignment) => assignment.status === "Completed"
+  );
 
   async function handleStatusChange(id, newStatus) {
     try {
@@ -300,6 +327,18 @@ function AssignmentTracker() {
 
     <div className="right-panel">
       <section className="assignment-section">
+        <div className="assignment-sort">
+          <label htmlFor="sortBy">Sort By:</label>
+          <select
+            id="sortBy"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+          >
+            <option value="duedate">Due Date</option>
+            <option value="priority-high">Priority: High to Low</option>
+            <option value="priority-low">Priority: Low to High</option>     
+          </select>
+        </div>
       <h2>Upcoming</h2>
       {upcomingAssignments.length === 0 
        ? <p>No upcoming assignments</p>

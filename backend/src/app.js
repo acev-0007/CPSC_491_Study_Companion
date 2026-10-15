@@ -5,6 +5,10 @@ import cookieParser from "cookie-parser";
 import path from "node:path";
 
 import {
+  chunkDocumentText,
+} from "./documentChunker.js";
+
+import {
   mkdir,
   writeFile,
   unlink,
@@ -15,8 +19,8 @@ import {
 } from "node:crypto";
 
 import {
-  DocumentStore,
-} from "./documentStore.js";
+  SupabaseDocumentStore,
+} from "./supabaseDocumentStore.js";
 
 import {
   extractText,
@@ -37,6 +41,9 @@ import {
   createUserSupabaseClient,
 } from "./config/supabase.js";
 
+import assignmentRoutes
+  from "./routes/assignmentRoutes.js";
+
 const MAX_FILE_SIZE =
   10 * 1024 * 1024;
 
@@ -55,18 +62,24 @@ function publicDocument(document) {
 
 export function createApp({
   dataDir =
-  path.resolve("data"),
+    path.resolve("data"),
 
   uploadDir =
-  path.resolve(
-    "data/uploads"
-  ),
+    path.resolve(
+      "data/uploads"
+    ),
 } = {}) {
 
   const app = express();
 
-  const store =
-    new DocumentStore(dataDir);
+  /*
+   * dataDir is retained temporarily because existing
+   * tests still pass it into createApp().
+   *
+   * Document metadata persistence now uses Supabase.
+   */
+  void dataDir;
+
 
   const upload =
     multer({
@@ -209,20 +222,20 @@ export function createApp({
   app.get(
     "/api/documents",
     requireAuth,
+
     async (req, res, next) => {
       try {
+        const store =
+          new SupabaseDocumentStore(
+            req.accessToken
+          );
+
         const documents =
           await store.listForUser(
             req.user.id
           );
 
-        documents.sort(
-          (a, b) =>
-            new Date(b.uploadedAt) -
-            new Date(a.uploadedAt)
-        );
-
-        res.json({
+        return res.json({
           documents:
             documents.map(
               publicDocument
@@ -255,6 +268,7 @@ export function createApp({
             });
         }
 
+
         let extension;
 
         try {
@@ -271,6 +285,13 @@ export function createApp({
             });
         }
 
+
+        const store =
+          new SupabaseDocumentStore(
+            req.accessToken
+          );
+
+
         await mkdir(
           uploadDir,
           {
@@ -278,11 +299,13 @@ export function createApp({
           }
         );
 
+
         const id =
           randomUUID();
 
         const storedFilename =
           `${id}${extension}`;
+
 
         await writeFile(
           path.join(
@@ -294,25 +317,11 @@ export function createApp({
         );
 
 
-        let extractedText = "";
-        let status = "ready";
-        let extractionError = null;
+        // ----------------------------------------
+        // CREATE INITIAL PROCESSING RECORD
+        // ----------------------------------------
 
-        try {
-          extractedText =
-            await extractText(
-              req.file
-            );
-        } catch (error) {
-          status = "failed";
-
-          extractionError =
-            error.message ||
-            "Text extraction failed.";
-        }
-
-
-        const document = {
+        const processingDocument = {
           id,
 
           userId:
@@ -343,36 +352,229 @@ export function createApp({
             new Date()
               .toISOString(),
 
-          status,
+          status:
+            "processing",
 
-          extractionError,
+          extractionError:
+            null,
 
           textLength:
-            extractedText.length,
+            0,
 
           storedFilename,
 
-          extractedText,
+          extractedText:
+            "",
         };
 
 
-        await store.add(
-          document
-        );
+        try {
+          await store.add(
+            processingDocument
+          );
+        } catch (error) {
+          try {
+            await unlink(
+              path.join(
+                uploadDir,
+                storedFilename
+              )
+            );
+          } catch (cleanupError) {
+            if (
+              cleanupError.code !==
+              "ENOENT"
+            ) {
+              console.error(
+                "Failed to clean up orphaned upload:",
+                storedFilename,
+                cleanupError
+              );
+            }
+          }
+
+          throw error;
+        }
+
+
+        // ----------------------------------------
+        // EXTRACT TEXT
+        // ----------------------------------------
+
+        let extractedText = "";
+        let status = "ready";
+        let extractionError = null;
+
+
+        try {
+          extractedText =
+            await extractText(
+              req.file
+            );
+        } catch (error) {
+          status = "failed";
+
+          extractionError =
+            error.message ||
+            "Text extraction failed.";
+        }
+
+
+        // ----------------------------------------
+        // HANDLE EXTRACTION FAILURE
+        // ----------------------------------------
+
+        if (status === "failed") {
+          const failedDocument =
+            await store.updateProcessingState(
+              id,
+              req.user.id,
+              {
+                status:
+                  "failed",
+
+                extractionError,
+
+                textLength:
+                  0,
+
+                extractedText:
+                  "",
+              }
+            );
+
+
+          if (!failedDocument) {
+            throw new Error(
+              "Document processing record could not be updated."
+            );
+          }
+
+
+          return res
+            .status(201)
+            .json({
+              document:
+                publicDocument(
+                  failedDocument
+                ),
+            });
+        }
+
+
+        // ----------------------------------------
+        // SAVE EXTRACTED CONTENT WHILE PROCESSING
+        // ----------------------------------------
+
+        const processingDocumentWithText =
+          await store.updateProcessingState(
+            id,
+            req.user.id,
+            {
+              status:
+                "processing",
+
+              extractionError:
+                null,
+
+              textLength:
+                extractedText.length,
+
+              extractedText,
+            }
+          );
+
+
+        if (!processingDocumentWithText) {
+          throw new Error(
+            "Document processing record could not be updated."
+          );
+        }
+
+
+        // ----------------------------------------
+        // CREATE AI-READY CHUNKS
+        // ----------------------------------------
+
+        try {
+          const chunks =
+            chunkDocumentText(
+              extractedText
+            );
+
+
+          await store
+            .replaceChunksForDocument(
+              id,
+              chunks
+            );
+        } catch (error) {
+          await store.updateProcessingState(
+            id,
+            req.user.id,
+            {
+              status:
+                "failed",
+
+              extractionError:
+                "Chunk persistence failed.",
+
+              textLength:
+                extractedText.length,
+
+              extractedText,
+            }
+          );
+
+          throw error;
+        }
+
+
+        // ----------------------------------------
+        // MARK DOCUMENT READY
+        // ----------------------------------------
+
+        const readyDocument =
+          await store.updateProcessingState(
+            id,
+            req.user.id,
+            {
+              status:
+                "ready",
+
+              extractionError:
+                null,
+
+              textLength:
+                extractedText.length,
+
+              extractedText,
+            }
+          );
+
+
+        if (!readyDocument) {
+          throw new Error(
+            "Document processing record could not be updated."
+          );
+        }
+
 
         return res
           .status(201)
           .json({
             document:
               publicDocument(
-                document
+                readyDocument
               ),
           });
+
       } catch (error) {
         next(error);
       }
     }
   );
+          
 
   
 
@@ -666,6 +868,11 @@ app.post(
 
     async (req, res, next) => {
       try {
+        const store =
+          new SupabaseDocumentStore(
+            req.accessToken
+          );
+
         const updatedDocument =
           await store.updateForUser(
             req.params.id,
@@ -682,6 +889,7 @@ app.post(
             }
           );
 
+
         if (!updatedDocument) {
           return res
             .status(404)
@@ -690,6 +898,7 @@ app.post(
                 "Document not found.",
             });
         }
+
 
         return res.json({
           document:
@@ -714,11 +923,17 @@ app.post(
 
     async (req, res, next) => {
       try {
+        const store =
+          new SupabaseDocumentStore(
+            req.accessToken
+          );
+
         const deletedDocument =
           await store.deleteForUser(
             req.params.id,
             req.user.id
           );
+
 
         if (!deletedDocument) {
           return res
@@ -729,24 +944,30 @@ app.post(
             });
         }
 
-      if (deletedDocument.storedFilename) {
-        try {
-          await unlink(
-            path.join(
-              uploadDir,
-              deletedDocument.storedFilename
-            )
-          );
-        } catch (error) {
-          if (error.code !== "ENOENT") {
-            console.error(
-              "Failed to remove uploaded file:",
-              deletedDocument.storedFilename,
-              error
+
+        if (
+          deletedDocument.storedFilename
+        ) {
+          try {
+            await unlink(
+              path.join(
+                uploadDir,
+                deletedDocument.storedFilename
+              )
             );
+          } catch (error) {
+            if (
+              error.code !== "ENOENT"
+            ) {
+              console.error(
+                "Failed to remove uploaded file:",
+                deletedDocument.storedFilename,
+                error
+              );
+            }
           }
         }
-      }
+
 
         return res.json({
           document:
@@ -782,7 +1003,9 @@ app.post(
           });
       }
 
+
       console.error(error);
+
 
       return res
         .status(500)
@@ -793,6 +1016,14 @@ app.post(
     }
   );
 
+  // ========================================
+  // ASSIGNMENT TRACKER ROUTE
+  // ========================================
+  
+  app.use(
+    "/api/assignments",
+    assignmentRoutes
+  );
 
   return app;
 }
