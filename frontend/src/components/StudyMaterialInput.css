@@ -1,0 +1,159 @@
+.study-input {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  box-shadow: var(--shadow);
+}
+
+.study-input h2 {
+  margin: 0;
+  font-size: 20px;
+  color: var(--text-h);
+}
+
+.study-input-intro {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.study-input form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.study-input label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.study-input textarea {
+  font: inherit;
+  font-size: 15px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-h);
+  resize: vertical;
+}
+
+.study-input textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.study-input textarea[aria-invalid="true"] {
+  border-color: var(--color-error);
+}
+
+.study-input textarea:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.study-input-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.study-input-count {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--text);
+}
+
+.study-input-submit {
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: 1px solid var(--accent-border);
+  background: var(--accent-bg);
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.study-input-submit:hover:not(:disabled) {
+  background: var(--color-accent-soft);
+  border-color: var(--accent);
+}
+
+.study-input-submit:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.study-input-submit:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.study-input-error {
+  margin: 0;
+  font-size: 14px;
+  color: var(--color-error);
+}
+
+/* Visible-but-disabled Document Hub path. Faded so it reads as "not yet". */
+.study-input-coming-soon {
+  margin: 4px 0 0;
+  padding: 12px 14px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.study-input-coming-soon legend {
+  padding: 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.study-input-coming-soon p {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.study-input-coming-soon button {
+  font: inherit;
+  font-size: 14px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .study-input * {
+    transition: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .study-input-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .study-input-submit {
+    width: 100%;
+  }
+}

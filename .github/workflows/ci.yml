@@ -63,6 +63,10 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_TEST_USER1_EMAIL: ${{ secrets.SUPABASE_TEST_USER1_EMAIL }}
+          SUPABASE_TEST_USER1_PASSWORD: ${{ secrets.SUPABASE_TEST_USER1_PASSWORD }}
+          SUPABASE_TEST_USER2_EMAIL: ${{ secrets.SUPABASE_TEST_USER2_EMAIL }}
+          SUPABASE_TEST_USER2_PASSWORD: ${{ secrets.SUPABASE_TEST_USER2_PASSWORD }}
 
       - name: Build frontend
         working-directory: frontend
