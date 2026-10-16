@@ -123,3 +123,15 @@ export async function logoutAccount() {
     response
   );
 }
+
+
+export async function verifyEmail({ email, code }) {
+  const response = await fetch("/api/auth/verify-email", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, code }),
+  });
+  return parseResponse(response);
+}
+

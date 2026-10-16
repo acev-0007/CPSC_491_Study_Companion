@@ -1,8 +1,12 @@
-import { Routes, Route } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
 import Layout from "../components/Layout";
 import ProtectedRoute from "../components/ProtectedRoute";
+import { getCurrentUser } from "../api/auth";
+import Landing from "../pages/Landing";
 import Login from "../pages/Login";
 import Register from "../pages/Register";
+import EmailConfirmation from "../pages/EmailConfirmation";
 import Dashboard from "../pages/Dashboard";
 import Flashcards from "../pages/Flashcards";
 import Quiz from "../pages/Quiz";
@@ -11,11 +15,87 @@ import VisualGenerator from "../pages/VisualGenerator";
 import Summarization from "../pages/Summarization";
 import TextbookHub from "../pages/TextbookHub";
 import NotFound from "../pages/NotFound";
+// Only the home route uses this guard. ProtectedRoute remains responsible
+// for enforcing authentication on the dashboard and other private pages.
+function LandingRoute() {
+  const [status, setStatus] = useState("checking");
+  const [retryCount, setRetryCount] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+
+    async function checkSession() {
+      try {
+        const result = await getCurrentUser();
+        if (active) {
+          setStatus(result.user ? "authenticated" : "unauthenticated");
+        }
+      } catch (error) {
+        if (active) {
+          setStatus(error.status === 401 ? "unauthenticated" : "error");
+        }
+      }
+    }
+
+    checkSession();
+    return () => {
+      active = false;
+    };
+  }, [retryCount]);
+
+  if (status === "authenticated") {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  if (status === "unauthenticated") {
+    return <Landing />;
+  }
+
+  if (status === "error") {
+    return (
+      <main className="session-error" aria-labelledby="home-session-error-title">
+        <section className="session-error-card" role="alert">
+          <h1 id="home-session-error-title" className="session-error-title">
+            Unable to check your session
+          </h1>
+          <p className="session-error-message">
+            We couldn't connect to the server. Please try again.
+          </p>
+          <button
+            type="button"
+            className="session-error-button"
+            onClick={() => {
+              setStatus("checking");
+              setRetryCount((count) => count + 1);
+            }}
+          >
+            Try Again
+          </button>
+        </section>
+      </main>
+    );
+  }
+
+  return (
+    <main className="session-error" role="status" aria-live="polite">
+      <p>Checking your session…</p>
+    </main>
+  );
+}
 
 function AppRoutes() {
   return (
     <Routes>
       {/* Public routes */}
+      <Route
+        path="/"
+        element={
+          <>
+            <title>AI Study Companion | Study Smarter</title>
+            <LandingRoute />
+          </>
+        }
+      />
       <Route
         path="/login"
         element={
@@ -35,10 +115,18 @@ function AppRoutes() {
           </>
         }
       />
-
+      <Route
+        path="/auth/confirm"
+        element={
+          <>
+            <title>Confirm Email | AI Study Companion</title>
+            <EmailConfirmation />
+          </>
+        }
+      />
       <Route element={<Layout />}>
         <Route
-          path="/"
+          path="/dashboard"
           element={
             <ProtectedRoute>
               <>
@@ -48,7 +136,6 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/flashcards"
           element={
@@ -60,7 +147,6 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/quiz"
           element={
@@ -72,7 +158,6 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/assignments"
           element={
@@ -84,7 +169,6 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/visual-generator"
           element={
@@ -96,7 +180,6 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/summarization"
           element={
@@ -108,7 +191,6 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/textbooks"
           element={
@@ -134,5 +216,4 @@ function AppRoutes() {
     </Routes>
   );
 }
-
 export default AppRoutes;
