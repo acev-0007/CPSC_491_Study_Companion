@@ -3,6 +3,7 @@ import { Router } from "express";
 import { generateClaudeResponse } from "../providers/claudeProvider.js";
 
 const router = Router();
+const MAX_FLASHCARD_TEXT_LENGTH = 20000;
 
 router.post("/generate", async (req, res, next) => {
   try {
@@ -52,6 +53,7 @@ ${notes.trim()}
   }
 });
 
+
 router.post("/flashcards", async (req, res, next) => {
   try {
     const { notes } = req.body ?? {};
@@ -59,6 +61,12 @@ router.post("/flashcards", async (req, res, next) => {
     if (typeof notes !== "string" || !notes.trim()) {
       return res.status(400).json({
         error: "Study material is required.",
+      });
+    }
+
+    if (notes.trim().length > MAX_FLASHCARD_TEXT_LENGTH) {
+      return res.status(400).json({
+        error: "Study material cannot exceed 20,000 characters.",
       });
     }
 
