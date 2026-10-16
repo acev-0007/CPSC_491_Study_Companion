@@ -45,8 +45,8 @@ export async function listDecks({ fetchImpl = fetch } = {}) {
   const data = await response.json().catch(() => null);
 
   if (!Array.isArray(data?.topics)) {
-    return [];
-  }
+  throw new Error("Invalid saved decks response.");
+}
 
   return data.topics.map(normalizeDeck).filter(Boolean);
 }

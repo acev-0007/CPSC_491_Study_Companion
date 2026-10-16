@@ -77,11 +77,15 @@ describe("listDecks (FLASH-DECK-1)", () => {
     expect(decks[0].title).toBe("Good");
   });
 
-  it("returns an empty list when the payload has no topics array", async () => {
-    const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({}));
+  it("rejects a malformed response without a topics array", async () => {
+  const fetchImpl = vi.fn().mockResolvedValue(
+    jsonResponse({})
+  );
 
-    expect(await listDecks({ fetchImpl })).toEqual([]);
-  });
+  await expect(
+    listDecks({ fetchImpl })
+  ).rejects.toThrow("Invalid saved decks response.");
+});
 
   it("throws when the request fails", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({}, 500));

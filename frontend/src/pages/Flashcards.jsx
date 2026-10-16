@@ -247,6 +247,7 @@ async function handleDeleteDeck(deck) {
 
 
 
+
 async function handleSaveDeck() {
   if (
     isSaving ||
@@ -266,17 +267,17 @@ async function handleSaveDeck() {
     });
 
     setSaveResult(result);
-
-
   } catch {
-  setSaveResult({
-    status: "failed",
-    topicId: null,
-    error:
-      "The save result could not be confirmed. " +
-      "Check your saved flashcards before trying again.",
-  });
-}
+    setSaveResult({
+      status: "failed",
+      topicId: null,
+      error:
+        "The save result could not be confirmed. " +
+        "Check your saved decks before trying again.",
+    });
+  } finally {
+    setIsSaving(false);
+  }
 }
 
 
