@@ -33,6 +33,9 @@ import authRoutes
 import aiRoutes
   from "./routes/aiRoutes.js";
 
+import summaryRoutes
+  from "./routes/summaryRoutes.js";
+
 import {
   requireAuth,
 } from "./middleware/requireAuth.js";
@@ -43,6 +46,7 @@ import {
 
 import assignmentRoutes
   from "./routes/assignmentRoutes.js";
+
 
 const MAX_FILE_SIZE =
   10 * 1024 * 1024;
@@ -96,7 +100,7 @@ export function createApp({
   // ========================================
   // GLOBAL MIDDLEWARE
   // ========================================
-  
+
   app.use(cors({
   origin: "http://localhost:5173",
   credentials: true,
@@ -125,6 +129,16 @@ export function createApp({
     "/api/ai",
     requireAuth,
     aiRoutes
+  );
+
+
+  // ========================================
+  // SUMMARY PERSISTENCE ROUTES (SCRUM-231)
+  // ========================================
+
+  app.use(
+    "/api/summaries",
+    summaryRoutes
   );
 
 
@@ -577,9 +591,9 @@ export function createApp({
       }
     }
   );
-          
 
-  
+
+
 
 
 // ===== FLASHCARD ENDPOINTS (Sprint 2 / FLASH-5) =====
@@ -1022,7 +1036,7 @@ app.post(
   // ========================================
   // ASSIGNMENT TRACKER ROUTE
   // ========================================
-  
+
   app.use(
     "/api/assignments",
     assignmentRoutes
