@@ -516,7 +516,11 @@ export function createApp({
         try {
           const chunks =
             chunkDocumentText(
-              extractedText
+              extractedText,
+              {
+                sentenceAware:
+                  true,
+              }
             );
 
 

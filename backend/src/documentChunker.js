@@ -1,5 +1,6 @@
 export const DEFAULT_CHUNK_SIZE = 4000;
 export const DEFAULT_CHUNK_OVERLAP = 400;
+export const DEFAULT_SENTENCE_LOOKBACK = 500;
 
 
 export function normalizeDocumentText(text) {
@@ -19,6 +20,7 @@ export function normalizeDocumentText(text) {
 export function validateChunkOptions({
   chunkSize,
   overlap,
+  sentenceLookback,
 }) {
   if (
     !Number.isInteger(chunkSize) ||
@@ -43,6 +45,15 @@ export function validateChunkOptions({
       "overlap must be smaller than chunkSize."
     );
   }
+
+  if (
+    !Number.isInteger(sentenceLookback) ||
+    sentenceLookback < 0
+  ) {
+    throw new Error(
+      "sentenceLookback must be a non-negative integer."
+    );
+  }
 }
 
 
@@ -60,6 +71,73 @@ export function needsChunking(
 }
 
 
+export function findSentenceBoundary(
+  text,
+  startOffset,
+  targetEndOffset,
+  {
+    lookback =
+      DEFAULT_SENTENCE_LOOKBACK,
+
+    overlap =
+      DEFAULT_CHUNK_OVERLAP,
+  } = {}
+) {
+  const minimumBoundary =
+    Math.max(
+      startOffset +
+        overlap +
+        1,
+
+      targetEndOffset -
+        lookback
+    );
+
+
+  for (
+    let index =
+      targetEndOffset - 1;
+
+    index >= minimumBoundary;
+
+    index -= 1
+  ) {
+    const character =
+      text[index];
+
+    if (
+      character !== "." &&
+      character !== "!" &&
+      character !== "?"
+    ) {
+      continue;
+    }
+
+
+    const nextCharacter =
+      text[
+        index + 1
+      ];
+
+
+    if (
+      nextCharacter ===
+        undefined ||
+      /\s/.test(
+        nextCharacter
+      )
+    ) {
+      return (
+        index + 1
+      );
+    }
+  }
+
+
+  return targetEndOffset;
+}
+
+
 export function chunkDocumentText(
   text,
   {
@@ -68,35 +146,72 @@ export function chunkDocumentText(
 
     overlap =
       DEFAULT_CHUNK_OVERLAP,
+
+    sentenceAware =
+      false,
+
+    sentenceLookback =
+      DEFAULT_SENTENCE_LOOKBACK,
   } = {}
 ) {
   validateChunkOptions({
     chunkSize,
     overlap,
+    sentenceLookback,
   });
+
 
   const normalizedText =
     normalizeDocumentText(text);
 
+
   if (!normalizedText) {
     return [];
   }
+
 
   const chunks = [];
 
   let startOffset = 0;
   let chunkIndex = 0;
 
+
   while (
     startOffset <
     normalizedText.length
   ) {
-    const endOffset =
+    const targetEndOffset =
       Math.min(
         startOffset +
           chunkSize,
+
         normalizedText.length
       );
+
+
+    let endOffset =
+      targetEndOffset;
+
+
+    if (
+      sentenceAware &&
+      targetEndOffset <
+        normalizedText.length
+    ) {
+      endOffset =
+        findSentenceBoundary(
+          normalizedText,
+          startOffset,
+          targetEndOffset,
+          {
+            lookback:
+              sentenceLookback,
+
+            overlap,
+          }
+        );
+    }
+
 
     const content =
       normalizedText
@@ -105,6 +220,7 @@ export function chunkDocumentText(
           endOffset
         )
         .trim();
+
 
     if (content) {
       chunks.push({
@@ -117,6 +233,7 @@ export function chunkDocumentText(
       chunkIndex += 1;
     }
 
+
     if (
       endOffset >=
       normalizedText.length
@@ -124,10 +241,12 @@ export function chunkDocumentText(
       break;
     }
 
+
     startOffset =
       endOffset -
       overlap;
   }
+
 
   return chunks;
 }
