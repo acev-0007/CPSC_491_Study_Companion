@@ -202,6 +202,112 @@ export function createApp({
 
 
   // ========================================
+  // LIST TOPICS (FLASH-DECK-1)
+  // ========================================
+  //
+  // Returns the authenticated user's saved decks, newest
+  // first, with a flashcard count for each. Ownership is
+  // enforced twice: an explicit user_id filter here and
+  // the Supabase row-level security policy.
+
+  app.get(
+    "/api/topics",
+    requireAuth,
+    async (req, res) => {
+      try {
+        const supabase = createUserSupabaseClient(
+          req.accessToken
+        );
+
+        const { data, error } = await supabase
+          .from("topics")
+          .select("id, title, created_at, flashcards(count)")
+          .eq("user_id", req.user.id)
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          throw error;
+        }
+
+        const topics = (data ?? []).map((row) => ({
+          id: row.id,
+          title: row.title,
+          created_at: row.created_at,
+          card_count: row.flashcards?.[0]?.count ?? 0,
+        }));
+
+        return res.status(200).json({ topics });
+      } catch (error) {
+        console.error("Error listing topics:", error);
+
+        return res.status(500).json({
+          error: "Failed to fetch topics.",
+        });
+      }
+    }
+  );
+
+
+  // ========================================
+  // DELETE TOPIC (FLASH-DECK-1)
+  // ========================================
+  //
+  // Deletes one user-owned topic. The flashcards.topic_id
+  // foreign key is ON DELETE CASCADE, so the database
+  // removes the topic's flashcards; they are not deleted
+  // individually here.
+  //
+  //   400  malformed UUID
+  //   404  topic does not exist or is not owned by the user
+  //   204  deleted
+
+  app.delete(
+    "/api/topics/:id",
+    requireAuth,
+    async (req, res) => {
+      if (!isValidUUID(req.params.id)) {
+        return res.status(400).json({
+          error: "Topic id must be a valid UUID.",
+        });
+      }
+
+      try {
+        const supabase = createUserSupabaseClient(
+          req.accessToken
+        );
+
+        const { data, error } = await supabase
+          .from("topics")
+          .delete()
+          .eq("id", req.params.id.trim())
+          .eq("user_id", req.user.id)
+          .select("id");
+
+        if (error) {
+          throw error;
+        }
+
+        // Row-level security can make a delete match zero rows
+        // without an error, so confirm something was removed.
+        if (!data || data.length === 0) {
+          return res.status(404).json({
+            error: "Topic not found.",
+          });
+        }
+
+        return res.status(204).end();
+      } catch (error) {
+        console.error("Error deleting topic:", error);
+
+        return res.status(500).json({
+          error: "Failed to delete topic.",
+        });
+      }
+    }
+  );
+
+
+  // ========================================
   // HEALTH CHECK
   // ========================================
 
