@@ -5,6 +5,7 @@ import ProtectedRoute from "../components/ProtectedRoute";
 import { getCurrentUser } from "../api/auth";
 import Landing from "../pages/Landing";
 import Login from "../pages/Login";
+import ForgotPassword from "../pages/ForgotPassword";
 import Register from "../pages/Register";
 import EmailConfirmation from "../pages/EmailConfirmation";
 import Dashboard from "../pages/Dashboard";
@@ -102,6 +103,16 @@ function AppRoutes() {
           <>
             <title>Login | AI Study Companion</title>
             <Login />
+          </>
+        }
+      />
+
+      <Route
+        path="/forgot-password"
+        element={
+          <>
+            <title>Forgot Password | AI Study Companion</title>
+            <ForgotPassword />
           </>
         }
       />
