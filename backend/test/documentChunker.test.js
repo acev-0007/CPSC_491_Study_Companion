@@ -2,6 +2,7 @@ import {
   DEFAULT_CHUNK_SIZE,
   chunkDocumentText,
   needsChunking,
+  findSentenceBoundary,
   normalizeDocumentText,
 } from "../src/documentChunker.js";
 
@@ -290,6 +291,270 @@ describe(
       }
     );
 
+
+    it(
+  "ends a sentence-aware chunk at the nearest sentence boundary",
+  () => {
+    const text =
+      "The operating system schedules processes. Virtual memory allows programs to use logical addresses.";
+
+
+    const chunks =
+      chunkDocumentText(
+        text,
+        {
+          chunkSize:
+            60,
+
+          overlap:
+            10,
+
+          sentenceAware:
+            true,
+
+          sentenceLookback:
+            30,
+        }
+      );
+
+
+    expect(
+      chunks.length
+    ).toBeGreaterThan(
+      1
+    );
+
+
+    expect(
+      chunks[0].content
+    ).toBe(
+      "The operating system schedules processes."
+    );
+
+
+    expect(
+      chunks[0].endOffset
+    ).toBe(
+      "The operating system schedules processes."
+        .length
+    );
+  }
+);
+
+
+it(
+  "falls back to the hard chunk boundary when no sentence boundary exists",
+  () => {
+    const text =
+      "abcdefghijklmnopqrstuvwxyz";
+
+
+    const chunks =
+      chunkDocumentText(
+        text,
+        {
+          chunkSize:
+            10,
+
+          overlap:
+            2,
+
+          sentenceAware:
+            true,
+
+          sentenceLookback:
+            5,
+        }
+      );
+
+
+    expect(
+      chunks[0].content
+    ).toBe(
+      "abcdefghij"
+    );
+
+
+    expect(
+      chunks[0].endOffset
+    ).toBe(
+      10
+    );
+  }
+);
+
+
+it(
+  "recognizes question marks and exclamation points as sentence boundaries",
+  () => {
+    const text =
+      "What is virtual memory? It allows flexible memory usage! Another sentence follows.";
+
+
+    const chunks =
+      chunkDocumentText(
+        text,
+        {
+          chunkSize:
+            35,
+
+          overlap:
+            5,
+
+          sentenceAware:
+            true,
+
+          sentenceLookback:
+            20,
+        }
+      );
+
+
+    expect(
+      chunks[0].content
+    ).toBe(
+      "What is virtual memory?"
+    );
+  }
+);
+
+
+it(
+  "preserves overlap after using a sentence-aware boundary",
+  () => {
+    const text =
+      "Operating systems schedule processes. Memory management keeps programs isolated. File systems organize persistent data.";
+
+
+    const chunks =
+      chunkDocumentText(
+        text,
+        {
+          chunkSize:
+            65,
+
+          overlap:
+            10,
+
+          sentenceAware:
+            true,
+
+          sentenceLookback:
+            30,
+        }
+      );
+
+
+    expect(
+      chunks.length
+    ).toBeGreaterThan(
+      1
+    );
+
+
+    expect(
+      chunks[1].startOffset
+    ).toBe(
+      chunks[0].endOffset -
+      10
+    );
+  }
+);
+
+
+it(
+  "does not choose a sentence boundary that would break overlap progress",
+  () => {
+    const text =
+      "Short. abcdefghijklmnopqrstuvwxyz";
+
+
+    const chunks =
+      chunkDocumentText(
+        text,
+        {
+          chunkSize:
+            15,
+
+          overlap:
+            10,
+
+          sentenceAware:
+            true,
+
+          sentenceLookback:
+            15,
+        }
+      );
+
+
+    expect(
+      chunks[0].endOffset
+    ).toBe(
+      15
+    );
+
+
+    expect(
+      chunks.length
+    ).toBeGreaterThan(
+      1
+    );
+  }
+);
+
+
+it(
+  "rejects invalid sentence lookback values",
+  () => {
+    expect(
+      () =>
+        chunkDocumentText(
+          "test content",
+          {
+            sentenceLookback:
+              -1,
+          }
+        )
+    ).toThrow(
+      /sentenceLookback must be a non-negative integer/i
+    );
+  }
+);
+
+
+    it(
+    "finds a sentence boundary within the configured lookback window",
+    () => {
+        const text =
+        "First sentence. Second sentence continues here.";
+
+
+        const boundary =
+        findSentenceBoundary(
+            text,
+            0,
+            35,
+            {
+            lookback:
+                25,
+
+            overlap:
+                5,
+            }
+        );
+
+
+        expect(
+        text.slice(
+            0,
+            boundary
+        )
+        ).toBe(
+        "First sentence."
+        );
+    }
+    );
 
     it(
       "rejects invalid chunk sizes",
