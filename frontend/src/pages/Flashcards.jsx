@@ -1,13 +1,14 @@
-
-import { useEffect, useState } from "react";
+import { useRef, useState } from "react";
 
 import {
   saveGeneratedFlashcards,
 } from "../services/flashcardPersistence";
 import { getFlashcards } from "../data/flashcardSource";
+import { deleteDeck, listDecks } from "../services/flashcardDecks";
 import { adaptGeneratedFlashcards } from "../data/generatedFlashcardAdapter";
 import { generateFlashcards } from "../services/flashcardGeneration";
 import StudyMaterialInput from "../components/StudyMaterialInput";
+import SavedDeckList from "../components/SavedDeckList";
 import "../components/Flashcards.css";
 
 function Flashcards() {
@@ -15,11 +16,17 @@ function Flashcards() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveResult, setSaveResult] = useState(null);
   const [deckTitle, setDeckTitle] = useState("");
+  // Saved decks (FLASH-DECK-1): the list, and the cards of the opened deck.
+  const [decks, setDecks] = useState([]);
+  const [activeDeck, setActiveDeck] = useState(null);
   const [savedCards, setSavedCards] = useState([]);
   const [generatedCards, setGeneratedCards] = useState(null);
 
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState(null);
+
+  // Ignores responses from a load that has since been superseded.
+  const loadRequestRef = useRef(0);
 
   const [view, setView] = useState("home");
 
@@ -31,28 +38,6 @@ function Flashcards() {
   const [draftBack, setDraftBack] = useState("");
 
   const [generationNotice, setGenerationNotice] = useState(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    getFlashcards()
-      .then((loaded) => {
-        if (cancelled) return;
-
-        setSavedCards(loaded);
-        setIsLoading(false);
-      })
-      .catch(() => {
-        if (cancelled) return;
-
-        setLoadError("Could not load flashcards.");
-        setIsLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const isGeneratedDeck = view === "generated";
   const cards = isGeneratedDeck
@@ -68,8 +53,21 @@ function Flashcards() {
   // The viewer can edit either deck without mixing their data.
 
   function handleBackToHome() {
+  loadRequestRef.current += 1;
   setView("home");
+  setIsLoading(false);
+  setLoadError(null);
   setGenerationNotice(null);
+  resetStudySession();
+}
+
+function handleBackToSavedDecks() {
+  loadRequestRef.current += 1;
+  setView("saved");
+  setIsLoading(false);
+  setLoadError(null);
+  setActiveDeck(null);
+  setSavedCards([]);
   resetStudySession();
 }
 
@@ -80,6 +78,8 @@ function handleOpenGeneration() {
 }
 
 async function handleShowSavedCards() {
+  const requestId = ++loadRequestRef.current;
+
   setView("saved");
   setGenerationNotice(null);
   resetStudySession();
@@ -88,13 +88,58 @@ async function handleShowSavedCards() {
   setLoadError(null);
 
   try {
-    const refreshed = await getFlashcards();
-    setSavedCards(refreshed);
+    const loaded = await listDecks();
+
+    if (requestId !== loadRequestRef.current) return;
+
+    setDecks(loaded);
   } catch {
+    if (requestId !== loadRequestRef.current) return;
+
     setLoadError("Could not load saved flashcards.");
   } finally {
-    setIsLoading(false);
+    if (requestId === loadRequestRef.current) {
+      setIsLoading(false);
+    }
   }
+}
+
+async function handleStudyDeck(deck) {
+  const requestId = ++loadRequestRef.current;
+
+  setActiveDeck(deck);
+  setSavedCards([]);
+  setView("deck");
+  resetStudySession();
+
+  setIsLoading(true);
+  setLoadError(null);
+
+  try {
+    const loaded = await getFlashcards({ topicId: deck.id });
+
+    if (requestId !== loadRequestRef.current) return;
+
+    setSavedCards(loaded);
+  } catch {
+    if (requestId !== loadRequestRef.current) return;
+
+    setLoadError("Could not load this deck's flashcards.");
+  } finally {
+    if (requestId === loadRequestRef.current) {
+      setIsLoading(false);
+    }
+  }
+}
+
+// Rejects on failure so SavedDeckList can keep the deck visible and
+// show the error. The database cascade removes the deck's flashcards.
+async function handleDeleteDeck(deck) {
+  await deleteDeck(deck.id);
+
+  setDecks((previous) =>
+    previous.filter((item) => item.id !== deck.id)
+  );
 }
 
   function updateActiveCards(updater) {
@@ -223,19 +268,6 @@ async function handleSaveDeck() {
     setSaveResult(result);
 
 
-    if (result.status === "success") {
-      try {
-        const refreshed = await getFlashcards();
-
-        setSavedCards(refreshed);
-        setLoadError(null);
-        setIsLoading(false);
-      } catch {
-        setLoadError(
-          "Saved, but could not refresh saved flashcards."
-        );
-      }
-    }
   } catch {
   setSaveResult({
     status: "failed",
@@ -302,7 +334,7 @@ return (
       </>
     )}
 
-    {(view === "generated" || view === "saved") && (
+    {view === "saved" && (
       <>
         <div className="flashcards-session-header">
           <button
@@ -312,11 +344,43 @@ return (
           >
             ← Back to Flashcards
           </button>
+        </div>
+
+        {isLoading ? (
+          <p>Loading saved decks...</p>
+        ) : loadError ? (
+          <p role="alert">{loadError}</p>
+        ) : (
+          <SavedDeckList
+            decks={decks}
+            onStudyDeck={handleStudyDeck}
+            onDeleteDeck={handleDeleteDeck}
+          />
+        )}
+      </>
+    )}
+
+    {(view === "generated" || view === "deck") && (
+      <>
+        <div className="flashcards-session-header">
+          <button
+            type="button"
+            className="flashcards-back-btn"
+            onClick={
+              isGeneratedDeck
+                ? handleBackToHome
+                : handleBackToSavedDecks
+            }
+          >
+            {isGeneratedDeck
+              ? "← Back to Flashcards"
+              : "← Back to Saved Decks"}
+          </button>
 
           <span className="flashcards-deck-type">
             {isGeneratedDeck
               ? "AI-generated deck"
-              : "Saved flashcards"}
+              : activeDeck?.title ?? "Saved deck"}
           </span>
         </div>
 
@@ -387,9 +451,9 @@ return (
 )}
 
 
-        {view === "saved" && isLoading ? (
+        {view === "deck" && isLoading ? (
           <p>Loading flashcards...</p>
-        ) : view === "saved" && loadError ? (
+        ) : view === "deck" && loadError ? (
           <p role="alert">{loadError}</p>
         ) : totalCards === 0 ? (
           <p>No flashcards are available yet.</p>
