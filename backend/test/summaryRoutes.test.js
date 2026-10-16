@@ -46,10 +46,15 @@ const savedRecord = {
 
 let insertMock;
 let fromMock;
+let getSelectMock;
+let eqMock;
+let orderMock;
+
 
 beforeEach(() => {
   vi.clearAllMocks();
 
+  // SCRUM-231: Mock summary saving.
   insertMock = vi.fn();
 
   const singleMock = vi.fn().mockResolvedValue({
@@ -57,16 +62,44 @@ beforeEach(() => {
     error: null,
   });
 
-  const selectMock = vi.fn().mockReturnValue({
+  const insertSelectMock = vi.fn().mockReturnValue({
     single: singleMock,
   });
 
   insertMock.mockReturnValue({
-    select: selectMock,
+    select: insertSelectMock,
+  });
+
+  // SCRUM-232: Mock summary retrieval.
+  orderMock = vi.fn().mockResolvedValue({
+    data: [
+      {
+        id: "summary-1",
+        source_text: "Encapsulation hides data.",
+        summary_text: "Encapsulation protects data.",
+        created_at: "2026-10-15T12:00:00Z",
+      },
+      {
+        id: "summary-2",
+        source_text: "Inheritance supports code reuse.",
+        summary_text: "Inheritance allows reuse.",
+        created_at: "2026-10-14T12:00:00Z",
+      },
+    ],
+    error: null,
+  });
+
+  eqMock = vi.fn().mockReturnValue({
+    order: orderMock,
+  });
+
+  getSelectMock = vi.fn().mockReturnValue({
+    eq: eqMock,
   });
 
   fromMock = vi.fn().mockReturnValue({
     insert: insertMock,
+    select: getSelectMock,
   });
 
   createUserSupabaseClient.mockReturnValue({
@@ -79,6 +112,7 @@ beforeEach(() => {
     next();
   });
 });
+
 
 describe("SCRUM-231: Summary persistence", () => {
   it("saves a valid summary successfully", async () => {
@@ -247,6 +281,105 @@ describe("SCRUM-231: Summary persistence", () => {
     expect(response.status).toBe(500);
     expect(response.body).toEqual({
       error: "Unexpected server error.",
+    });
+  });
+});
+
+describe("SCRUM-232: Saved summary retrieval", () => {
+  it("retrieves saved summaries successfully", async () => {
+    const response = await request(app)
+      .get("/api/summaries");
+
+    expect(response.status).toBe(200);
+
+    expect(response.body.summaries).toHaveLength(2);
+
+    expect(response.body.summaries[0]).toEqual({
+      id: "summary-1",
+      sourceText: "Encapsulation hides data.",
+      summary: "Encapsulation protects data.",
+      createdAt: "2026-10-15T12:00:00Z",
+    });
+  });
+
+  it("returns an empty array when no summaries exist", async () => {
+    orderMock.mockResolvedValueOnce({
+      data: [],
+      error: null,
+    });
+
+    const response = await request(app)
+      .get("/api/summaries");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      summaries: [],
+    });
+  });
+
+  it("rejects unauthenticated retrieval requests", async () => {
+    requireAuth.mockImplementationOnce(
+      (_req, res) => {
+        res.status(401).json({
+          error: "Authentication required.",
+        });
+      }
+    );
+
+    const response = await request(app)
+      .get("/api/summaries");
+
+    expect(response.status).toBe(401);
+    expect(fromMock).not.toHaveBeenCalled();
+  });
+
+  it("filters summaries by authenticated user", async () => {
+    await request(app)
+      .get("/api/summaries");
+
+    expect(createUserSupabaseClient).toHaveBeenCalledWith(
+      "mock-access-token"
+    );
+
+    expect(fromMock).toHaveBeenCalledWith(
+      "generated_summaries"
+    );
+
+    expect(getSelectMock).toHaveBeenCalledWith(
+      "id, source_text, summary_text, created_at"
+    );
+
+    expect(eqMock).toHaveBeenCalledWith(
+      "user_id",
+      "test-user-123"
+    );
+  });
+
+  it("requests summaries in newest-first order", async () => {
+    await request(app)
+      .get("/api/summaries");
+
+    expect(orderMock).toHaveBeenCalledWith(
+      "created_at",
+      { ascending: false }
+    );
+  });
+
+  it("handles Supabase retrieval failures", async () => {
+    orderMock.mockResolvedValueOnce({
+      data: null,
+      error: {
+        message: "Database unavailable",
+      },
+    });
+
+    const response = await request(app)
+      .get("/api/summaries");
+
+    expect(response.status).toBe(500);
+
+    expect(response.body).toEqual({
+      error: "Unable to retrieve summaries.",
     });
   });
 });

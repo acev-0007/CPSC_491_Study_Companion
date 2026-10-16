@@ -1,6 +1,6 @@
 import AICompanionPanel from "../components/AICompanionPanel/AICompanionPanel";
-import EmptyState from "../components/EmptyState/EmptyState";
 import ToolLink from "../components/ToolLink/ToolLink";
+import RecentSummaries from "../components/RecentSummaries/RecentSummaries";
 import "../styles/dashboard.css";
 
 const studyTools = [
@@ -77,11 +77,7 @@ function Dashboard() {
           </div>
         </div>
 
-        <EmptyState
-          title="Nothing to continue yet"
-          description="Recent study sessions will appear here after you begin using the study tools."
-          action={<a href="#study-tools">Explore study tools</a>}
-        />
+        <RecentSummaries />
       </section>
     </div>
   );
