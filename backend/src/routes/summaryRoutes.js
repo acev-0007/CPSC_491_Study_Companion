@@ -52,4 +52,42 @@ router.post("/", requireAuth, async (req, res, next) => {
   }
 });
 
+
+/**
+ * SCRUM-232: Retrieve saved summaries
+ * belonging to the authenticated user.
+ */
+router.get("/", requireAuth, async (req, res, next) => {
+  try {
+    const supabase = createUserSupabaseClient(
+      req.accessToken
+    );
+
+    const { data, error } = await supabase
+      .from("generated_summaries")
+      .select("id, source_text, summary_text, created_at")
+      .eq("user_id", req.user.id)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Failed to retrieve summaries:", error);
+
+      return res.status(500).json({
+        error: "Unable to retrieve summaries.",
+      });
+    }
+
+    return res.status(200).json({
+      summaries: (data ?? []).map((row) => ({
+        id: row.id,
+        sourceText: row.source_text,
+        summary: row.summary_text,
+        createdAt: row.created_at,
+      })),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;
