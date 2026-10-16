@@ -39,12 +39,14 @@ function EmailConfirmation() {
 
   return (
     <div className="auth-page">
-      <header className="auth-brand">
+      <header>
+        <Link to="/" className="auth-brand" aria-label="AI Study Companion home">
         <div className="auth-brand-mark" aria-hidden="true">✦</div>
         <div className="auth-brand-copy">
           <p className="auth-brand-name">AI Study Companion</p>
           <p className="auth-brand-tagline">Your personalized AI learning workspace.</p>
         </div>
+      </Link>
       </header>
       <main className="auth-shell">
         <section className="auth-panel auth-panel-success email-verify-panel" aria-labelledby="verify-heading">

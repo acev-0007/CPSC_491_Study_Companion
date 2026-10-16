@@ -119,8 +119,11 @@ export function createApp({
   // AI ROUTES
   // ========================================
 
+  // AI generation requires a verified session before any provider is called.
+  // Protect at the mount point to avoid changing the AI route handlers.
   app.use(
     "/api/ai",
+    requireAuth,
     aiRoutes
   );
 
