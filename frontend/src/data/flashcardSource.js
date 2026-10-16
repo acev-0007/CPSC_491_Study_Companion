@@ -18,9 +18,15 @@ import { normalizeFlashcards } from "./flashcardContract";
  * Returns a validated flashcard set.
  * Malformed cards are filtered out rather than thrown, so one bad card from
  * a future AI response cannot break an entire study session.
+ *
+ * Pass { topicId } to load a single saved deck.
  */
-export async function getFlashcards() {
-  const response = await fetch("/api/flashcards", {
+export async function getFlashcards({ topicId } = {}) {
+  const url = topicId
+    ? `/api/flashcards?topic_id=${encodeURIComponent(topicId)}`
+    : "/api/flashcards";
+
+  const response = await fetch(url, {
     credentials: "same-origin",
   });
 
