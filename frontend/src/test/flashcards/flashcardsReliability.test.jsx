@@ -6,6 +6,7 @@ import Flashcards from "../../pages/Flashcards";
 import { getFlashcards } from "../../data/flashcardSource";
 import { listDecks } from "../../services/flashcardDecks";
 import { generateFlashcards } from "../../services/flashcardGeneration";
+import { saveGeneratedFlashcards } from "../../services/flashcardPersistence";
 
 // FLASH-UI-4: regression tests for asynchronous safety.
 // Each test controls when a mocked request settles, so we can prove that a
@@ -24,6 +25,10 @@ vi.mock("../../services/flashcardGeneration", async (importOriginal) => {
   const actual = await importOriginal();
   return { ...actual, generateFlashcards: vi.fn() };
 });
+
+vi.mock("../../services/flashcardPersistence", () => ({
+  saveGeneratedFlashcards: vi.fn(),
+}));
 
 const DECK = {
   id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
@@ -52,6 +57,7 @@ beforeEach(() => {
   getFlashcards.mockReset();
   listDecks.mockReset();
   generateFlashcards.mockReset();
+  saveGeneratedFlashcards.mockReset();
 });
 
 afterEach(() => {
@@ -199,5 +205,91 @@ describe("Flashcards reliability - stale generation (FLASH-UI-4)", () => {
 
     expect(await screen.findByText("On-time question")).toBeInTheDocument();
     expect(screen.getByText("AI-generated deck")).toBeInTheDocument();
+  });
+});
+
+describe("Flashcards reliability - rejected generation (FLASH-UI-4)", () => {
+  it("stays on the home screen with no error when a generation rejects after the student leaves", async () => {
+    const user = userEvent.setup();
+    const pending = deferred();
+    generateFlashcards.mockReturnValue(pending.promise);
+
+    // A rejection nobody handles would surface here (and Vitest also fails
+    // the run on unhandled rejections).
+    const unhandled = vi.fn();
+    globalThis.process.on("unhandledRejection", unhandled);
+
+    try {
+      render(<Flashcards />);
+      await startGeneration(user);
+
+      await user.click(screen.getByRole("button", { name: /back/i }));
+
+      pending.reject(new Error("provider unavailable"));
+      // Let the rejection propagate through the component's promise chain.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(
+        screen.getByRole("button", { name: "Generate New Flashcards" })
+      ).toBeInTheDocument();
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      expect(
+        screen.queryByText(/could not generate flashcards/i)
+      ).not.toBeInTheDocument();
+      expect(unhandled).not.toHaveBeenCalled();
+    } finally {
+      globalThis.process.off("unhandledRejection", unhandled);
+    }
+  });
+
+  it("shows the generation error when the student stays on the screen", async () => {
+    const user = userEvent.setup();
+    generateFlashcards.mockRejectedValue(new Error("provider unavailable"));
+
+    render(<Flashcards />);
+    await startGeneration(user);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /could not generate flashcards/i
+    );
+    expect(screen.queryByText("AI-generated deck")).not.toBeInTheDocument();
+  });
+});
+
+describe("Flashcards reliability - in-flight save (FLASH-UI-4)", () => {
+  it("settles quietly when a save finishes after the student leaves the deck", async () => {
+    const user = userEvent.setup();
+    const pendingSave = deferred();
+    generateFlashcards.mockResolvedValue({
+      flashcards: [{ front: "Q", back: "A" }],
+      isStub: false,
+    });
+    saveGeneratedFlashcards.mockReturnValue(pendingSave.promise);
+
+    render(<Flashcards />);
+    await startGeneration(user);
+    await screen.findByText("AI-generated deck");
+
+    await user.type(screen.getByLabelText("Deck title"), "My deck");
+    await user.click(screen.getByRole("button", { name: "Save Flashcards" }));
+    expect(saveGeneratedFlashcards).toHaveBeenCalledTimes(1);
+
+    await user.click(
+      screen.getByRole("button", { name: /back to flashcards/i })
+    );
+
+    pendingSave.resolve({
+      status: "success",
+      topicId: "t1",
+      savedCards: [{ front: "Q", back: "A" }],
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    // Back on home: no save banner, no alert, no crash.
+    expect(
+      screen.getByRole("button", { name: "Generate New Flashcards" })
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByText(/successfully saved/i)).not.toBeInTheDocument();
   });
 });
