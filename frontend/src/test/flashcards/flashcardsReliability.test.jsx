@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import Flashcards from "../../pages/Flashcards";
@@ -278,12 +278,15 @@ describe("Flashcards reliability - in-flight save (FLASH-UI-4)", () => {
       screen.getByRole("button", { name: /back to flashcards/i })
     );
 
-    pendingSave.resolve({
-      status: "success",
-      topicId: "t1",
-      savedCards: [{ front: "Q", back: "A" }],
-    });
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await act(async () => {
+  pendingSave.resolve({
+    status: "success",
+    topicId: "t1",
+    savedCards: [{ front: "Q", back: "A" }],
+  });
+
+  await pendingSave.promise;
+});
 
     // Back on home: no save banner, no alert, no crash.
     expect(
