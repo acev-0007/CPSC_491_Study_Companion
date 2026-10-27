@@ -31,11 +31,27 @@
   outline-offset: 4px;
 }
 
-.flashcard p {
+/* FLASH-UI-4: the card is a native <button>, so reset button defaults. */
+button.flashcard {
+  font: inherit;
+  color: inherit;
+}
+
+.flashcard-text {
   font-size: 20px;
   line-height: 135%;
   color: var(--text-h);
-  margin: 0;
+  /* Long words and pasted text must wrap, not overflow the card. */
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.flashcard-side {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text);
 }
 
 .flashcard-hint {
@@ -56,9 +72,12 @@
 
 .flashcards-controls button,
 .flashcard-edit-btn,
-.flashcards-primary-btn {
+.flashcards-primary-btn,
+.flashcards-secondary-btn,
+.flashcards-back-btn {
   font: inherit;
   font-size: 15px;
+  min-height: 44px;
   padding: 10px 20px;
   border-radius: 8px;
   border: 1px solid var(--border);
@@ -69,7 +88,9 @@
 
 .flashcards-controls button:hover:not(:disabled),
 .flashcard-edit-btn:hover,
-.flashcards-primary-btn:hover {
+.flashcards-primary-btn:hover,
+.flashcards-secondary-btn:hover,
+.flashcards-back-btn:hover {
   border-color: var(--accent-border);
   background: var(--accent-bg);
 }
@@ -491,5 +512,102 @@
   .deck-study-btn {
     grid-column: 1 / -1;
     grid-row: 2;
+  }
+}
+/* ---------------------------------------------------------
+   FLASH-UI-4: consistent focus, states, and responsive layout
+   --------------------------------------------------------- */
+
+.flashcards-controls button:focus-visible,
+.flashcard-edit-btn:focus-visible,
+.flashcards-primary-btn:focus-visible,
+.flashcards-secondary-btn:focus-visible,
+.flashcards-back-btn:focus-visible,
+.flashcard-edit-form textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.flashcards-home {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.flashcards-home h2,
+.flashcards-home p {
+  margin: 0;
+}
+
+.flashcards-home-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.flashcards-state-message {
+  width: 100%;
+  max-width: 480px;
+  margin: 0;
+  text-align: center;
+  color: var(--text);
+}
+
+.flashcard-edit-note {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.flashcards-session-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 16px;
+  width: 100%;
+}
+
+.flashcards-controls {
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+@media (max-width: 480px) {
+  .flashcards-page {
+    padding-inline: 12px;
+  }
+
+  .flashcard {
+    min-height: 180px;
+    padding: 20px 16px;
+  }
+
+  .flashcard-text {
+    font-size: 18px;
+  }
+
+  .flashcards-controls,
+  .flashcards-home-actions,
+  .flashcard-edit-actions {
+    width: 100%;
+    max-width: 480px;
+  }
+
+  .flashcards-controls button,
+  .flashcards-home-actions button,
+  .flashcard-edit-actions button {
+    flex: 1 1 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flashcards-page * {
+    transition: none !important;
+    animation: none !important;
   }
 }
