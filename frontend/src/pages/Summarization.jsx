@@ -4,7 +4,7 @@ import { getAiReadyDocumentContent } from "../api/documents";
 import "./Summarization.css";
 
 
-function Summarization() {
+function SummarizationContent() {
   const [studyMaterial, setStudyMaterial] = useState("");
   const [searchParams] = useSearchParams();
   const documentId = searchParams.get("documentId");
@@ -222,7 +222,7 @@ function Summarization() {
           }}
           placeholder="Paste your notes or study material here..."
           rows={12}
-          disabled={isLoading || isSaving || isLoadingDocument}
+          disabled={isLoading || isSaving || isLoadingDocument || Boolean(documentError)}
         />
 
         {validationError && (
@@ -241,7 +241,7 @@ function Summarization() {
           className="summarization-button"
           type="button"
           onClick={handleGenerateSummary}
-          disabled={isLoading || isSaving || isLoadingDocument}
+          disabled={isLoading || isSaving || isLoadingDocument || Boolean(documentError)}
         >
           {isLoading
             ? "Generating Summary..."
@@ -291,6 +291,17 @@ function Summarization() {
         )}
       </div>
     </div>
+  );
+}
+
+function Summarization() {
+  const [searchParams] = useSearchParams();
+  const documentId = searchParams.get("documentId");
+
+  return (
+    <SummarizationContent
+      key={documentId || "manual"}
+    />
   );
 }
 
