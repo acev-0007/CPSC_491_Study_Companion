@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, Navigate } from "react-router-dom";
 import Layout from "../components/Layout";
@@ -78,9 +78,14 @@ describe("Account settings workspace", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Unable to end your session");
     expect(screen.getByRole("complementary", { name: "Settings navigation" })).toBeInTheDocument();
   });
-  it("provides a mobile category menu", () => {
+  it("provides a mobile category menu", async () => {
     renderAccount("/account/menu");
-    expect(screen.getByRole("heading", { name: "Settings" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Profile Personal information/ })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Settings" })).toBeInTheDocument();
+    const menu = screen.getByRole("region", { name: "Settings categories" });
+    expect(within(menu).getByRole("link", { name: /Profile/ })).toBeInTheDocument();
+    await userEvent.click(within(menu).getByRole("link", { name: /Security/ }));
+    expect(await screen.findByRole("heading", { name: "Sign-in details" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("link", { name: /All settings/ }));
+    expect(await screen.findByRole("heading", { name: "Settings" })).toBeInTheDocument();
   });
 });
