@@ -3,6 +3,7 @@ import cors from "cors";
 import multer from "multer";
 import cookieParser from "cookie-parser";
 import path from "node:path";
+import { DocumentContentService } from "./documentContentService.js";
 
 import {
   chunkDocumentText,
@@ -167,6 +168,113 @@ export function createApp({
       }
     }
   );
+
+
+
+  // ========================================
+  // GET AI-READY DOCUMENT CONTENT
+  // ========================================
+
+  app.get(
+    "/api/documents/:id/ai-content",
+    requireAuth,
+
+    async (req, res, next) => {
+      try {
+        const contentService =
+          new DocumentContentService(
+            req.accessToken
+          );
+
+        const content =
+          await contentService
+            .getAiReadyContent(
+              req.params.id,
+              req.user.id
+            );
+
+
+        // Missing, deleted, or not owned by user.
+        if (!content) {
+          return res
+            .status(404)
+            .json({
+              error:
+                "Document not found.",
+            });
+        }
+
+
+        // Document exists but is not finished yet.
+        if (
+          content.status ===
+          "processing"
+        ) {
+          return res
+            .status(409)
+            .json({
+              error:
+                "Document is still processing.",
+              status:
+                "processing",
+            });
+        }
+
+
+        // Extraction or chunk persistence failed.
+        if (
+          content.status ===
+          "failed"
+        ) {
+          return res
+            .status(422)
+            .json({
+              error:
+                "Document content is unavailable because processing failed.",
+              status:
+                "failed",
+            });
+        }
+
+        if (
+          content.status !==
+          "ready"
+        ) {
+          return res
+            .status(409)
+            .json({
+              error:
+                "Document content is not ready.",
+              status:
+                content.status,
+            });
+        }
+
+        return res
+          .status(200)
+          .json({
+            documentId:
+              content.documentId,
+
+            name:
+              content.name,
+
+            status:
+              content.status,
+
+            text:
+              content.text,
+
+            chunks:
+              content.chunks,
+          });
+
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
 
 
   // ========================================
