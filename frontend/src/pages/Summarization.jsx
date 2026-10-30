@@ -1,9 +1,16 @@
-
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { getAiReadyDocumentContent } from "../api/documents";
 import "./Summarization.css";
+
 
 function Summarization() {
   const [studyMaterial, setStudyMaterial] = useState("");
+  const [searchParams] = useSearchParams();
+  const documentId = searchParams.get("documentId");
+  const [isLoadingDocument, setIsLoadingDocument] = useState(Boolean(documentId));
+  const [documentError, setDocumentError] = useState("");
+  const [documentName, setDocumentName] = useState("");
   const [validationError, setValidationError] = useState("");
   const [summary, setSummary] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -14,14 +21,61 @@ function Summarization() {
   const [saveError, setSaveError] = useState("");
   const [isSaved, setIsSaved] = useState(false);
 
+
+  // SCRUM-230: Load document content from Document Hub
+  useEffect(() => {
+    if (!documentId) return;
+
+    let active = true;
+
+    getAiReadyDocumentContent(documentId)
+      .then((content) => {
+        if (!active) return;
+
+        if (!content.text?.trim()) {
+          throw new Error(
+            "The selected document has no readable text."
+          );
+        }
+
+        setStudyMaterial(content.text);
+        setDocumentName(content.name || "Uploaded document");
+        setDocumentError("");
+        setSummary("");
+        setIsSaved(false);
+        setSaveError("");
+        setValidationError("");
+        setRequestError("");
+      })
+      .catch((error) => {
+        if (!active) return;
+
+        setDocumentError(
+          error.message || "Unable to load document."
+        );
+      })
+      .finally(() => {
+        if (active) {
+          setIsLoadingDocument(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [documentId]);
+
   // Generate a summary using Claude
   const handleGenerateSummary = async () => {
+    if (isLoadingDocument) return;
+
     if (!studyMaterial.trim()) {
       setValidationError(
         "Please enter study material before generating a summary."
       );
       return;
     }
+
 
     setValidationError("");
     setRequestError("");
@@ -126,6 +180,28 @@ function Summarization() {
       </p>
 
       <div className="summarization-form">
+
+        {isLoadingDocument && (
+          <p role="status" className="summarization-loading">
+            Loading uploaded document...
+          </p>
+        )}
+
+        {documentName && (
+          <p role="status">
+            Loaded document: {documentName}
+          </p>
+        )}
+
+        {documentError && (
+          <p
+            role="alert"
+            className="summarization-request-error"
+          >
+            {documentError}
+          </p>
+        )}
+
         <textarea
           className="summarization-input"
           value={studyMaterial}
@@ -141,7 +217,7 @@ function Summarization() {
           }}
           placeholder="Paste your notes or study material here..."
           rows={12}
-          disabled={isLoading || isSaving}
+          disabled={isLoading || isSaving || isLoadingDocument}
         />
 
         {validationError && (
@@ -160,7 +236,7 @@ function Summarization() {
           className="summarization-button"
           type="button"
           onClick={handleGenerateSummary}
-          disabled={isLoading || isSaving}
+          disabled={isLoading || isSaving || isLoadingDocument}
         >
           {isLoading
             ? "Generating Summary..."
