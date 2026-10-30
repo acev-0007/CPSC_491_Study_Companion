@@ -8,9 +8,10 @@ function Summarization() {
   const [studyMaterial, setStudyMaterial] = useState("");
   const [searchParams] = useSearchParams();
   const documentId = searchParams.get("documentId");
-  const [isLoadingDocument, setIsLoadingDocument] = useState(Boolean(documentId));
-  const [documentError, setDocumentError] = useState("");
-  const [documentName, setDocumentName] = useState("");
+  const [documentLoad, setDocumentLoad] = useState(null);
+  const isLoadingDocument = Boolean(documentId) &&documentLoad?.id !== documentId;
+  const documentError = documentLoad?.id === documentId ? documentLoad.error || "" : "";
+  const documentName = documentLoad?.id === documentId ? documentLoad.name || "" : "";
   const [validationError, setValidationError] = useState("");
   const [summary, setSummary] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -20,6 +21,7 @@ function Summarization() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [isSaved, setIsSaved] = useState(false);
+
 
 
   // SCRUM-230: Load document content from Document Hub
@@ -39,8 +41,12 @@ function Summarization() {
         }
 
         setStudyMaterial(content.text);
-        setDocumentName(content.name || "Uploaded document");
-        setDocumentError("");
+        setDocumentLoad({
+          id: documentId,
+          name: content.name || "Uploaded document",
+          error: "",
+        });
+
         setSummary("");
         setIsSaved(false);
         setSaveError("");
@@ -50,14 +56,12 @@ function Summarization() {
       .catch((error) => {
         if (!active) return;
 
-        setDocumentError(
-          error.message || "Unable to load document."
-        );
-      })
-      .finally(() => {
-        if (active) {
-          setIsLoadingDocument(false);
-        }
+        setStudyMaterial("");
+        setDocumentLoad({
+          id: documentId,
+          name: "",
+          error: error.message || "Unable to load document.",
+        });
       });
 
     return () => {
@@ -65,9 +69,10 @@ function Summarization() {
     };
   }, [documentId]);
 
+
   // Generate a summary using Claude
   const handleGenerateSummary = async () => {
-    if (isLoadingDocument) return;
+    if (isLoadingDocument || documentError) return;
 
     if (!studyMaterial.trim()) {
       setValidationError(
@@ -204,7 +209,7 @@ function Summarization() {
 
         <textarea
           className="summarization-input"
-          value={studyMaterial}
+          value={isLoadingDocument ? "" : studyMaterial}
           onChange={(event) => {
             setStudyMaterial(event.target.value);
 
