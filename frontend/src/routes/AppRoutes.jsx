@@ -16,6 +16,8 @@ import VisualGenerator from "../pages/VisualGenerator";
 import Summarization from "../pages/Summarization";
 import TextbookHub from "../pages/TextbookHub";
 import NotFound from "../pages/NotFound";
+import Account from "../pages/Account";
+import { ProfileSettings, SecuritySettings, PreferenceSettings, PrivacySettings, SettingsMenu } from "../components/Account/SettingsSections";
 // Only the home route uses this guard. ProtectedRoute remains responsible
 // for enforcing authentication on the dashboard and other private pages.
 function LandingRoute() {
@@ -136,6 +138,14 @@ function AppRoutes() {
         }
       />
       <Route element={<Layout />}>
+        <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>}>
+          <Route index element={<Navigate to="profile" replace />} />
+          <Route path="menu" element={<SettingsMenu />} />
+          <Route path="profile" element={<ProfileSettings />} />
+          <Route path="security" element={<SecuritySettings />} />
+          <Route path="preferences" element={<PreferenceSettings />} />
+          <Route path="privacy" element={<PrivacySettings />} />
+        </Route>
         <Route
           path="/dashboard"
           element={
