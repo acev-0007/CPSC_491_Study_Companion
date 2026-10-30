@@ -62,3 +62,14 @@ export async function deleteDocument(id) {
   const body = await parseResponse(response);
   return body.document;
 }
+
+export async function getAiReadyDocumentContent(id) {
+  const response = await fetch(
+    `/api/documents/${encodeURIComponent(id)}/ai-content`,
+    {
+      credentials: "same-origin",
+    }
+  );
+
+  return parseResponse(response);
+}
