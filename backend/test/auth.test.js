@@ -24,6 +24,7 @@ import cookieParser from "cookie-parser";
 const {
   signUpMock,
   verifyOtpMock,
+  resendMock,
   signInWithPasswordMock,
   setSessionMock,
   signOutMock,
@@ -32,6 +33,7 @@ const {
 } = vi.hoisted(() => ({
   signUpMock: vi.fn(),
   verifyOtpMock: vi.fn(),
+  resendMock: vi.fn(),
 
   signInWithPasswordMock:
     vi.fn(),
@@ -57,6 +59,7 @@ vi.mock(
             signUpMock,
 
           verifyOtp: verifyOtpMock,
+          resend: resendMock,
 
           signInWithPassword:
             signInWithPasswordMock,
@@ -2014,5 +2017,50 @@ describe("POST /api/auth/logout", () => {
     expect(afterLogout.status).toBe(401);
     expect(afterLogout.body).toEqual({ error: "Authentication required." });
     expect(refreshSessionMock).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("POST /api/auth/resend-confirmation", () => {
+  it("resends signup confirmation for a normalized email", async () => {
+    resendMock.mockResolvedValueOnce({ data: {}, error: null });
+    const res = await request(createTestApp()).post("/api/auth/resend-confirmation")
+      .send({ email: "  Student@Example.com " });
+    expect(res.status).toBe(200);
+    expect(res.body.message).toMatch(/if this account needs confirmation/i);
+    expect(resendMock).toHaveBeenCalledWith({ type: "signup", email: "student@example.com" });
+    expect(res.headers["set-cookie"]).toBeUndefined();
+  });
+
+  it.each([{}, { email: "invalid" }, { email: " " }, { email: 42 }])(
+    "rejects invalid email payload %#", async (body) => {
+      const res = await request(createTestApp()).post("/api/auth/resend-confirmation").send(body);
+      expect(res.status).toBe(400);
+      expect(resendMock).not.toHaveBeenCalled();
+    });
+
+  it("does not disclose whether an account is confirmed or absent", async () => {
+    resendMock.mockResolvedValueOnce({ error: { status: 400, message: "Email not found" } });
+    const res = await request(createTestApp()).post("/api/auth/resend-confirmation")
+      .send({ email: "missing@example.com" });
+    expect(res.status).toBe(200);
+    expect(res.body.message).toMatch(/if this account needs confirmation/i);
+    expect(JSON.stringify(res.body)).not.toMatch(/not found|registered|confirmed/i);
+  });
+
+  it("handles rate limits without leaking provider details", async () => {
+    resendMock.mockResolvedValueOnce({ error: { status: 429, message: "provider internal info" } });
+    const res = await request(createTestApp()).post("/api/auth/resend-confirmation")
+      .send({ email: "student@example.com" });
+    expect(res.status).toBe(429);
+    expect(JSON.stringify(res.body)).not.toContain("provider internal info");
+  });
+
+  it("handles service errors with a generic response", async () => {
+    resendMock.mockResolvedValueOnce({ error: { status: 500, message: "secret detail" } });
+    const res = await request(createTestApp()).post("/api/auth/resend-confirmation")
+      .send({ email: "student@example.com" });
+    expect(res.status).toBe(503);
+    expect(JSON.stringify(res.body)).not.toContain("secret detail");
   });
 });
