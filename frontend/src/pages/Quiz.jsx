@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { mockQuiz } from "../data/mockQuiz";
 import "./Quiz.css";
 
 // SCRUM-124: multiple-choice quiz UI backed by mock data.
 // No API calls, submission, or persistence; answers live in component state.
+// The results screen is local session feedback only. It is not a submitted
+// or saved quiz (submission is SCRUM-126).
 
 function CheckIcon() {
   return (
@@ -35,19 +37,105 @@ function CrossIcon() {
   );
 }
 
+// Donut chart built from two stroked circles (no chart library).
+// Each arc is a dash on a circle whose circumference equals the dash pattern
+// length. Handles 0%, 100% and partial scores: a zero-length arc draws nothing.
+const RING_RADIUS = 52;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+const RING_GAP = 3; // small visual gap between the two arcs
+
+function ScoreRing({ correctCount, incorrectCount, totalCount, scorePercent }) {
+  const hasBothArcs = correctCount > 0 && incorrectCount > 0;
+  const gap = hasBothArcs ? RING_GAP : 0;
+
+  const correctLength = Math.max(
+    (correctCount / totalCount) * RING_CIRCUMFERENCE - gap,
+    0
+  );
+  const incorrectLength = Math.max(
+    (incorrectCount / totalCount) * RING_CIRCUMFERENCE - gap,
+    0
+  );
+  // The incorrect arc starts where the correct arc ends.
+  const incorrectOffset = -(
+    (correctCount / totalCount) * RING_CIRCUMFERENCE
+  );
+
+  return (
+    <div
+      className="quiz-ring"
+      role="img"
+      aria-label={`${correctCount} of ${totalCount} correct, ${incorrectCount} incorrect, ${scorePercent} percent`}
+    >
+      <svg viewBox="0 0 120 120" aria-hidden="true" focusable="false">
+        <g transform="rotate(-90 60 60)" fill="none" strokeWidth="14">
+          <circle className="quiz-ring-track" cx="60" cy="60" r={RING_RADIUS} />
+          <circle
+            className="quiz-ring-correct"
+            cx="60"
+            cy="60"
+            r={RING_RADIUS}
+            strokeDasharray={`${correctLength} ${RING_CIRCUMFERENCE - correctLength}`}
+          />
+          <circle
+            className="quiz-ring-incorrect"
+            cx="60"
+            cy="60"
+            r={RING_RADIUS}
+            strokeDasharray={`${incorrectLength} ${RING_CIRCUMFERENCE - incorrectLength}`}
+            strokeDashoffset={incorrectOffset}
+          />
+        </g>
+      </svg>
+      <div className="quiz-ring-center" aria-hidden="true">
+        <span className="quiz-ring-percent">{scorePercent}%</span>
+        <span className="quiz-ring-caption">score</span>
+      </div>
+    </div>
+  );
+}
+
+function getOptionLabel(question, optionId) {
+  const option = question.options.find((item) => item.id === optionId);
+  return option ? `${option.id}. ${option.text}` : "No answer";
+}
+
 function Quiz() {
   const [currentIndex, setCurrentIndex] = useState(0);
   // { [questionId]: selectedOptionId }
   const [answers, setAnswers] = useState({});
+  const [showResults, setShowResults] = useState(false);
 
-  // Everything below is derived from the two state variables above.
+  // Everything below is derived from the state above.
   const totalQuestions = mockQuiz.length;
   const currentQuestion = mockQuiz[currentIndex];
   const selectedAnswer = answers[currentQuestion.id];
   const isAnswered = selectedAnswer !== undefined;
   const answeredCount = Object.keys(answers).length;
+  const allAnswered = answeredCount === totalQuestions;
   const isFirstQuestion = currentIndex === 0;
   const isLastQuestion = currentIndex === totalQuestions - 1;
+
+  const correctCount = mockQuiz.filter(
+    (question) => answers[question.id] === question.correctOptionId
+  ).length;
+  const incorrectCount = answeredCount - correctCount;
+  const scorePercent = Math.round((correctCount / totalQuestions) * 100);
+
+  // Move focus to the new screen's heading when switching between the quiz
+  // and the results, so keyboard and screen-reader users aren't left behind.
+  const questionHeadingRef = useRef(null);
+  const resultsHeadingRef = useRef(null);
+  const wasShowingResults = useRef(false);
+
+  useEffect(() => {
+    if (showResults) {
+      resultsHeadingRef.current?.focus();
+    } else if (wasShowingResults.current) {
+      questionHeadingRef.current?.focus();
+    }
+    wasShowingResults.current = showResults;
+  }, [showResults]);
 
   function handleSelectAnswer(optionId) {
     const questionId = currentQuestion.id;
@@ -73,6 +161,118 @@ function Quiz() {
     setCurrentIndex((index) => Math.min(index + 1, totalQuestions - 1));
   }
 
+  function handleViewResults() {
+    if (allAnswered) {
+      setShowResults(true);
+    }
+  }
+
+  function handleRestart() {
+    setAnswers({});
+    setCurrentIndex(0);
+    setShowResults(false);
+  }
+
+  if (showResults) {
+    return (
+      <section className="quiz-page" aria-labelledby="quiz-results-title">
+        <header className="quiz-results-header">
+          <h1
+            id="quiz-results-title"
+            className="quiz-results-title"
+            ref={resultsHeadingRef}
+            tabIndex={-1}
+          >
+            Quiz complete
+          </h1>
+          <p className="quiz-results-subtitle">Here&rsquo;s how you did.</p>
+        </header>
+
+        <div className="quiz-summary">
+          <ScoreRing
+            correctCount={correctCount}
+            incorrectCount={incorrectCount}
+            totalCount={totalQuestions}
+            scorePercent={scorePercent}
+          />
+
+          <dl className="quiz-stats">
+            <div className="quiz-stat quiz-stat--correct">
+              <dt>
+                <CheckIcon />
+                Correct answers
+              </dt>
+              <dd>
+                {correctCount} / {totalQuestions}
+              </dd>
+            </div>
+            <div className="quiz-stat quiz-stat--incorrect">
+              <dt>
+                <CrossIcon />
+                Incorrect answers
+              </dt>
+              <dd>
+                {incorrectCount} / {totalQuestions}
+              </dd>
+            </div>
+          </dl>
+        </div>
+
+        <section className="quiz-review" aria-labelledby="quiz-review-title">
+          <h2 id="quiz-review-title" className="quiz-review-title">
+            Question review
+          </h2>
+          <ol className="quiz-review-list">
+            {mockQuiz.map((question, index) => {
+              const chosen = answers[question.id];
+              const wasCorrect = chosen === question.correctOptionId;
+
+              return (
+                <li
+                  key={question.id}
+                  className={`quiz-review-item ${
+                    wasCorrect ? "quiz-review-item--correct" : "quiz-review-item--incorrect"
+                  }`}
+                >
+                  <span className="quiz-review-marker" aria-hidden="true">
+                    {wasCorrect ? <CheckIcon /> : <CrossIcon />}
+                  </span>
+                  <div className="quiz-review-body">
+                    <p className="quiz-review-question">
+                      {index + 1}. {question.question}
+                    </p>
+                    <p className="quiz-review-status">
+                      {wasCorrect ? "Correct" : "Incorrect"}
+                    </p>
+                    <p className="quiz-review-answer">
+                      Your answer: {getOptionLabel(question, chosen)}
+                    </p>
+                    {!wasCorrect && (
+                      <p className="quiz-review-answer">
+                        Correct answer:{" "}
+                        {getOptionLabel(question, question.correctOptionId)}
+                      </p>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+
+        <div className="quiz-results-actions">
+          <button
+            type="button"
+            className="quiz-nav-button quiz-nav-button--primary"
+            onClick={handleRestart}
+          >
+            Restart quiz
+          </button>
+        </div>
+      </section>
+    );
+  }
+
   let feedbackMessage = "";
   if (isAnswered) {
     feedbackMessage =
@@ -80,6 +280,8 @@ function Quiz() {
         ? "Correct."
         : `Incorrect. The correct answer is ${currentQuestion.correctOptionId}.`;
   }
+
+  const remainingCount = totalQuestions - answeredCount;
 
   return (
     <section className="quiz-page" aria-labelledby="quiz-title">
@@ -118,7 +320,12 @@ function Quiz() {
         </div>
       </div>
 
-      <h2 id="quiz-question" className="quiz-question">
+      <h2
+        id="quiz-question"
+        className="quiz-question"
+        ref={questionHeadingRef}
+        tabIndex={-1}
+      >
         {currentQuestion.question}
       </h2>
 
@@ -182,6 +389,13 @@ function Quiz() {
         {feedbackMessage}
       </p>
 
+      {isLastQuestion && !allAnswered && (
+        <p className="quiz-complete-note">
+          Answer the {remainingCount} remaining{" "}
+          {remainingCount === 1 ? "question" : "questions"} to see your results.
+        </p>
+      )}
+
       <nav className="quiz-nav" aria-label="Question navigation">
         <button
           type="button"
@@ -191,14 +405,24 @@ function Quiz() {
         >
           Previous
         </button>
-        <button
-          type="button"
-          className="quiz-nav-button quiz-nav-button--primary"
-          onClick={handleNext}
-          aria-disabled={isLastQuestion}
-        >
-          Next
-        </button>
+        {isLastQuestion && allAnswered ? (
+          <button
+            type="button"
+            className="quiz-nav-button quiz-nav-button--primary"
+            onClick={handleViewResults}
+          >
+            View Results
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="quiz-nav-button quiz-nav-button--primary"
+            onClick={handleNext}
+            aria-disabled={isLastQuestion}
+          >
+            Next
+          </button>
+        )}
       </nav>
 
       <div className="quiz-extras">

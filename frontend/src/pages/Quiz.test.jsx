@@ -134,3 +134,147 @@ describe("Quiz page", () => {
     expect(screen.queryByText(/settings/i)).not.toBeInTheDocument();
   });
 });
+
+// ---- Results screen -------------------------------------------------------
+
+// Answer key for mockQuiz: B, C, A, D, B.
+const ALL_CORRECT = ["B", "C", "A", "D", "B"];
+const ALL_WRONG = ["A", "A", "B", "A", "A"];
+const THREE_CORRECT = ["B", "C", "A", "A", "A"];
+
+async function answerAll(user, picks) {
+  for (let i = 0; i < picks.length; i += 1) {
+    await user.click(option(picks[i]));
+    if (i < picks.length - 1) {
+      await user.click(screen.getByRole("button", { name: "Next" }));
+    }
+  }
+}
+
+describe("Quiz results screen", () => {
+  it("does not offer results until every question is answered", async () => {
+    const user = userEvent.setup();
+    render(<Quiz />);
+
+    // Answer only q1, then jump to the last question.
+    await user.click(option("B"));
+    for (let i = 0; i < 4; i += 1) {
+      await user.click(screen.getByRole("button", { name: "Next" }));
+    }
+
+    expect(screen.queryByRole("button", { name: "View Results" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next" })).toHaveAttribute(
+      "aria-disabled",
+      "true"
+    );
+    expect(
+      screen.getByText("Answer the 4 remaining questions to see your results.")
+    ).toBeInTheDocument();
+  });
+
+  it("replaces Next with View Results on the last question once complete", async () => {
+    const user = userEvent.setup();
+    render(<Quiz />);
+
+    await answerAll(user, THREE_CORRECT);
+
+    expect(screen.getByRole("button", { name: "View Results" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Next" })).not.toBeInTheDocument();
+  });
+
+  it("shows correct, incorrect and total counts for a partial score", async () => {
+    const user = userEvent.setup();
+    render(<Quiz />);
+
+    await answerAll(user, THREE_CORRECT);
+    await user.click(screen.getByRole("button", { name: "View Results" }));
+
+    expect(screen.getByRole("heading", { name: "Quiz complete" })).toHaveFocus();
+    expect(screen.getByText("Correct answers").closest("div")).toHaveTextContent("3 / 5");
+    expect(screen.getByText("Incorrect answers").closest("div")).toHaveTextContent("2 / 5");
+    expect(
+      screen.getByRole("img", { name: "3 of 5 correct, 2 incorrect, 60 percent" })
+    ).toBeInTheDocument();
+  });
+
+  it("handles a perfect score", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<Quiz />);
+
+    await answerAll(user, ALL_CORRECT);
+    await user.click(screen.getByRole("button", { name: "View Results" }));
+
+    expect(
+      screen.getByRole("img", { name: "5 of 5 correct, 0 incorrect, 100 percent" })
+    ).toBeInTheDocument();
+    expect(screen.getByText("Incorrect answers").closest("div")).toHaveTextContent("0 / 5");
+
+    // Incorrect arc has zero length; correct arc fills the whole ring.
+    const incorrectArc = container.querySelector(".quiz-ring-incorrect");
+    expect(parseFloat(incorrectArc.getAttribute("stroke-dasharray"))).toBe(0);
+    const correctArc = container.querySelector(".quiz-ring-correct");
+    const [dash, rest] = correctArc.getAttribute("stroke-dasharray").split(" ").map(Number);
+    expect(dash).toBeGreaterThan(300);
+    expect(rest).toBeCloseTo(0, 5);
+  });
+
+  it("handles a zero score", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<Quiz />);
+
+    await answerAll(user, ALL_WRONG);
+    await user.click(screen.getByRole("button", { name: "View Results" }));
+
+    expect(
+      screen.getByRole("img", { name: "0 of 5 correct, 5 incorrect, 0 percent" })
+    ).toBeInTheDocument();
+    expect(screen.getByText("Correct answers").closest("div")).toHaveTextContent("0 / 5");
+
+    const correctArc = container.querySelector(".quiz-ring-correct");
+    expect(parseFloat(correctArc.getAttribute("stroke-dasharray"))).toBe(0);
+  });
+
+  it("reviews each question with the chosen and correct answers", async () => {
+    const user = userEvent.setup();
+    render(<Quiz />);
+
+    await answerAll(user, THREE_CORRECT);
+    await user.click(screen.getByRole("button", { name: "View Results" }));
+
+    const items = within(
+      screen.getByRole("heading", { name: "Question review" }).closest("section")
+    ).getAllByRole("listitem");
+    expect(items).toHaveLength(5);
+
+    // Q1 correct: no separate "Correct answer" line.
+    expect(items[0]).toHaveTextContent("1. What is a context switch?");
+    expect(items[0]).toHaveTextContent("Correct");
+    expect(items[0]).toHaveTextContent("Your answer: B. Saving and restoring execution state");
+    expect(items[0]).not.toHaveTextContent("Correct answer:");
+
+    // Q4 incorrect: shows what was chosen and what was right.
+    expect(items[3]).toHaveTextContent("Incorrect");
+    expect(items[3]).toHaveTextContent("Your answer: A. Open file descriptors");
+    expect(items[3]).toHaveTextContent(
+      "Correct answer: D. Virtual-to-physical address mappings"
+    );
+  });
+
+  it("restarts the quiz and clears previous answers", async () => {
+    const user = userEvent.setup();
+    render(<Quiz />);
+
+    await answerAll(user, THREE_CORRECT);
+    await user.click(screen.getByRole("button", { name: "View Results" }));
+    await user.click(screen.getByRole("button", { name: "Restart quiz" }));
+
+    expect(screen.getByText("Question 1 of 5")).toBeInTheDocument();
+    expect(screen.getByText("0 of 5 answered")).toBeInTheDocument();
+    expect(option("B")).not.toHaveClass("quiz-option--correct");
+    expect(option("B")).toHaveAttribute("aria-pressed", "false");
+
+    // Answers from the previous attempt are gone on every question.
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    expect(option("C")).not.toHaveClass("quiz-option--correct");
+  });
+});
