@@ -126,6 +126,23 @@ function createFakeQuery(
 
 
   function executeMaybeSingle() {
+    if (operation === "select") {
+      const row =
+        tableRows.find(
+          matches
+        );
+
+      return {
+        data:
+          row
+            ? clone(row)
+            : null,
+
+        error:
+          null,
+      };
+    }
+
     if (operation === "update") {
       const index =
         tableRows.findIndex(
@@ -1195,6 +1212,389 @@ describe(
       }
     );
 
+    it(
+      "returns AI-ready content for an owned ready document",
+
+      async () => {
+        const uploadResponse =
+          await request(
+            app
+          )
+            .post(
+              "/api/documents"
+            )
+            .set(
+              "Cookie",
+              `${ACCESS_COOKIE}=student-1-token`
+            )
+            .attach(
+              "file",
+
+              Buffer.from(
+                "CPU scheduling selects the next process to execute."
+              ),
+
+              {
+                filename:
+                  "cpu-scheduling.txt",
+
+                contentType:
+                  "text/plain",
+              }
+            );
+
+
+        const documentId =
+          uploadResponse
+            .body
+            .document
+            .id;
+
+
+        const response =
+          await request(
+            app
+          )
+            .get(
+              `/api/documents/${documentId}/ai-content`
+            )
+            .set(
+              "Cookie",
+              `${ACCESS_COOKIE}=student-1-token`
+            );
+
+
+        expect(
+          response.status
+        ).toBe(
+          200
+        );
+
+
+        expect(
+          response.body
+            .documentId
+        ).toBe(
+          documentId
+        );
+
+
+        expect(
+          response.body
+            .status
+        ).toBe(
+          "ready"
+        );
+
+
+        expect(
+          response.body
+            .text
+        ).toContain(
+          "CPU scheduling selects the next process to execute."
+        );
+
+
+        expect(
+          response.body
+            .chunks
+            .length
+        ).toBeGreaterThan(
+          0
+        );
+
+
+        expect(
+          response.body
+            .chunks[
+              0
+            ].content
+        ).toContain(
+          "CPU scheduling"
+        );
+      }
+    );
+
+    it(
+      "returns 404 when AI-ready document content does not exist",
+
+      async () => {
+        const response =
+          await request(
+            app
+          )
+            .get(
+              "/api/documents/00000000-0000-0000-0000-000000000001/ai-content"
+            )
+            .set(
+              "Cookie",
+              `${ACCESS_COOKIE}=student-1-token`
+            );
+
+
+        expect(
+          response.status
+        ).toBe(
+          404
+        );
+
+
+        expect(
+          response.body
+            .error
+        ).toMatch(
+          /document not found/i
+        );
+      }
+    );
+
+    it(
+      "does not allow AI-ready access to another user's document",
+
+      async () => {
+        const uploadResponse =
+          await request(
+            app
+          )
+            .post(
+              "/api/documents"
+            )
+            .set(
+              "Cookie",
+              `${ACCESS_COOKIE}=student-1-token`
+            )
+            .attach(
+              "file",
+
+              Buffer.from(
+                "Private AI study material"
+              ),
+
+              {
+                filename:
+                  "private-ai-notes.txt",
+
+                contentType:
+                  "text/plain",
+              }
+            );
+
+
+        const documentId =
+          uploadResponse
+            .body
+            .document
+            .id;
+
+
+        const response =
+          await request(
+            app
+          )
+            .get(
+              `/api/documents/${documentId}/ai-content`
+            )
+            .set(
+              "Cookie",
+              `${ACCESS_COOKIE}=student-2-token`
+            );
+
+
+        expect(
+          response.status
+        ).toBe(
+          404
+        );
+
+
+        expect(
+          response.body
+            .error
+        ).toMatch(
+          /document not found/i
+        );
+      }
+    );
+
+    it(
+      "rejects AI-ready access while a document is processing",
+
+      async () => {
+        const uploadResponse =
+          await request(
+            app
+          )
+            .post(
+              "/api/documents"
+            )
+            .set(
+              "Cookie",
+              `${ACCESS_COOKIE}=student-1-token`
+            )
+            .attach(
+              "file",
+
+              Buffer.from(
+                "Processing state test"
+              ),
+
+              {
+                filename:
+                  "processing.txt",
+
+                contentType:
+                  "text/plain",
+              }
+            );
+
+
+        const documentId =
+          uploadResponse
+            .body
+            .document
+            .id;
+
+
+        const storedDocument =
+          mockDocuments.find(
+            (
+              document
+            ) =>
+              document.id ===
+              documentId
+          );
+
+
+        storedDocument.status =
+          "processing";
+
+
+        const response =
+          await request(
+            app
+          )
+            .get(
+              `/api/documents/${documentId}/ai-content`
+            )
+            .set(
+              "Cookie",
+              `${ACCESS_COOKIE}=student-1-token`
+            );
+
+
+        expect(
+          response.status
+        ).toBe(
+          409
+        );
+
+
+        expect(
+          response.body
+            .status
+        ).toBe(
+          "processing"
+        );
+
+
+        expect(
+          response.body
+            .error
+        ).toMatch(
+          /still processing/i
+        );
+      }
+    );
+
+      it(
+      "rejects AI-ready access when document processing failed",
+
+      async () => {
+        const uploadResponse =
+          await request(
+            app
+          )
+            .post(
+              "/api/documents"
+            )
+            .set(
+              "Cookie",
+              `${ACCESS_COOKIE}=student-1-token`
+            )
+            .attach(
+              "file",
+
+              Buffer.from(
+                "Failed state test"
+              ),
+
+              {
+                filename:
+                  "failed.txt",
+
+                contentType:
+                  "text/plain",
+              }
+            );
+
+
+        const documentId =
+          uploadResponse
+            .body
+            .document
+            .id;
+
+
+        const storedDocument =
+          mockDocuments.find(
+            (
+              document
+            ) =>
+              document.id ===
+              documentId
+          );
+
+
+        storedDocument.status =
+          "failed";
+
+
+        const response =
+          await request(
+            app
+          )
+            .get(
+              `/api/documents/${documentId}/ai-content`
+            )
+            .set(
+              "Cookie",
+              `${ACCESS_COOKIE}=student-1-token`
+            );
+
+
+        expect(
+          response.status
+        ).toBe(
+          422
+        );
+
+
+        expect(
+          response.body
+            .status
+        ).toBe(
+          "failed"
+        );
+
+
+        expect(
+          response.body
+            .error
+        ).toMatch(
+          /processing failed/i
+        );
+      }
+    );
 
     it(
       "updates document metadata",

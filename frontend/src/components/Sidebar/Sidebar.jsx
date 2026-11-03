@@ -91,6 +91,14 @@ function Sidebar() {
           <NavigationLinks />
         </nav>
         <div className="sidebar-footer">
+          <NavLink
+            className={({ isActive }) =>
+              `sidebar-nav-link sidebar-settings-link${isActive ? " is-active" : ""}`
+            }
+            to="/account"
+          >
+            Settings
+          </NavLink>
           {logoutError && <p className="sidebar-error" role="alert">{logoutError}</p>}
           <button
             className="sidebar-logout"
@@ -127,6 +135,15 @@ function Sidebar() {
             <NavigationLinks onNavigate={closeMobileNavigation} />
           </nav>
           <div className="mobile-nav-footer">
+          <NavLink
+            className={({ isActive }) =>
+              `sidebar-nav-link sidebar-settings-link${isActive ? " is-active" : ""}`
+            }
+            onClick={closeMobileNavigation}
+            to="/account"
+          >
+            Settings
+          </NavLink>
             {logoutError && <p className="sidebar-error" role="alert">{logoutError}</p>}
             <button
               className="sidebar-logout"

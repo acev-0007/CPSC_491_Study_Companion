@@ -1,5 +1,5 @@
 import { useState } from "react";
-
+import { useNavigate } from "react-router-dom";
 
 
 
@@ -16,6 +16,21 @@ function DocumentDetailModal({
   const [course, setCourse] = useState(document.course || "");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+ 
+  const navigate = useNavigate();
+
+  const isReady =
+    document.status === "ready";
+
+  function handleStudyAction(path) {
+    if (!isReady) {
+      return;
+    }
+
+    navigate(
+      `${path}?documentId=${document.id}`
+    );
+  }
   
 async function handleSave() {
   setSaving(true);
@@ -104,6 +119,64 @@ async function handleDelete() {
               onChange={(event) => setName(event.target.value)}
             />
           </label>
+
+
+
+
+
+
+          <div className="document-study-actions">
+          <button
+            type="button"
+            className="hub-primary-button"
+            onClick={() =>
+              handleStudyAction(
+                "/summarization"
+              )
+            }
+            disabled={!isReady}
+          >
+            Generate Notes
+          </button>
+
+          <button
+            type="button"
+            className="hub-primary-button"
+            onClick={() =>
+              handleStudyAction(
+                "/quiz"
+              )
+            }
+            disabled={!isReady}
+          >
+            Generate Quiz
+          </button>
+
+          <button
+            type="button"
+            className="hub-primary-button"
+            onClick={() =>
+              handleStudyAction(
+                "/flashcards"
+              )
+            }
+            disabled={!isReady}
+          >
+            Generate Flashcards
+          </button>
+        </div>
+
+
+        {!isReady && (
+          <p
+            className="hub-message hub-message-error"
+            role="status"
+          >
+            AI study actions are unavailable until this document is ready.
+          </p>
+        )}
+
+
 
           <label>
             <h2 style={{ color: 'black' }}>Category</h2>  
