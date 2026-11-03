@@ -212,6 +212,50 @@ router.post("/verify-email", async (req, res, next) => {
 
 
 // ========================================
+// RESEND SIGNUP CONFIRMATION
+// Use a generic response to avoid revealing account existence.
+// ========================================
+
+router.post("/resend-confirmation", async (req, res, next) => {
+  try {
+    const email = typeof req.body?.email === "string"
+      ? req.body.email.trim().toLowerCase()
+      : "";
+
+    if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: "Enter a valid email address." });
+    }
+
+    const genericMessage = "If this account needs confirmation, a new code will be sent.";
+    const supabase = createSupabaseClient();
+    const { error } = await supabase.auth.resend({ type: "signup", email });
+
+    if (error) {
+      // Supabase rate limits and delivery quotas must not expose the account state.
+      if (error.status === 429 || error.code === "over_email_send_rate_limit" ||
+          error.code === "over_request_rate_limit") {
+        return res.status(429).json({
+          error: "Please wait before requesting another confirmation email.",
+        });
+      }
+      // Missing, confirmed and otherwise ineligible accounts receive the same response.
+      // Do not forward Supabase messages that could disclose account existence.
+      if (error.status === 400 || error.status === 404 || error.status === 422) {
+        return res.json({ message: genericMessage });
+      }
+      return res.status(503).json({
+        error: "We couldn't send the email right now. Please try again later.",
+      });
+    }
+
+    return res.json({ message: genericMessage });
+  } catch (error) {
+    next(error);
+  }
+});
+
+
+// ========================================
 // LOGIN
 // ========================================
 
