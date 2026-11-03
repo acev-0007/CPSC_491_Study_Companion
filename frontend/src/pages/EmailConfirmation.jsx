@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { verifyEmail } from "../api/auth";
+import { resendConfirmationEmail, verifyEmail } from "../api/auth";
 import "../styles/EmailConfirmation.css";
 
 function EmailConfirmation() {
@@ -11,11 +11,57 @@ function EmailConfirmation() {
   const [code, setCode] = useState("");
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
+  const [resendStatus, setResendStatus] = useState("idle");
+  const [resendMessage, setResendMessage] = useState("");
+  // Registration already sent the first code. Begin its cooldown immediately.
+  const [resendAvailableAt, setResendAvailableAt] = useState(() =>
+    (typeof location.state?.confirmationSentAt === "number"
+      ? location.state.confirmationSentAt
+      : Date.now()) + 60_000
+  );
+  const [cooldown, setCooldown] = useState(() =>
+    Math.max(0, Math.ceil((resendAvailableAt - Date.now()) / 1000))
+  );
+  const resendPending = useRef(false);
   const inputRef = useRef(null);
 
   useEffect(() => {
     inputRef.current?.focus({ preventScroll: true });
   }, []);
+  useEffect(() => {
+    const updateCountdown = () => {
+      setCooldown(Math.max(0, Math.ceil((resendAvailableAt - Date.now()) / 1000)));
+    };
+    updateCountdown();
+    const timer = window.setInterval(updateCountdown, 1000);
+    return () => window.clearInterval(timer);
+  }, [resendAvailableAt]);
+
+  const handleResend = async () => {
+    if (!email.trim() || cooldown > 0 || resendPending.current) return;
+    resendPending.current = true;
+    setResendStatus("loading");
+    setResendMessage("");
+    try {
+      await resendConfirmationEmail({ email: email.trim() });
+      setResendStatus("success");
+      setResendMessage("Check your inbox for a new verification code.");
+      setResendAvailableAt(Date.now() + 60_000);
+      setCooldown(60);
+    } catch (issue) {
+      setResendStatus("error");
+      setResendMessage(issue.status === 429
+        ? "Please wait before requesting another code."
+        : "We couldn't request a new code. Please try again.");
+      if (issue.status === 429) {
+        setResendAvailableAt(Date.now() + 60_000);
+        setCooldown(60);
+      }
+    } finally {
+      resendPending.current = false;
+    }
+  };
+
   const cleanCode = (value) => value.replace(/\D/g, "").slice(0, 8);
 
   const handleVerify = async (event) => {
@@ -85,6 +131,16 @@ function EmailConfirmation() {
               <button type="submit" className="auth-button" disabled={code.length !== 8 || !email.trim() || status === "loading"} aria-busy={status === "loading"}>
                 {status === "loading" ? "Verifying…" : "Verify Email"}
               </button>
+              <div className="email-resend">
+                <p>Didn't receive your code?</p>
+                <button type="button" className="email-resend-button" onClick={handleResend}
+                  disabled={resendStatus === "loading" || cooldown > 0}
+                  aria-busy={resendStatus === "loading"}>
+                  {resendStatus === "loading" ? "Sending…" : cooldown > 0
+                    ? `Resend available in ${cooldown}s` : "Resend confirmation email"}
+                </button>
+                {resendMessage && <p role="status" className={`email-resend-message${resendStatus === "error" ? " email-resend-error" : ""}`}>{resendMessage}</p>}
+              </div>
             </form>
           )}
           <p className="email-verify-back">
