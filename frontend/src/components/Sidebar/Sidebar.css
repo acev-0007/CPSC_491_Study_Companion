@@ -234,3 +234,8 @@
     font-size: 13px;
   }
 }
+
+/* Keep Settings with the account controls at the bottom of the sidebar. */
+.sidebar-settings-link {
+  margin-bottom: var(--space-3);
+}

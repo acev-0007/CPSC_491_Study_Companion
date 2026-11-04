@@ -28,6 +28,11 @@ function Flashcards() {
   // Ignores responses from a load that has since been superseded.
   const loadRequestRef = useRef(0);
 
+  // FLASH-UI-4: same guard for AI generation. A generation response that
+  // arrives after the student has left the generate screen is discarded
+  // instead of pulling them into a generated deck they did not ask for.
+  const generateRequestRef = useRef(0);
+
   const [view, setView] = useState("home");
 
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -54,6 +59,7 @@ function Flashcards() {
 
   function handleBackToHome() {
   loadRequestRef.current += 1;
+  generateRequestRef.current += 1;
   setView("home");
   setIsLoading(false);
   setLoadError(null);
@@ -72,6 +78,12 @@ function handleBackToSavedDecks() {
 }
 
 function handleOpenGeneration() {
+  // FLASH-UI-4: invalidate any in-flight deck load so a late response
+  // cannot overwrite state while the generate screen is showing.
+  loadRequestRef.current += 1;
+  generateRequestRef.current += 1;
+  setIsLoading(false);
+  setLoadError(null);
   setView("generate");
   setGenerationNotice(null);
   resetStudySession();
@@ -79,6 +91,7 @@ function handleOpenGeneration() {
 
 async function handleShowSavedCards() {
   const requestId = ++loadRequestRef.current;
+  generateRequestRef.current += 1;
 
   setView("saved");
   setGenerationNotice(null);
@@ -215,7 +228,12 @@ async function handleDeleteDeck(deck) {
   async function handleGenerate(studyText) {
   setGenerationNotice(null);
 
+  const requestId = ++generateRequestRef.current;
+
   const result = await generateFlashcards(studyText);
+
+  // Superseded or abandoned while waiting: ignore the response.
+  if (requestId !== generateRequestRef.current) return;
 
   const { flashcards, rejectedCount } =
     adaptGeneratedFlashcards(result.flashcards);
@@ -295,20 +313,23 @@ return (
           continue studying saved cards.
         </p>
 
-        <button
-          type="button"
-          className="flashcards-primary-btn"
-          onClick={handleOpenGeneration}
-        >
-          Generate New Flashcards
-        </button>
+        <div className="flashcards-home-actions">
+          <button
+            type="button"
+            className="flashcards-primary-btn"
+            onClick={handleOpenGeneration}
+          >
+            Generate New Flashcards
+          </button>
 
-        <button
-          type="button"
-          onClick={handleShowSavedCards}
-        >
-          Study Saved Flashcards
-        </button>
+          <button
+            type="button"
+            className="flashcards-secondary-btn"
+            onClick={handleShowSavedCards}
+          >
+            Study Saved Flashcards
+          </button>
+        </div>
       </div>
     )}
 
@@ -348,9 +369,13 @@ return (
         </div>
 
         {isLoading ? (
-          <p>Loading saved decks...</p>
+          <p role="status" className="flashcards-state-message">
+            Loading saved decks...
+          </p>
         ) : loadError ? (
-          <p role="alert">{loadError}</p>
+          <p role="alert" className="flashcards-state-message">
+            {loadError}
+          </p>
         ) : (
           <SavedDeckList
             decks={decks}
@@ -453,14 +478,23 @@ return (
 
 
         {view === "deck" && isLoading ? (
-          <p>Loading flashcards...</p>
+          <p role="status" className="flashcards-state-message">
+            Loading flashcards...
+          </p>
         ) : view === "deck" && loadError ? (
-          <p role="alert">{loadError}</p>
+          <p role="alert" className="flashcards-state-message">
+            {loadError}
+          </p>
         ) : totalCards === 0 ? (
-          <p>No flashcards are available yet.</p>
+          <p className="flashcards-state-message">
+            No flashcards are available yet.
+          </p>
         ) : (
           <>
-            <p className="flashcards-progress">
+            <p
+              className="flashcards-progress"
+              aria-live="polite"
+            >
               Card {currentIndex + 1} of {totalCards}
             </p>
 
@@ -497,6 +531,11 @@ return (
                   required
                 />
 
+                <p className="flashcard-edit-note">
+                  Edits apply to this study session only and are not
+                  saved to your deck.
+                </p>
+
                 <div className="flashcard-edit-actions">
                   <button
                     type="submit"
@@ -514,30 +553,24 @@ return (
                 </div>
               </form>
             ) : (
-              <div
+              <button
+                type="button"
                 className="flashcard"
-                role="button"
-                tabIndex={0}
                 aria-pressed={isFlipped}
                 onClick={handleFlip}
-                onKeyDown={(event) => {
-                  if (
-                    event.key === "Enter" ||
-                    event.key === " "
-                  ) {
-                    event.preventDefault();
-                    handleFlip();
-                  }
-                }}
               >
-                <p>
+                <span className="flashcard-side">
+                  {isFlipped ? "Answer" : "Question"}
+                </span>
+
+                <span className="flashcard-text">
                   {isFlipped ? card.back : card.front}
-                </p>
+                </span>
 
                 <span className="flashcard-hint">
                   Click to flip
                 </span>
-              </div>
+              </button>
             )}
 
             {!isEditing && (
