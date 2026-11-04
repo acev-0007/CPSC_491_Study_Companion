@@ -161,6 +161,22 @@ function AssignmentTracker() {
     }
   }
 
+  function handleWorkPlanChange(index, field, value) {
+    setWorkPlan((currentPlan) =>
+      currentPlan.map((task, taskIndex) =>
+        taskIndex === index
+          ? {
+              ...task,
+              [field]:
+                field === "estimated_time"
+                  ? Number(value)
+                  : value,
+            }
+          : task
+      )
+    );
+  }
+
   function renderAssignmentCard(assignment) {
     const deadlineState = getDeadlineStatus(assignment);
 
@@ -265,23 +281,62 @@ function AssignmentTracker() {
                 <h4>AI-Generated Work Plan</h4>
                 {workPlan.map((task, index) => (
                   <div className="work-plan-task" key={index}>
-                    <h5>{task.title}</h5>
-                    <p>
-                      <strong>Study Date:</strong>{" "}
-                      {task.scheduled_date}
-                    </p>
-                    <p>
-                      <strong>Estimated Time:</strong>{" "}
-                      {task.estimated_time} hours
-                    </p>
-                    <p>
-                      <strong>Notes:</strong>{" "}
-                      {task.notes}
-                    </p>
+                    <label className="form-group">
+                      Task Title
+                      <input 
+                        type="text"
+                        value={task.title}
+                        onChange={(event) =>
+                          handleWorkPlanChange(index, "title", event.target.value)
+                        }
+                      />  
+                    </label>
+
+                    <label className="form-group">
+                      Study Date
+                      <input 
+                        type="date"
+                        value={task.scheduled_date}
+                        onChange={(event) =>
+                          handleWorkPlanChange(index, "scheduled_date", event.target.value)
+                        }
+                      /> 
+                    </label>
+
+                    <label className="form-group">
+                      Estimated Time (Hours)
+                      <input 
+                        type="number"
+                        min="0.25"
+                        step="0.25"
+                        value={task.estimated_time}
+                        onChange={(event) =>
+                          handleWorkPlanChange(index, "estimated_time", event.target.value)
+                        }
+                      /> 
+                    </label>
+
+                    <label className="form-group">
+                      Notes
+                      <textarea 
+                        value={task.notes}
+                        onChange={(event) =>
+                          handleWorkPlanChange(index, "notes", event.target.value)
+                        }
+                      /> 
+                    </label>
 
                   </div>
                 ))}
               <div className="work-plan-actions">
+                <button
+                  type="button"
+                  className="regenerate-plan-button"
+                  onClick={() => handleGenerateWorkPlan(selectedAssignmentId)}
+                  disabled={generatePlan || savePlan}
+                >
+                  {generatePlan ? "Regenerating..." : "Regenerate Work Plan"}
+                </button>
                 <button
                   type="button"
                   className="save-plan-button"
