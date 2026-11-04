@@ -163,6 +163,16 @@
     color: #e8cb3b;
 }
 
+.regenerate-plan-button {
+    margin-top: 12px;
+    padding: 10px 5px;
+    border: 1px solid #7655a8;
+    border-radius: 12px;
+    background-color: var(--color-accent-border);
+    color: white;
+    font-weight: bold;
+    cursor: pointer;   
+}
 .save-plan-button {
     margin-top: 12px;
     padding: 10px 16px;
