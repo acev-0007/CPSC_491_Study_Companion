@@ -602,3 +602,12 @@ a.auth-brand:focus-visible {
   outline-offset: 4px;
   border-radius: 10px;
 }
+
+/* SCRUM-264: recovery status uses the existing auth form language. */
+.recovery-confirmation {
+  margin: 0 0 18px;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 1.55;
+  text-align: center;
+}

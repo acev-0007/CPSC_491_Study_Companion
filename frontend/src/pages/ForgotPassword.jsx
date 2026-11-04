@@ -1,7 +1,39 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
+import { requestPasswordRecovery } from "../api/auth";
 
-// Sprint 3: presentation-only skeleton. Password recovery is implemented in Sprint 4.
 function ForgotPassword() {
+  const [email, setEmail] = useState("");
+  const [pending, setPending] = useState(false);
+  const [confirmation, setConfirmation] = useState("");
+  const [error, setError] = useState("");
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    if (pending) return;
+    setError("");
+    setConfirmation("");
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail || normalizedEmail.length > 254 ||
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      setError("Enter a valid email address.");
+      return;
+    }
+    setPending(true);
+    try {
+      const result = await requestPasswordRecovery({ email: normalizedEmail });
+      setConfirmation(result.message);
+    } catch (requestError) {
+      setError(requestError.status === 429
+        ? "Too many recovery requests. Please try again later."
+        : requestError.status === 400
+          ? "Enter a valid email address."
+          : "Unable to request password recovery right now. Please try again later.");
+    } finally {
+      setPending(false);
+    }
+  }
+
   return (
     <div className="auth-page recovery-page">
       <header className="recovery-header">
@@ -24,7 +56,7 @@ function ForgotPassword() {
             </p>
           </div>
 
-          <div className="auth-form">
+          <form className="auth-form" onSubmit={handleSubmit} noValidate>
             <div className="form-group">
               <label htmlFor="recovery-email">Email Address</label>
               <input
@@ -33,15 +65,29 @@ function ForgotPassword() {
                 type="email"
                 placeholder="you@example.com"
                 autoComplete="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                aria-invalid={Boolean(error)}
+                aria-describedby={error ? "recovery-error" : undefined}
+                required
+                maxLength={254}
+                disabled={pending}
               />
             </div>
-            <button type="button" className="auth-button" disabled>
-              Reset Password
+            {error && (
+              <div id="recovery-error" className="auth-message auth-message-error" role="alert">
+                <span>{error}</span>
+              </div>
+            )}
+            {confirmation && (
+              <p className="recovery-confirmation" role="status" aria-live="polite">
+                {confirmation}
+              </p>
+            )}
+            <button type="submit" className="auth-button" disabled={pending} aria-busy={pending}>
+              {pending ? "Sending..." : "Reset Password"}
             </button>
-            <p className="recovery-unavailable" role="status">
-              Password recovery will be available soon.
-            </p>
-          </div>
+          </form>
 
           <div className="recovery-footer">
             <Link to="/login"><span aria-hidden="true">←</span> Back to Login</Link>

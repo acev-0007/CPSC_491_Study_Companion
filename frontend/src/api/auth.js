@@ -135,3 +135,14 @@ export async function verifyEmail({ email, code }) {
   return parseResponse(response);
 }
 
+
+
+export async function requestPasswordRecovery({ email }) {
+  const response = await fetch("/api/auth/password-recovery", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  return parseResponse(response);
+}
