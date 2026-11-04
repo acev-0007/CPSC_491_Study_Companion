@@ -13,6 +13,18 @@ function AssignmentTracker() {
 
   const [message, setMessage] = useState("");
 
+  const [workPlan, setWorkPlan] = useState(null);
+
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState(null);
+
+  const [generatePlan, setGeneratePlan] = useState(false);
+
+  const [savePlan, setSavePlan] = useState(false);
+
+  const [workPlanError, setWorkPlanError] = useState("");
+
+  const [workPlanWarning, setWorkPlanWarning] = useState([]);
+
   const [formData, setFormData] = useState({
     title: "",
     course: "",
@@ -22,6 +34,132 @@ function AssignmentTracker() {
     notes: "",
     estimated_time: "",
   });
+
+  /*
+  async function handleGenerateWorkPlan(assignmentId) {
+    setGeneratePlan(true);
+    setWorkPlanError("");
+    setWorkPlanWarning([]);
+    setWorkPlan(null);
+    setSelectedAssignmentId(assignmentId);
+
+    try {
+      const response = await fetch(
+        "http://localhost:3001/api/ai/work-plan",
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            assignmentId,
+            hoursPerDay: 2,
+          }),
+        }
+      );
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(
+          data.error || "Failed to generate work plan"
+        );
+      }
+      setWorkPlan(data.workPlan);
+      setWorkPlanWarning(data.warnings || []);
+    } catch (error) {
+      console.error(error);
+      setWorkPlanError(error.message);
+    } finally {
+      setGeneratePlan(false);
+    }
+  }
+  */
+
+  // ===== TEMPORARY TESTING FUNCTION (USING FOR NOW UNTIL TESTING) =====
+  async function handleGenerateWorkPlan(assignmentId) {
+    setGeneratePlan(true);
+    setWorkPlanError("");
+    setWorkPlanWarning([]);
+    setWorkPlan(null);
+    setSelectedAssignmentId(assignmentId);
+  
+    try {
+      // TEMPORARY MOCK DATA - NO CLAUDE API CALL
+      const mockWorkPlan = [
+        {
+          title: "Research Paper - Research",
+          scheduled_date: "2026-11-06",
+          estimated_time: 2,
+          notes: "Find research sources.",
+        },
+        {
+          title: "Research Paper - Outline",
+          scheduled_date: "2026-11-07",
+          estimated_time: 2,
+          notes: "Create the outline.",
+        },
+        {
+          title: "Research Paper - Writing",
+          scheduled_date: "2026-11-08",
+          estimated_time: 2,
+          notes: "Write and revise the paper.",
+        },
+      ];
+  
+      setWorkPlan(mockWorkPlan);
+      setWorkPlanWarning([]);
+  
+    } catch (error) {
+      console.error(error);
+      setWorkPlanError(error.message);
+    } finally {
+      setGeneratePlan(false);
+    }
+  }
+  // ===============================================================
+
+  async function handleSaveWorkPlan() {
+    if (!workPlan || !selectedAssignmentId) {
+      return;
+    }
+    setSavePlan(true);
+    setWorkPlanError("");
+
+    try {
+      const response = await fetch(
+        "http://localhost:3001/api/assignments/work-plan",
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            assignmentId: selectedAssignmentId,
+            workPlan,
+          }),
+        }
+      );
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(
+          data.error || "Faled to save work plan"
+        );
+      }
+
+      await fetchAssignments();
+      setWorkPlan(null);
+      setSelectedAssignmentId(null);
+      setWorkPlanWarning([]);
+      setMessage("AI Work Plan saved successfully!");
+
+    } catch (error) {
+      console.error(error);
+      setWorkPlanError(error.message);
+    } finally {
+      setSavePlan(false);
+    }
+  }
 
   function renderAssignmentCard(assignment) {
     const deadlineState = getDeadlineStatus(assignment);
@@ -82,10 +220,94 @@ function AssignmentTracker() {
             Completed
           </span>
         )}
+       
         <p>
           <strong>Notes:</strong>{" "}
           {assignment.notes}
         </p>
+       
+        {assignment.is_ai_generated && (
+          <p className="ai-generated-label">
+            AI Generated Study Task
+          </p>
+        )}
+       
+        {!assignment.is_ai_generated && assignment.status !== "Completed" && (
+          <button
+            type="button"
+            className="generate-plan-button"
+            onClick={() => handleGenerateWorkPlan(assignment.id)}
+            disabled={generatePlan || savePlan}
+          >
+            {generatePlan && selectedAssignmentId === assignment.id
+              ? "Generating ..."
+              : "Generate AI Work Plan"
+            }
+          </button>
+        )}
+
+        {selectedAssignmentId === assignment.id && (
+          <div className="work-plan-preview">
+            {workPlanError && (
+              <p className="work-plan-error">
+                {workPlanError}
+              </p>
+            )}
+
+            {workPlanWarning.map((warnings, index) => (
+              <p key={index} className="work-plan-warning">
+                {warnings}
+              </p>
+            ))}
+
+            {workPlan && workPlan.length > 0 && (
+              <>
+                <h4>AI-Generated Work Plan</h4>
+                {workPlan.map((task, index) => (
+                  <div className="work-plan-task" key={index}>
+                    <h5>{task.title}</h5>
+                    <p>
+                      <strong>Study Date:</strong>{" "}
+                      {task.scheduled_date}
+                    </p>
+                    <p>
+                      <strong>Estimated Time:</strong>{" "}
+                      {task.estimated_time} hours
+                    </p>
+                    <p>
+                      <strong>Notes:</strong>{" "}
+                      {task.notes}
+                    </p>
+
+                  </div>
+                ))}
+              <div className="work-plan-actions">
+                <button
+                  type="button"
+                  className="save-plan-button"
+                  onClick={handleSaveWorkPlan}
+                  disabled={savePlan || generatePlan}
+                >
+                  {savePlan ? "Saving ..." : "Save Work Plan"}
+                </button>
+                <button
+                  type="button"
+                  className="cancel-plan-button"
+                  onClick={() => {
+                    setWorkPlan(null);
+                    setSelectedAssignmentId(null);
+                    setWorkPlanError("");
+                    setWorkPlanWarning([]);
+                  }}
+                  disabled={savePlan}
+                >
+                  Cancel
+                </button>
+              </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
     );
   }
