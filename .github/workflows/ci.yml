@@ -49,17 +49,24 @@ jobs:
         working-directory: frontend
         run: npm run lint
 
+
       - name: Run frontend tests
+        id: frontend_tests
         working-directory: frontend
-        run: npm test
+        continue-on-error: true
+        run: |
+          npm test -- --reporter=default --reporter=junit --outputFile.junit=frontend-test-results.xml
 
       - name: Install backend dependencies
         working-directory: backend
         run: npm ci
 
       - name: Run backend tests
+        id: backend_tests
         working-directory: backend
-        run: npm test
+        continue-on-error: true
+        run: |
+          npm test -- --reporter=default --reporter=junit --outputFile.junit=backend-test-results.xml
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
@@ -67,6 +74,16 @@ jobs:
           SUPABASE_TEST_USER1_PASSWORD: ${{ secrets.SUPABASE_TEST_USER1_PASSWORD }}
           SUPABASE_TEST_USER2_EMAIL: ${{ secrets.SUPABASE_TEST_USER2_EMAIL }}
           SUPABASE_TEST_USER2_PASSWORD: ${{ secrets.SUPABASE_TEST_USER2_PASSWORD }}
+
+      - name: Upload automated test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: automated-test-results
+          path: |
+            frontend/frontend-test-results.xml
+            backend/backend-test-results.xml
+          if-no-files-found: warn
 
       - name: Build frontend
         working-directory: frontend
@@ -78,6 +95,26 @@ jobs:
           name: study-companion-${{ env.BUILD_ID }}
           path: frontend/dist/
           if-no-files-found: error
+
+      - name: Verify automated test results
+        if: always()
+        env:
+          FRONTEND_RESULT: ${{ steps.frontend_tests.outcome }}
+          BACKEND_RESULT: ${{ steps.backend_tests.outcome }}
+        run: |
+          echo "Frontend tests: $FRONTEND_RESULT"
+          echo "Backend tests: $BACKEND_RESULT"
+
+          echo "## Automated Test Results" >> "$GITHUB_STEP_SUMMARY"
+          echo "Frontend: $FRONTEND_RESULT" >> "$GITHUB_STEP_SUMMARY"
+          echo "Backend: $BACKEND_RESULT" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$FRONTEND_RESULT" != "success" ] || [ "$BACKEND_RESULT" != "success" ]; then
+            echo "One or more automated test suites failed."
+            exit 1
+          fi
+
+          echo "All automated test suites passed."
 
       - name: Record successful main build
         if: success() && github.ref == 'refs/heads/main'
