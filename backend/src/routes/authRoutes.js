@@ -33,6 +33,68 @@ function publicUser(user) {
 
 
 // ========================================
+// PASSWORD RECOVERY EMAIL REQUEST (SCRUM-264)
+// Public endpoint: never disclose whether an account exists.
+// ========================================
+
+const RECOVERY_CONFIRMATION =
+  "If an account exists for that email address, we've sent password reset instructions.";
+
+router.post("/password-recovery", async (req, res, next) => {
+  try {
+    const email = typeof req.body?.email === "string"
+      ? req.body.email.trim().toLowerCase()
+      : "";
+
+    if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: "Enter a valid email address." });
+    }
+
+    // The recovery destination is configured on the server, not provided by
+    // the caller. Keep it on an allowed Supabase Auth redirect URL list.
+    const frontendOrigin = process.env.FRONTEND_ORIGIN || "http://localhost:5173";
+    let redirectTo;
+    try {
+      const parsed = new URL(frontendOrigin);
+      if (!(["http:", "https:"].includes(parsed.protocol)) ||
+          (parsed.protocol === "http:" && parsed.hostname !== "localhost" && parsed.hostname !== "127.0.0.1") ||
+          parsed.username || parsed.password || parsed.search || parsed.hash || parsed.pathname !== "/") {
+        throw new Error("invalid origin");
+      }
+      redirectTo = `${parsed.origin}/reset-password`;
+    } catch {
+      return res.status(503).json({ error: "Password recovery is not configured. Please try again later." });
+    }
+
+    const supabase = createSupabaseClient();
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo,
+    });
+
+    if (error) {
+      const status = Number(error.status);
+      const code = String(error.code || "").toLowerCase();
+      // Account-not-found responses must be indistinguishable from success.
+      if (status === 404 || code === "user_not_found" || code === "email_not_found") {
+        return res.json({ message: RECOVERY_CONFIRMATION });
+      }
+      if (status === 429 || code.includes("rate_limit") || code.includes("over_email_send_rate_limit")) {
+        return res.status(429).json({
+          error: "Too many recovery requests. Please try again later.",
+        });
+      }
+      return res.status(503).json({
+        error: "Unable to request password recovery right now. Please try again later.",
+      });
+    }
+
+    return res.json({ message: RECOVERY_CONFIRMATION });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ========================================
 // REGISTER
 // ========================================
 
