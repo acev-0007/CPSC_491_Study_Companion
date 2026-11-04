@@ -16,7 +16,10 @@ CREATE TABLE assignments (
     status assignment_status NOT NULL DEFAULT 'Upcoming',
     notes TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    is_ai_generated BOOLEAN NOT NULL DEFAULT FALSE,
+    parent_assignment_id UUID REFERENCES assignments(id),
+    scheduled_date DATE,
 );
 
 -- Creates organized, fast lookup directory
