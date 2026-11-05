@@ -1,0 +1,37 @@
+# SCRUM-225: manual post-deployment check until staging deployment automation exists.
+# It can also be called by a future staging deploy workflow using `needs: <deploy-job-id>`.
+# Never runs on ordinary PR or push triggers.
+name: Staging Authentication Smoke Test
+on:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  staging-auth-smoke:
+    name: Post-deployment staging auth checks
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install smoke-test dependencies
+        working-directory: staging-smoke
+        run: npm install --no-audit --no-fund
+      - name: Install Chromium
+        working-directory: staging-smoke
+        run: npx playwright install --with-deps chromium
+      - name: Check deployed staging authentication and dashboard
+        working-directory: staging-smoke
+        env:
+          STAGING_FRONTEND_URL: ${{ vars.STAGING_FRONTEND_URL }}
+          STAGING_BACKEND_URL: ${{ vars.STAGING_BACKEND_URL }}
+          STAGING_SMOKE_ISOLATED: ${{ vars.STAGING_SMOKE_ISOLATED }}
+          STAGING_TEST_EMAIL: ${{ secrets.STAGING_TEST_EMAIL }}
+          STAGING_TEST_PASSWORD: ${{ secrets.STAGING_TEST_PASSWORD }}
+        run: npm run smoke
