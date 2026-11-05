@@ -7,7 +7,7 @@ import {
   validateFlashcardSet,
   MIN_CARDS,
   MAX_CARDS,
-} from "./flashcardContract";
+} from "../../data/flashcardContract";
 
 // TECHNIQUE: unit testing with equivalence partitioning + boundary value
 // analysis. Inputs are split into valid/invalid classes, and set-size rules

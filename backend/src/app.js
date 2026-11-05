@@ -34,6 +34,9 @@ import authRoutes
 import aiRoutes
   from "./routes/aiRoutes.js";
 
+import summaryRoutes
+  from "./routes/summaryRoutes.js";
+
 import {
   requireAuth,
 } from "./middleware/requireAuth.js";
@@ -41,6 +44,10 @@ import {
 import {
   createUserSupabaseClient,
 } from "./config/supabase.js";
+
+import assignmentRoutes
+  from "./routes/assignmentRoutes.js";
+
 
 const MAX_FILE_SIZE =
   10 * 1024 * 1024;
@@ -94,7 +101,7 @@ export function createApp({
   // ========================================
   // GLOBAL MIDDLEWARE
   // ========================================
-  
+
   app.use(cors({
   origin: "http://localhost:5173",
   credentials: true,
@@ -117,9 +124,204 @@ export function createApp({
   // AI ROUTES
   // ========================================
 
+  // AI generation requires a verified session before any provider is called.
+  // Protect at the mount point to avoid changing the AI route handlers.
   app.use(
     "/api/ai",
+    requireAuth,
     aiRoutes
+  );
+
+
+  // ========================================
+  // SUMMARY PERSISTENCE ROUTES (SCRUM-231)
+  // ========================================
+
+  app.use(
+    "/api/summaries",
+    summaryRoutes
+  );
+
+
+  // ========================================
+  // CREATE TOPIC (FLASH-TEST-1)
+  // ========================================
+  //
+  // Creates a user-owned topic for a generated
+  // flashcard deck. The database generates the UUID.
+  // Ownership is derived from the authenticated session.
+
+  app.post(
+    "/api/topics",
+    requireAuth,
+    async (req, res) => {
+      const { title, source_text } = req.body ?? {};
+
+      if (
+        typeof title !== "string" ||
+        !title.trim() ||
+        title.trim().length > 255
+      ) {
+        return res.status(400).json({
+          error: "A topic title (1-255 characters) is required.",
+        });
+      }
+
+      if (
+        source_text !== undefined &&
+        source_text !== null &&
+        typeof source_text !== "string"
+      ) {
+        return res.status(400).json({
+          error: "source_text must be a string.",
+        });
+      }
+
+      try {
+        const supabase = createUserSupabaseClient(
+          req.accessToken
+        );
+
+        const newTopic = {
+          user_id: req.user.id,
+          title: title.trim(),
+          source_text:
+            typeof source_text === "string"
+              ? source_text
+              : null,
+        };
+
+        const { data, error } = await supabase
+          .from("topics")
+          .insert(newTopic)
+          .select("id, user_id, title, source_text")
+          .single();
+
+        if (error) {
+          throw error;
+        }
+
+        if (!data?.id) {
+          throw new Error(
+            "Topic creation returned no ID."
+          );
+        }
+
+        return res.status(201).json(data);
+      } catch (error) {
+        console.error("Error creating topic:", error);
+
+        return res.status(500).json({
+          error: "Failed to create topic.",
+        });
+      }
+    }
+  );
+
+
+  // ========================================
+  // LIST TOPICS (FLASH-DECK-1)
+  // ========================================
+  //
+  // Returns the authenticated user's saved decks, newest
+  // first, with a flashcard count for each. Ownership is
+  // enforced twice: an explicit user_id filter here and
+  // the Supabase row-level security policy.
+
+  app.get(
+    "/api/topics",
+    requireAuth,
+    async (req, res) => {
+      try {
+        const supabase = createUserSupabaseClient(
+          req.accessToken
+        );
+
+        const { data, error } = await supabase
+          .from("topics")
+          .select("id, title, created_at, flashcards(count)")
+          .eq("user_id", req.user.id)
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          throw error;
+        }
+
+        const topics = (data ?? []).map((row) => ({
+          id: row.id,
+          title: row.title,
+          created_at: row.created_at,
+          card_count: row.flashcards?.[0]?.count ?? 0,
+        }));
+
+        return res.status(200).json({ topics });
+      } catch (error) {
+        console.error("Error listing topics:", error);
+
+        return res.status(500).json({
+          error: "Failed to fetch topics.",
+        });
+      }
+    }
+  );
+
+
+  // ========================================
+  // DELETE TOPIC (FLASH-DECK-1)
+  // ========================================
+  //
+  // Deletes one user-owned topic. The flashcards.topic_id
+  // foreign key is ON DELETE CASCADE, so the database
+  // removes the topic's flashcards; they are not deleted
+  // individually here.
+  //
+  //   400  malformed UUID
+  //   404  topic does not exist or is not owned by the user
+  //   204  deleted
+
+  app.delete(
+    "/api/topics/:id",
+    requireAuth,
+    async (req, res) => {
+      if (!isValidUUID(req.params.id)) {
+        return res.status(400).json({
+          error: "Topic id must be a valid UUID.",
+        });
+      }
+
+      try {
+        const supabase = createUserSupabaseClient(
+          req.accessToken
+        );
+
+        const { data, error } = await supabase
+          .from("topics")
+          .delete()
+          .eq("id", req.params.id.trim())
+          .eq("user_id", req.user.id)
+          .select("id");
+
+        if (error) {
+          throw error;
+        }
+
+        // Row-level security can make a delete match zero rows
+        // without an error, so confirm something was removed.
+        if (!data || data.length === 0) {
+          return res.status(404).json({
+            error: "Topic not found.",
+          });
+        }
+
+        return res.status(204).end();
+      } catch (error) {
+        console.error("Error deleting topic:", error);
+
+        return res.status(500).json({
+          error: "Failed to delete topic.",
+        });
+      }
+    }
   );
 
 
@@ -607,9 +809,9 @@ export function createApp({
       }
     }
   );
-          
 
-  
+
+
 
 
 // ===== FLASHCARD ENDPOINTS (Sprint 2 / FLASH-5) =====
@@ -1049,6 +1251,14 @@ app.post(
     }
   );
 
+  // ========================================
+  // ASSIGNMENT TRACKER ROUTE
+  // ========================================
+
+  app.use(
+    "/api/assignments",
+    assignmentRoutes
+  );
 
   return app;
 }

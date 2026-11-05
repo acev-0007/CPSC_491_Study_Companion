@@ -32,3 +32,28 @@
     padding: var(--space-6) var(--space-4) var(--space-8);
   }
 }
+
+/* Settings is a separate workspace: one contextual sidebar, never two. */
+.app-shell-settings { --sidebar-width: 246px; }
+.app-shell-settings .app-main { padding: clamp(32px, 5vw, 72px) clamp(20px, 5vw, 72px); }
+.app-shell-settings .app-main-content { width: min(100%, 820px); }
+.settings-shell-sidebar { position: sticky; top: 0; height: 100svh; padding: 24px 12px; background: #111217; border-right: 1px solid var(--color-border-subtle); display: flex; flex-direction: column; }
+.settings-shell-brand { display:flex; align-items:center; gap:12px; padding:8px; min-height:50px; color:var(--color-text-primary); text-decoration:none; font-weight:650; font-size:14px; }
+.settings-return-link { display:flex; align-items:center; gap:10px; min-height:44px; padding:10px 12px; margin:24px 0 22px; border-radius:var(--radius-md); text-decoration:none; color:var(--color-text-secondary); font-size:14px; }
+.settings-return-link:hover, .settings-shell-link:hover { color:var(--color-text-primary); background:var(--color-surface-hover); }
+.settings-shell-label { margin: 0 12px 12px; color:var(--color-text-muted); font-size:11px; letter-spacing:.09em; font-weight:700; }
+.settings-shell-links { display:grid; gap:4px; }
+.settings-shell-link { display:flex; align-items:center; gap:12px; padding:11px 12px; min-height:44px; border-radius:var(--radius-md); text-decoration:none; color:var(--color-text-secondary); font-size:14px; font-weight:550; }
+.settings-shell-link.is-active { background:var(--color-accent-soft); color:#c0b2ff; }
+.settings-shell-symbol { width:18px; text-align:center; }
+.settings-shell-link:focus-visible, .settings-return-link:focus-visible, .settings-shell-brand:focus-visible { outline:2px solid #b7a7ff; outline-offset:2px; }
+@media (max-width:820px) { .app-shell-settings .settings-shell-sidebar { position:relative; height:auto; padding:12px 16px; border-right:0; border-bottom:1px solid var(--color-border-subtle); } .settings-shell-sidebar .settings-shell-links { display:none; } .settings-shell-sidebar .settings-shell-brand { display:none; } .settings-shell-sidebar .settings-return-link { margin:0; } .app-shell-settings .app-main { padding:24px 16px 48px; } }
+
+/* Keep the same logout action accessible from the dedicated Settings workspace. */
+.settings-shell-footer { margin-top: auto; padding: 20px 0 0; }
+.settings-shell-logout { display: block; width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid var(--color-border-subtle); border-radius: var(--radius-md); background: transparent; color: var(--color-text-secondary); font: inherit; font-size: 14px; font-weight: 600; text-align: left; cursor: pointer; }
+.settings-shell-logout:hover:not(:disabled) { background: var(--color-surface-hover); color: var(--color-text-primary); }
+.settings-shell-logout:focus-visible { outline: 2px solid #b7a7ff; outline-offset: 2px; }
+.settings-shell-logout:disabled { opacity: .52; cursor: not-allowed; }
+.settings-shell-error { margin: 0 0 12px; color: var(--color-error); font-size: 12px; line-height: 1.4; }
+@media (max-width: 820px) { .app-shell-settings .settings-shell-footer { padding-top: 12px; } }

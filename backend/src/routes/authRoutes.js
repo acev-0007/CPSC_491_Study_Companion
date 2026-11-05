@@ -119,8 +119,23 @@ router.post(
           });
       }
 
-      // Email confirmation disabled:
-      // Supabase returns a session immediately.
+      // Supabase may return an obfuscated user rather than an error when
+      // signup is attempted with an already-confirmed email address.
+      // Such users have an empty identities array; do not treat them as
+      // newly registered or send them to the verification page.
+      if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        return res.status(409).json({
+          error: "An account with this email already exists. Please log in instead.",
+        });
+      }
+
+      if (!data?.user) {
+        return res.status(502).json({
+          error: "We couldn't complete registration. Please try again.",
+        });
+      }
+
+      // Only create cookies when signup establishes a valid session.
       if (data.session) {
         setSessionCookies(
           res,
@@ -131,8 +146,9 @@ router.post(
       return res
         .status(201)
         .json({
-          message:
-            "Account created successfully.",
+          message: data.session
+            ? "Account created successfully."
+            : "Check your email to confirm your account.",
 
           user:
             publicUser(data.user),
@@ -148,6 +164,51 @@ router.post(
     }
   }
 );
+
+
+// ========================================
+// VERIFY EIGHT-DIGIT EMAIL CODE
+// Supabase generates and validates the one-time code.
+// ========================================
+
+router.post("/verify-email", async (req, res, next) => {
+  try {
+    const email = typeof req.body?.email === "string"
+      ? req.body.email.trim().toLowerCase()
+      : "";
+    const code = req.body?.code;
+
+    if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
+        typeof code !== "string" || !/^\d{8}$/.test(code)) {
+      return res.status(400).json({
+        error: "Enter your email address and a valid eight-digit code.",
+      });
+    }
+
+    const supabase = createSupabaseClient();
+    const { data, error } = await supabase.auth.verifyOtp({
+      email,
+      token: code,
+      type: "signup",
+    });
+
+    if (error || !data?.user || !data?.session) {
+      return res.status(400).json({
+        error: "That code is invalid or has expired. Check the code or request a new one.",
+      });
+    }
+
+    setSessionCookies(res, data.session);
+    return res.json({
+      message: "Email verified successfully.",
+      user: publicUser(data.user),
+      authenticated: true,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 
 
 // ========================================
