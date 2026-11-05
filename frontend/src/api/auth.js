@@ -17,6 +17,7 @@ async function parseResponse(
       response.status;
     // Preserve safe application error codes for specific UI states.
     error.code = body.code;
+    error.retryAfterSeconds = body.retryAfterSeconds;
 
     throw error;
   }
@@ -165,6 +166,16 @@ export async function completePasswordReset({ accessToken, refreshToken, passwor
     method: "POST", credentials: "same-origin",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ accessToken, refreshToken, password }),
+  });
+  return parseResponse(response);
+}
+
+export async function resendVerificationEmail({ email }) {
+  const response = await fetch("/api/auth/resend-verification", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
   });
   return parseResponse(response);
 }
