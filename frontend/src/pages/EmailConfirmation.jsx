@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { verifyEmail } from "../api/auth";
+import { resendVerificationEmail, verifyEmail } from "../api/auth";
 import "../styles/EmailConfirmation.css";
 
 function EmailConfirmation() {
@@ -12,10 +12,40 @@ function EmailConfirmation() {
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
   const inputRef = useRef(null);
+  const [resendSeconds, setResendSeconds] = useState(60);
+  const [resending, setResending] = useState(false);
+  const [resendFeedback, setResendFeedback] = useState("");
 
   useEffect(() => {
     inputRef.current?.focus({ preventScroll: true });
   }, []);
+  useEffect(() => {
+    if (resendSeconds <= 0) return undefined;
+    const timer = window.setTimeout(() => setResendSeconds((seconds) => Math.max(0, seconds - 1)), 1000);
+    return () => window.clearTimeout(timer);
+  }, [resendSeconds]);
+
+  const handleResend = async () => {
+    if (!email || resendSeconds > 0 || resending) return;
+    setResending(true);
+    setResendFeedback("");
+    setError("");
+    try {
+      const result = await resendVerificationEmail({ email });
+      setResendSeconds(result.retryAfterSeconds || 60);
+      setResendFeedback("If your account still needs verification, a new code is on its way.");
+    } catch (issue) {
+      if (issue.status === 429) {
+        setResendSeconds(issue.retryAfterSeconds || 60);
+        setResendFeedback("Please wait before requesting another code.");
+      } else {
+        setError("We couldn't request a new code right now. Please try again.");
+      }
+    } finally {
+      setResending(false);
+    }
+  };
+
   const cleanCode = (value) => value.replace(/\D/g, "").slice(0, 8);
 
   const handleVerify = async (event) => {
@@ -59,7 +89,7 @@ function EmailConfirmation() {
           </div>
           {status !== "success" && !email.trim() && (
             <p role="alert" className="auth-message auth-message-error">
-              Your registration email is unavailable. Please return to registration to start verification again.
+              Your verification session has ended. Log in to resume verifying your email.
             </p>
           )}
           {status !== "success" && Boolean(email.trim()) && (
@@ -82,14 +112,21 @@ function EmailConfirmation() {
                 <p id="email-code-help" className="email-code-help">Type or paste the code from your email.</p>
               </div>
               {error && <p role="alert" className="auth-message auth-message-error">{error}</p>}
+              <div className="email-verify-resend">
+                <button type="button" className="email-resend-button"
+                  onClick={handleResend} disabled={resendSeconds > 0 || resending || status === "loading"}>
+                  {resending ? "Sending…" : resendSeconds > 0 ? `Resend code in ${resendSeconds}s` : "Resend code"}
+                </button>
+                {resendFeedback && <p role="status" className="email-code-help">{resendFeedback}</p>}
+              </div>
               <button type="submit" className="auth-button" disabled={code.length !== 8 || !email.trim() || status === "loading"} aria-busy={status === "loading"}>
                 {status === "loading" ? "Verifying…" : "Verify Email"}
               </button>
             </form>
           )}
           <p className="email-verify-back">
-            <Link to={email.trim() ? "/login" : "/register"}>
-              {email.trim() ? "Back to Log In" : "Back to Register"}
+            <Link to="/login">
+              {email.trim() ? "Back to Log In" : "Go to Log In"}
             </Link>
           </p>
         </section>

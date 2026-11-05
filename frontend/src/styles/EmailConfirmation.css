@@ -15,3 +15,10 @@
 .email-verify-back a:hover { color: var(--auth-heading); text-decoration: underline; }
 @media (max-width: 390px) { .email-code-slots { gap: 4px; } .email-code-slot { height: 43px; font-size: 19px; } }
 @media (prefers-reduced-motion: reduce) { .email-code-slot { transition: none; } }
+
+/* Secondary verification action follows existing auth link styling. */
+.email-verify-resend { text-align: center; margin-top: 0.25rem; }
+.email-resend-button { background: none; border: 0; padding: 0.5rem 0.75rem; color: var(--auth-accent, #475569); font: inherit; font-weight: 600; cursor: pointer; border-radius: 0.5rem; }
+.email-resend-button:hover:not(:disabled) { text-decoration: underline; }
+.email-resend-button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.email-resend-button:disabled { opacity: 0.6; cursor: default; }
