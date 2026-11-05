@@ -1,9 +1,17 @@
-
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { getAiReadyDocumentContent } from "../api/documents";
 import "./Summarization.css";
 
-function Summarization() {
+
+function SummarizationContent() {
   const [studyMaterial, setStudyMaterial] = useState("");
+  const [searchParams] = useSearchParams();
+  const documentId = searchParams.get("documentId");
+  const [documentLoad, setDocumentLoad] = useState(null);
+  const isLoadingDocument = Boolean(documentId) &&documentLoad?.id !== documentId;
+  const documentError = documentLoad?.id === documentId ? documentLoad.error || "" : "";
+  const documentName = documentLoad?.id === documentId ? documentLoad.name || "" : "";
   const [validationError, setValidationError] = useState("");
   const [summary, setSummary] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -14,14 +22,65 @@ function Summarization() {
   const [saveError, setSaveError] = useState("");
   const [isSaved, setIsSaved] = useState(false);
 
+
+
+  // SCRUM-230: Load document content from Document Hub
+  useEffect(() => {
+    if (!documentId) return;
+
+    let active = true;
+
+    getAiReadyDocumentContent(documentId)
+      .then((content) => {
+        if (!active) return;
+
+        if (!content.text?.trim()) {
+          throw new Error(
+            "The selected document has no readable text."
+          );
+        }
+
+        setStudyMaterial(content.text);
+        setDocumentLoad({
+          id: documentId,
+          name: content.name || "Uploaded document",
+          error: "",
+        });
+
+        setSummary("");
+        setIsSaved(false);
+        setSaveError("");
+        setValidationError("");
+        setRequestError("");
+      })
+      .catch((error) => {
+        if (!active) return;
+
+        setStudyMaterial("");
+        setDocumentLoad({
+          id: documentId,
+          name: "",
+          error: error.message || "Unable to load document.",
+        });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [documentId]);
+
+
   // Generate a summary using Claude
   const handleGenerateSummary = async () => {
+    if (isLoadingDocument || documentError) return;
+
     if (!studyMaterial.trim()) {
       setValidationError(
         "Please enter study material before generating a summary."
       );
       return;
     }
+
 
     setValidationError("");
     setRequestError("");
@@ -126,9 +185,31 @@ function Summarization() {
       </p>
 
       <div className="summarization-form">
+
+        {isLoadingDocument && (
+          <p role="status" className="summarization-loading">
+            Loading uploaded document...
+          </p>
+        )}
+
+        {documentName && (
+          <p role="status">
+            Loaded document: {documentName}
+          </p>
+        )}
+
+        {documentError && (
+          <p
+            role="alert"
+            className="summarization-request-error"
+          >
+            {documentError}
+          </p>
+        )}
+
         <textarea
           className="summarization-input"
-          value={studyMaterial}
+          value={isLoadingDocument ? "" : studyMaterial}
           onChange={(event) => {
             setStudyMaterial(event.target.value);
 
@@ -141,7 +222,7 @@ function Summarization() {
           }}
           placeholder="Paste your notes or study material here..."
           rows={12}
-          disabled={isLoading || isSaving}
+          disabled={isLoading || isSaving || isLoadingDocument || Boolean(documentError)}
         />
 
         {validationError && (
@@ -160,7 +241,7 @@ function Summarization() {
           className="summarization-button"
           type="button"
           onClick={handleGenerateSummary}
-          disabled={isLoading || isSaving}
+          disabled={isLoading || isSaving || isLoadingDocument || Boolean(documentError)}
         >
           {isLoading
             ? "Generating Summary..."
@@ -210,6 +291,17 @@ function Summarization() {
         )}
       </div>
     </div>
+  );
+}
+
+function Summarization() {
+  const [searchParams] = useSearchParams();
+  const documentId = searchParams.get("documentId");
+
+  return (
+    <SummarizationContent
+      key={documentId || "manual"}
+    />
   );
 }
 
