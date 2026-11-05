@@ -5,7 +5,7 @@ import ResetPassword from "../../pages/ResetPassword";
 import { validatePasswordRecovery, completePasswordReset } from "../../api/auth";
 
 vi.mock("../../api/auth", () => ({ validatePasswordRecovery: vi.fn(), completePasswordReset: vi.fn() }));
-const link = "http://localhost:5173/reset-password#access_token=example-access&refresh_token=example-refresh&type=recovery";
+const link = "/reset-password#access_token=example-access&refresh_token=example-refresh&type=recovery";
 function LoginDestination() {
   const location = useLocation();
   return <div data-testid="login-destination">{location.state?.passwordResetComplete ? "Password updated successfully" : "No confirmation"}</div>;
