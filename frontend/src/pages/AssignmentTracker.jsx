@@ -25,7 +25,6 @@ function AssignmentTracker() {
 
   function renderAssignmentCard(assignment) {
     const deadlineState = getDeadlineStatus(assignment);
-
     return (
       <div 
         className={`assignment-card ${deadlineState}`}
@@ -36,7 +35,7 @@ function AssignmentTracker() {
           className="delete-button"
           onClick={() => handleDeleteAssignment(assignment.id)}
           aria-label={`Delete ${assignment.title}`}
-          title="Delete assignements"
+          title="Delete assignments"
         >
           &times;
         </button>
