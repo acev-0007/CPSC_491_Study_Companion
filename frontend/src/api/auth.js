@@ -15,6 +15,8 @@ async function parseResponse(
 
     error.status =
       response.status;
+    // Preserve safe application error codes for specific UI states.
+    error.code = body.code;
 
     throw error;
   }
@@ -143,6 +145,26 @@ export async function requestPasswordRecovery({ email }) {
     credentials: "same-origin",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email }),
+  });
+  return parseResponse(response);
+}
+
+// Recovery tokens are held in memory only and sent to the backend over HTTPS
+// (or the Vite localhost development proxy). Never place them in URLs/logs.
+export async function validatePasswordRecovery({ accessToken, refreshToken }) {
+  const response = await fetch("/api/auth/password-recovery/validate", {
+    method: "POST", credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ accessToken, refreshToken }),
+  });
+  return parseResponse(response);
+}
+
+export async function completePasswordReset({ accessToken, refreshToken, password }) {
+  const response = await fetch("/api/auth/password-recovery/complete", {
+    method: "POST", credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ accessToken, refreshToken, password }),
   });
   return parseResponse(response);
 }
