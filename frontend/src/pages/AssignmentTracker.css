@@ -13,6 +13,7 @@
     border-radius: 8px;
     padding: 1rem;
     margin-bottom: 1rem;
+    position: relative;
 }
 
 .assignment-card.overdue {
@@ -75,6 +76,37 @@
 
 .assignment-section {
     margin-top: 2rem;
+}
+
+.delete-button {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+
+    width: 26px;
+    height: 26px;
+
+    border-radius: 50%;
+    border: none;
+
+    background-color: rgb(191, 93, 93);
+    color: rgb(0, 0, 0);
+
+    font-size: 20px;
+    font-weight: bold;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    cursor: pointer;
+    padding: 0;
+}
+
+.delete-button:hover {
+    background-color: rgb(48, 48, 48);
+    color: rgb(0, 0, 0);
+
 }
 
 .form-grid {
@@ -224,6 +256,10 @@
     border: var(--color-accent-border);
     color: var(--color-text-primary);
     font-weight: bold;
+}
+
+.submit-button:hover {
+    background-color: var(--color-accent-border);
 }
 
 .tracker-layout {

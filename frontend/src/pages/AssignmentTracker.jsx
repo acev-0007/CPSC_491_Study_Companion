@@ -179,12 +179,20 @@ function AssignmentTracker() {
 
   function renderAssignmentCard(assignment) {
     const deadlineState = getDeadlineStatus(assignment);
-
     return (
       <div 
         className={`assignment-card ${deadlineState}`}
         key={assignment.id}
       >
+        <button
+          type="button"
+          className="delete-button"
+          onClick={() => handleDeleteAssignment(assignment.id)}
+          aria-label={`Delete ${assignment.title}`}
+          title="Delete assignments"
+        >
+          &times;
+        </button>
         <h3>{assignment.title}</h3>
            
         <p>
@@ -489,6 +497,40 @@ function AssignmentTracker() {
     } catch(error) {
       console.error(error);
       setMessage(error.message);
+    }
+  }
+
+  async function handleDeleteAssignment(id) {
+    const confirmDelete = window.confirm(
+      "Are you sure you want to delete this assignment?"
+    );
+    if (!confirmDelete) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `http://localhost:3001/api/assignments/${id}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to delete assignment");
+      }
+
+      setAssignments((currentAssignments) => 
+        currentAssignments.filter(
+          (assignment) => assignment.id !== id
+        )
+      );
+
+      setMessage("Assignment deleted successfully");
+    } catch (error) {
+      console.error(error);
+      setMessage("Failed to delete assignment");
     }
   }
 
