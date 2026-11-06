@@ -138,7 +138,6 @@ export async function verifyEmail({ email, code }) {
 }
 
 
-
 export async function requestPasswordRecovery({ email }) {
   const response = await fetch("/api/auth/password-recovery", {
     method: "POST",
@@ -146,8 +145,21 @@ export async function requestPasswordRecovery({ email }) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email }),
   });
+
   return parseResponse(response);
 }
+
+export async function resendConfirmationEmail({ email }) {
+  const response = await fetch("/api/auth/resend-confirmation", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+
+  return parseResponse(response);
+}
+   
 
 // Recovery tokens are held in memory only and sent to the backend over HTTPS
 // (or the Vite localhost development proxy). Never place them in URLs/logs.

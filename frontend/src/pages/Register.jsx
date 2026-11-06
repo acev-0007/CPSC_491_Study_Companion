@@ -40,7 +40,7 @@ function Register() {
       if (result.requiresEmailConfirmation) {
         navigate("/auth/confirm", {
           replace: true,
-          state: { email: formData.email.trim().toLowerCase() },
+          state: { email: formData.email.trim().toLowerCase(), confirmationSentAt: Date.now() },
         });
         return;
       }
