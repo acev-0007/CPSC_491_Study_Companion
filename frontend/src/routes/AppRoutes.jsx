@@ -6,6 +6,7 @@ import { getCurrentUser } from "../api/auth";
 import Landing from "../pages/Landing";
 import Login from "../pages/Login";
 import ForgotPassword from "../pages/ForgotPassword";
+import ResetPassword from "../pages/ResetPassword";
 import Register from "../pages/Register";
 import EmailConfirmation from "../pages/EmailConfirmation";
 import Dashboard from "../pages/Dashboard";
@@ -115,6 +116,16 @@ function AppRoutes() {
           <>
             <title>Forgot Password | AI Study Companion</title>
             <ForgotPassword />
+          </>
+        }
+      />
+
+      <Route
+        path="/reset-password"
+        element={
+          <>
+            <title>Reset Password | AI Study Companion</title>
+            <ResetPassword />
           </>
         }
       />
