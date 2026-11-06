@@ -5,6 +5,8 @@ on:
   push:
     branches:
       - main
+permissions:
+  contents: read
 
 jobs:
   ci:
@@ -75,6 +77,28 @@ jobs:
           SUPABASE_TEST_USER2_EMAIL: ${{ secrets.SUPABASE_TEST_USER2_EMAIL }}
           SUPABASE_TEST_USER2_PASSWORD: ${{ secrets.SUPABASE_TEST_USER2_PASSWORD }}
 
+      - name: Validate automated test reports
+        if: always()
+        id: validate_reports
+        run: |
+          missing=0
+
+          for report in \
+            frontend/frontend-test-results.xml \
+            backend/backend-test-results.xml
+          do
+            if [ ! -s "$report" ]; then
+              echo "::error::Missing or empty report: $report"
+              missing=1
+            else
+              echo "Verified report: $report"
+            fi
+          done
+
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
       - name: Upload automated test reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -83,7 +107,7 @@ jobs:
           path: |
             frontend/frontend-test-results.xml
             backend/backend-test-results.xml
-          if-no-files-found: warn
+          if-no-files-found: error
 
       - name: Build frontend
         working-directory: frontend
