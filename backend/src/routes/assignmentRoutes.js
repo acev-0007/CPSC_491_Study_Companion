@@ -363,13 +363,15 @@ router.post("/work-plan", requireAuth, async (req, res) => {
             });
         }
 
+        const MAX_WORK_PLAN_SESSIONS = 30;
+
         if (
             !Array.isArray(workPlan) ||
             workPlan.length === 0 ||
-            workPlan.length > 3
+            workPlan.length > MAX_WORK_PLAN_SESSIONS
         ) {
             return res.status(400).json({
-                error: "Work plan must contain 1 to 3 tasks.",
+                error: "Work plan must contain 1 to 30 tasks.",
             });
         }
 
