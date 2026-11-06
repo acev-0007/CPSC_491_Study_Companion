@@ -1,4 +1,6 @@
+import { useRef, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
+import { updateAccount, uploadAvatar, removeAvatar } from "../../api/account";
 import { settingsItems } from "./settingsItems";
 
 function Section({ title, subtitle, children }) {
@@ -18,14 +20,65 @@ export function SettingsMenu() {
   return <section className="settings-menu-content" aria-label="Settings categories"><h1>Settings</h1><p>Choose what you want to manage.</p><div className="settings-mobile-list">{settingsItems.map(item => <Link key={item.path} to={`/account/${item.path}`} className="settings-mobile-item"><span aria-hidden="true">{item.symbol}</span><span><strong>{item.label}</strong><small>{item.detail}</small></span><span aria-hidden="true">›</span></Link>)}</div></section>;
 }
 export function ProfileSettings() {
-  const { user, loading, error, retry } = useOutletContext();
-  const name = user?.user_metadata?.name || user?.user_metadata?.full_name || user?.name || "Your profile";
+  const { user, loading, error, retry, updateUser } = useOutletContext();
+  const [draftName, setDraftName] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [actionError, setActionError] = useState("");
+  const fileRef = useRef(null);
+  const name = user?.displayName || "Your profile";
+  const editableName = draftName ?? (user?.displayName || "");
   const email = user?.email || "Not available";
   const initials = name === "Your profile" ? "?" : name.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join("").toUpperCase();
-  return <Section title="Profile" subtitle="View your personal information and how it appears in AI Study Companion.">
+  const createdAt = user?.createdAt && !Number.isNaN(new Date(user.createdAt).getTime())
+    ? new Intl.DateTimeFormat(undefined, { month: "long", day: "numeric", year: "numeric" }).format(new Date(user.createdAt))
+    : "Not available";
+  const run = async (operation, success) => {
+    setBusy(true); setMessage(""); setActionError("");
+    try { const result = await operation(); updateUser(result.user); setMessage(success); }
+    catch (cause) { setActionError(cause.message || "Unable to save your changes."); }
+    finally { setBusy(false); }
+  };
+  const saveName = async event => {
+    event.preventDefault();
+    if (!editableName.trim() || editableName.trim().length > 80 || busy) return;
+    await run(() => updateAccount(editableName.trim()), "Display name updated.");
+    setDraftName(null);
+  };
+  const chooseFile = event => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 2 * 1024 * 1024) {
+      setActionError("Choose a JPEG, PNG, or WebP image no larger than 2 MB."); setMessage(""); return;
+    }
+    void run(() => uploadAvatar(file), "Profile photo updated.");
+  };
+  return <Section title="Profile" subtitle="Manage your personal information and how it appears in AI Study Companion.">
     {error && <div className="settings-inline-error" role="alert"><span>Unable to load your profile.</span><button type="button" onClick={retry}>Try again</button></div>}
-    <Group title="Profile picture" description="Add a personal touch to your account."><div className="settings-profile-hero"><div className="settings-avatar" aria-hidden="true">{initials}</div><div><h3>{loading ? "Loading profile…" : name}</h3><p>{loading ? "Checking account information" : email}</p><span className="settings-static-hint">Photo uploads will be available in a future update.</span></div></div></Group>
-    <Group title="Personal information" description="Information associated with your signed-in account."><Item title="Display name" value={loading ? "Loading…" : error ? "Unavailable" : name}/><Item title="Email address" value={loading ? "Loading…" : error ? "Unavailable" : email}/></Group>
+    <Group title="Profile picture" description="JPEG, PNG, or WebP, up to 2 MB.">
+      <div className="settings-profile-hero">
+        <div className="settings-avatar" aria-hidden="true">{user?.avatarUrl ? <img src={user.avatarUrl} alt="" /> : initials}</div>
+        <div className="settings-profile-details"><h3>{loading ? "Loading profile…" : name}</h3><p>{loading ? "Checking account information" : email}</p>
+          <div className="settings-profile-actions">
+            <input ref={fileRef} type="file" className="settings-file-input" accept="image/jpeg,image/png,image/webp" aria-label="Choose profile photo" onChange={chooseFile} disabled={busy || loading || error} />
+            <button type="button" disabled={busy || loading || error} onClick={() => fileRef.current?.click()}>{busy ? "Saving…" : "Change photo"}</button>
+            {user?.avatarUrl && <button type="button" className="settings-text-button" disabled={busy} onClick={() => run(removeAvatar, "Profile photo removed.")}>Remove photo</button>}
+          </div>
+        </div>
+      </div>
+    </Group>
+    <Group title="Personal information" description="Information associated with your signed-in account.">
+      <form className="settings-name-form" onSubmit={saveName}>
+        <label htmlFor="profile-display-name">Display name</label>
+        <div className="settings-name-controls"><input id="profile-display-name" type="text" maxLength={80} value={editableName} onChange={event => setDraftName(event.target.value)} disabled={loading || error || busy} required />
+          <button type="submit" disabled={loading || error || busy || !editableName.trim() || editableName.trim().length > 80 || editableName.trim() === (user?.displayName || "")}>{busy ? "Saving…" : "Save"}</button></div>
+      </form>
+      <Item title="Email address" value={loading ? "Loading…" : error ? "Unavailable" : email} />
+      <Item title="Member since" value={loading ? "Loading…" : error ? "Unavailable" : createdAt} />
+    </Group>
+    {actionError && <p className="settings-feedback settings-feedback-error" role="alert">{actionError}</p>}
+    {message && <p className="settings-feedback" role="status">{message}</p>}
   </Section>;
 }
 export function SecuritySettings() {
