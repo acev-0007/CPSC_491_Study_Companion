@@ -13,14 +13,22 @@ function EmailConfirmation() {
   const [error, setError] = useState("");
   const [resendStatus, setResendStatus] = useState("idle");
   const [resendMessage, setResendMessage] = useState("");
-  // Registration already sent the first code. Begin its cooldown immediately.
-  const [resendAvailableAt, setResendAvailableAt] = useState(() =>
-    (typeof location.state?.confirmationSentAt === "number"
-      ? location.state.confirmationSentAt
-      : Date.now()) + 60_000
-  );
+  // Persist the absolute expiry time so refreshes keep the remaining seconds.
+  const storageKey = "asc-email-confirmation-cooldown";
+  const initialExpiry = () => {
+    const initialSentAt = typeof location.state?.confirmationSentAt === "number"
+      ? location.state.confirmationSentAt + 60_000 : 0;
+    let storedExpiry = 0;
+    try {
+      const stored = JSON.parse(window.sessionStorage.getItem(storageKey) || "null");
+      if (stored?.email === email.trim().toLowerCase() &&
+          Number.isFinite(stored?.expiresAt)) storedExpiry = stored.expiresAt;
+    } catch { /* Storage can be disabled by browser privacy settings. */ }
+    return Math.max(initialSentAt, storedExpiry);
+  };
+  const [resendAvailableAt, setResendAvailableAt] = useState(initialExpiry);
   const [cooldown, setCooldown] = useState(() =>
-    Math.max(0, Math.ceil((resendAvailableAt - Date.now()) / 1000))
+    Math.max(0, Math.ceil((initialExpiry() - Date.now()) / 1000))
   );
   const resendPending = useRef(false);
   const inputRef = useRef(null);
@@ -28,6 +36,15 @@ function EmailConfirmation() {
   useEffect(() => {
     inputRef.current?.focus({ preventScroll: true });
   }, []);
+  useEffect(() => {
+    if (!email.trim()) return;
+    try {
+      window.sessionStorage.setItem(storageKey, JSON.stringify({
+        email: email.trim().toLowerCase(), expiresAt: resendAvailableAt,
+      }));
+    } catch { /* The in-memory timer still works if storage is unavailable. */ }
+  }, [email, resendAvailableAt]);
+
   useEffect(() => {
     const updateCountdown = () => {
       setCooldown(Math.max(0, Math.ceil((resendAvailableAt - Date.now()) / 1000)));
@@ -45,7 +62,7 @@ function EmailConfirmation() {
     try {
       await resendConfirmationEmail({ email: email.trim() });
       setResendStatus("success");
-      setResendMessage("Check your inbox for a new verification code.");
+      setResendMessage("If another verification email can be sent, please check your inbox shortly.");
       setResendAvailableAt(Date.now() + 60_000);
       setCooldown(60);
     } catch (issue) {

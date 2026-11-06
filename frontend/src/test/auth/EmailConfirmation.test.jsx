@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import EmailConfirmation from "../../pages/EmailConfirmation";
@@ -21,7 +21,10 @@ function renderConfirmation(email = "student@example.com", confirmationSentAt = 
   );
 }
 
-beforeEach(() => vi.resetAllMocks());
+beforeEach(() => {
+  vi.resetAllMocks();
+  window.sessionStorage.clear();
+});
 
 describe("Email confirmation resend", () => {
   it("renders a secondary resend control for a registration email", () => {
@@ -42,7 +45,7 @@ describe("Email confirmation resend", () => {
     expect(resendConfirmationEmail).toHaveBeenCalledWith({ email: "student@example.com" });
     expect(screen.getByRole("button", { name: "Sending…" })).toBeDisabled();
     resolveRequest({ message: "ok" });
-    expect(await screen.findByRole("status")).toHaveTextContent(/check your inbox for a new verification code/i);
+    expect(await screen.findByRole("status")).toHaveTextContent(/please check your inbox shortly/i);
     expect(screen.getByRole("button", { name: /resend available in/i })).toBeDisabled();
     expect(resendConfirmationEmail).toHaveBeenCalledTimes(1);
   });
@@ -61,6 +64,43 @@ describe("Email confirmation resend", () => {
     await userEvent.click(screen.getByRole("button", { name: "Resend confirmation email" }));
     expect(await screen.findByRole("status")).toHaveTextContent(/please wait/i);
     expect(screen.getByRole("button", { name: /resend available/i })).toBeDisabled();
+  });
+
+  it("enables the button once the full 60-second cooldown expires", () => {
+    vi.useFakeTimers();
+    try {
+      const now = Date.now();
+      renderConfirmation("student@example.com", now);
+      expect(screen.getByRole("button", { name: "Resend available in 60s" })).toBeDisabled();
+      act(() => { vi.advanceTimersByTime(59_000); });
+      expect(screen.getByRole("button", { name: "Resend available in 1s" })).toBeDisabled();
+      act(() => { vi.advanceTimersByTime(1_000); });
+      expect(screen.getByRole("button", { name: "Resend confirmation email" })).toBeEnabled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("preserves remaining cooldown across a refresh without route timestamp", () => {
+    vi.useFakeTimers();
+    try {
+      const now = Date.now();
+      const view = renderConfirmation("student@example.com", now);
+      act(() => { vi.advanceTimersByTime(25_000); });
+      expect(screen.getByRole("button", { name: "Resend available in 35s" })).toBeDisabled();
+      view.unmount();
+      // A refresh may lose location.state; keep the saved expiration instead.
+      render(
+        <MemoryRouter initialEntries={[{ pathname: "/auth/confirm", state: { email: "student@example.com" } }]}>
+          <Routes><Route path="/auth/confirm" element={<EmailConfirmation />} /></Routes>
+        </MemoryRouter>,
+      );
+      expect(screen.getByRole("button", { name: "Resend available in 35s" })).toBeDisabled();
+      act(() => { vi.advanceTimersByTime(35_000); });
+      expect(screen.getByRole("button", { name: "Resend confirmation email" })).toBeEnabled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("requires a registration email before showing resend", () => {
