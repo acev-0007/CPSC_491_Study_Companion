@@ -15,6 +15,12 @@ import {
   requireAuth,
 } from "../middleware/requireAuth.js";
 
+import {
+  clearConfirmationCooldown,
+  remainingConfirmationCooldown,
+  startConfirmationCooldown,
+} from "../auth/confirmationCooldown.js";
+
 const router = express.Router();
 
 function publicUser(user) {
@@ -135,6 +141,12 @@ router.post(
         });
       }
 
+      // Registration has just requested the initial confirmation email.
+      // Count it as the first send so direct API calls cannot bypass the UI timer.
+      if (!data.session) {
+        startConfirmationCooldown(email);
+      }
+
       // Only create cookies when signup establishes a valid session.
       if (data.session) {
         setSessionCookies(
@@ -226,25 +238,43 @@ router.post("/resend-confirmation", async (req, res, next) => {
       return res.status(400).json({ error: "Enter a valid email address." });
     }
 
-    const genericMessage = "If this account needs confirmation, a new code will be sent.";
-    const supabase = createSupabaseClient();
-    const { error } = await supabase.auth.resend({ type: "signup", email });
+    const genericMessage = "If another verification email can be sent, please check your inbox shortly.";
+    const remaining = remainingConfirmationCooldown(email);
+    if (remaining > 0) {
+      res.set("Retry-After", String(Math.ceil(remaining / 1000)));
+      return res.status(429).json({
+        error: "Please wait before requesting another confirmation email.",
+      });
+    }
+
+    // Reserve immediately, before awaiting Supabase, to prevent concurrent resends.
+    startConfirmationCooldown(email);
+    let resendResult;
+    try {
+      const supabase = createSupabaseClient();
+      resendResult = await supabase.auth.resend({ type: "signup", email });
+    } catch (failure) {
+      clearConfirmationCooldown(email);
+      throw failure;
+    }
+    const { error } = resendResult;
 
     if (error) {
-      // Supabase rate limits and delivery quotas must not expose the account state.
       if (error.status === 429 || error.code === "over_email_send_rate_limit" ||
           error.code === "over_request_rate_limit") {
+        res.set("Retry-After", "60");
         return res.status(429).json({
           error: "Please wait before requesting another confirmation email.",
         });
       }
-      // Missing, confirmed and otherwise ineligible accounts receive the same response.
-      // Do not forward Supabase messages that could disclose account existence.
+      // Missing, confirmed and ineligible accounts get the same neutral answer.
       if (error.status === 400 || error.status === 404 || error.status === 422) {
         return res.json({ message: genericMessage });
       }
+      // Service errors should not consume a full cooldown unnecessarily.
+      clearConfirmationCooldown(email);
       return res.status(503).json({
-        error: "We couldn't send the email right now. Please try again later.",
+        error: "We couldn't request another email right now. Please try again later.",
       });
     }
 
