@@ -23,6 +23,19 @@ import {
 
 const router = express.Router();
 
+// Track recent signup/resend requests in this process, in addition to Supabase's
+// provider-side email limits. This avoids resetting the UI cooldown on navigation.
+const EMAIL_RESEND_COOLDOWN_MS = 60_000;
+const recentVerificationEmails = new Map();
+function secondsUntilResend(email) {
+  const remaining = (recentVerificationEmails.get(email) || 0) + EMAIL_RESEND_COOLDOWN_MS - Date.now();
+  return Math.max(0, Math.ceil(remaining / 1000));
+}
+function markVerificationEmailSent(email) {
+  recentVerificationEmails.set(email, Date.now());
+}
+
+
 function publicUser(user) {
   if (!user) {
     return null;
@@ -310,6 +323,10 @@ router.post(
         );
       }
 
+      if (!data.session) {
+        markVerificationEmailSent(email.trim().toLowerCase());
+      }
+
       return res
         .status(201)
         .json({
@@ -332,6 +349,54 @@ router.post(
   }
 );
 
+
+// ========================================
+// RESEND SIGNUP VERIFICATION CODE
+// Supabase sends the email and enforces its own provider-side limits.
+// The public response does not confirm whether an account exists.
+// ========================================
+router.post("/resend-verification", async (req, res, next) => {
+  try {
+    const email = typeof req.body?.email === "string"
+      ? req.body.email.trim().toLowerCase()
+      : "";
+    if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: "Enter a valid email address." });
+    }
+
+    const retryAfterSeconds = secondsUntilResend(email);
+    if (retryAfterSeconds) {
+      return res.status(429).json({
+        error: "Please wait before requesting another code.",
+        retryAfterSeconds,
+      });
+    }
+
+    const supabase = createSupabaseClient();
+    const { error } = await supabase.auth.resend({ type: "signup", email });
+    if (error) {
+      const code = String(error.code || "").toLowerCase();
+      if (Number(error.status) === 429 || code.includes("rate_limit")) {
+        return res.status(429).json({
+          error: "Please wait before requesting another code.",
+          retryAfterSeconds: 60,
+        });
+      }
+      // Never disclose account existence or verification status.
+      // Suppress account-state errors, but surface service outages.
+      if (Number(error.status) >= 500) {
+        return res.status(503).json({ error: "Unable to resend the code right now." });
+      }
+    }
+    markVerificationEmailSent(email);
+    return res.json({
+      message: "If verification is pending, a new code will be sent.",
+      retryAfterSeconds: 60,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
 // ========================================
 // VERIFY EIGHT-DIGIT EMAIL CODE
@@ -476,10 +541,21 @@ router.post(
             password,
           });
 
+      // Supabase rejects sign-in for a user whose password was accepted but
+      // whose email is not yet confirmed. Do not create application cookies.
+      // Only this specific provider error permits resuming verification.
+      if (error?.code === "email_not_confirmed") {
+        clearSessionCookies(res);
+        return res.status(403).json({
+          code: "verification_required",
+          error: "Email verification is required to continue.",
+        });
+      }
+
       if (
         error ||
-        !data.session ||
-        !data.user
+        !data?.session ||
+        !data?.user
       ) {
         return res.status(401).json({
           error:

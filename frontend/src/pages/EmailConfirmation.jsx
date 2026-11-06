@@ -122,7 +122,7 @@ function EmailConfirmation() {
           </div>
           {status !== "success" && !email.trim() && (
             <p role="alert" className="auth-message auth-message-error">
-              Your registration email is unavailable. Please return to registration to start verification again.
+              Your verification session has ended. Log in to resume verifying your email.
             </p>
           )}
           {status !== "success" && Boolean(email.trim()) && (
@@ -161,8 +161,8 @@ function EmailConfirmation() {
             </form>
           )}
           <p className="email-verify-back">
-            <Link to={email.trim() ? "/login" : "/register"}>
-              {email.trim() ? "Back to Log In" : "Back to Register"}
+            <Link to="/login">
+              {email.trim() ? "Back to Log In" : "Go to Log In"}
             </Link>
           </p>
         </section>

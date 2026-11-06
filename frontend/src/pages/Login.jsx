@@ -27,6 +27,13 @@ function Login() {
       });
       navigate("/dashboard", { replace: true });
     } catch (error) {
+      if (error.code === "verification_required") {
+        navigate("/auth/confirm", {
+          replace: true,
+          state: { email: formData.email.trim().toLowerCase() },
+        });
+        return;
+      }
       setErrorMessage(
         error.status === 401
           ? "Incorrect email or password. Please try again."
