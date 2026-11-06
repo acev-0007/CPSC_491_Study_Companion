@@ -18,7 +18,7 @@ function getClient() {
   return client;
 }
 
-export async function generateClaudeResponse(prompt) {
+export async function generateClaudeResponse(prompt, maxTokens = 1000) {
   if (!prompt?.trim()) {
     throw new Error("A prompt is required.");
   }
@@ -33,7 +33,7 @@ export async function generateClaudeResponse(prompt) {
 
   const message = await anthropic.messages.create({
     model,
-    max_tokens: 1000,
+    max_tokens: maxTokens,
 
     system: `
 You are the AI assistant for a college Study Companion application.

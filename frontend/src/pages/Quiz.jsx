@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 
-import { mockQuiz } from "../data/mockQuiz";
+import QuizSetup from "../components/QuizSetup";
 import "./Quiz.css";
 
-// SCRUM-124: multiple-choice quiz UI backed by mock data.
-// No API calls, submission, or persistence; answers live in component state.
+// SCRUM-124: multiple-choice quiz UI. SCRUM-125: the questions now come from
+// AI generation (QuizSetup) instead of mock data.
+// No submission or persistence; answers live in component state.
 // The results screen is local session feedback only. It is not a submitted
 // or saved quiz (submission is SCRUM-126).
 
@@ -100,15 +101,17 @@ function getOptionLabel(question, optionId) {
   return option ? `${option.id}. ${option.text}` : "No answer";
 }
 
-function Quiz() {
+// Runs one quiz. Remounted (via `key` in Quiz below) for every new quiz, so
+// answers and position reset without extra logic.
+function QuizSession({ questions, onNewQuiz }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   // { [questionId]: selectedOptionId }
   const [answers, setAnswers] = useState({});
   const [showResults, setShowResults] = useState(false);
 
   // Everything below is derived from the state above.
-  const totalQuestions = mockQuiz.length;
-  const currentQuestion = mockQuiz[currentIndex];
+  const totalQuestions = questions.length;
+  const currentQuestion = questions[currentIndex];
   const selectedAnswer = answers[currentQuestion.id];
   const isAnswered = selectedAnswer !== undefined;
   const answeredCount = Object.keys(answers).length;
@@ -116,7 +119,7 @@ function Quiz() {
   const isFirstQuestion = currentIndex === 0;
   const isLastQuestion = currentIndex === totalQuestions - 1;
 
-  const correctCount = mockQuiz.filter(
+  const correctCount = questions.filter(
     (question) => answers[question.id] === question.correctOptionId
   ).length;
   const incorrectCount = answeredCount - correctCount;
@@ -223,7 +226,7 @@ function Quiz() {
             Question review
           </h2>
           <ol className="quiz-review-list">
-            {mockQuiz.map((question, index) => {
+            {questions.map((question, index) => {
               const chosen = answers[question.id];
               const wasCorrect = chosen === question.correctOptionId;
 
@@ -268,6 +271,9 @@ function Quiz() {
           >
             Restart quiz
           </button>
+          <button type="button" className="quiz-nav-button" onClick={onNewQuiz}>
+            New quiz
+          </button>
         </div>
       </section>
     );
@@ -307,7 +313,7 @@ function Quiz() {
           aria-valuenow={answeredCount}
           aria-valuetext={`${answeredCount} of ${totalQuestions} questions answered`}
         >
-          {mockQuiz.map((question, index) => {
+          {questions.map((question, index) => {
             const segmentClasses = ["quiz-progress-segment"];
             if (answers[question.id] !== undefined) {
               segmentClasses.push("quiz-progress-segment--answered");
@@ -426,6 +432,9 @@ function Quiz() {
       </nav>
 
       <div className="quiz-extras">
+        <button type="button" className="quiz-nav-button" onClick={onNewQuiz}>
+          New quiz
+        </button>
         <button type="button" className="quiz-extra-button" disabled>
           Hint
           <span className="quiz-extra-badge">Coming Soon</span>
@@ -436,6 +445,30 @@ function Quiz() {
         </button>
       </div>
     </section>
+  );
+}
+
+// SCRUM-125: shows the setup screen until a validated quiz exists.
+// `initialQuestions` lets tests (and the mock data) start directly in a quiz.
+function Quiz({ initialQuestions = null }) {
+  const [quiz, setQuiz] = useState(
+    initialQuestions ? { id: 0, questions: initialQuestions } : null
+  );
+
+  if (!quiz) {
+    return (
+      <QuizSetup
+        onQuizReady={(questions) => setQuiz({ id: Date.now(), questions })}
+      />
+    );
+  }
+
+  return (
+    <QuizSession
+      key={quiz.id}
+      questions={quiz.questions}
+      onNewQuiz={() => setQuiz(null)}
+    />
   );
 }
 
