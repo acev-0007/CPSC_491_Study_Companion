@@ -117,11 +117,5 @@ describe("StudyMaterialInput - generation", () => {
   });
 });
 
-describe("StudyMaterialInput - Document Hub placeholder", () => {
-  it("shows the Document Hub option as visible but disabled", () => {
-    setup();
-
-    expect(screen.getByText(/select from document hub/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Choose a document" })).toBeDisabled();
-  });
-});
+// The disabled Document Hub placeholder was replaced by FLASH-11; its tests live in
+// StudyMaterialInput.documents.test.jsx.

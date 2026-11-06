@@ -15,7 +15,26 @@ import {
   requireAuth,
 } from "../middleware/requireAuth.js";
 
+import {
+  clearConfirmationCooldown,
+  remainingConfirmationCooldown,
+  startConfirmationCooldown,
+} from "../auth/confirmationCooldown.js";
+
 const router = express.Router();
+
+// Track recent signup/resend requests in this process, in addition to Supabase's
+// provider-side email limits. This avoids resetting the UI cooldown on navigation.
+const EMAIL_RESEND_COOLDOWN_MS = 60_000;
+const recentVerificationEmails = new Map();
+function secondsUntilResend(email) {
+  const remaining = (recentVerificationEmails.get(email) || 0) + EMAIL_RESEND_COOLDOWN_MS - Date.now();
+  return Math.max(0, Math.ceil(remaining / 1000));
+}
+function markVerificationEmailSent(email) {
+  recentVerificationEmails.set(email, Date.now());
+}
+
 
 function publicUser(user) {
   if (!user) {
@@ -31,6 +50,161 @@ function publicUser(user) {
   };
 }
 
+
+// ========================================
+// PASSWORD RECOVERY EMAIL REQUEST (SCRUM-264)
+// Public endpoint: never disclose whether an account exists.
+// ========================================
+
+const RECOVERY_CONFIRMATION =
+  "If an account exists for that email address, we've sent password reset instructions.";
+
+router.post("/password-recovery", async (req, res, next) => {
+  try {
+    const email = typeof req.body?.email === "string"
+      ? req.body.email.trim().toLowerCase()
+      : "";
+
+    if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: "Enter a valid email address." });
+    }
+
+    // The recovery destination is configured on the server, not provided by
+    // the caller. Keep it on an allowed Supabase Auth redirect URL list.
+    const frontendOrigin = process.env.FRONTEND_ORIGIN || "http://localhost:5173";
+    let redirectTo;
+    try {
+      const parsed = new URL(frontendOrigin);
+      if (!(["http:", "https:"].includes(parsed.protocol)) ||
+          (parsed.protocol === "http:" && parsed.hostname !== "localhost" && parsed.hostname !== "127.0.0.1") ||
+          parsed.username || parsed.password || parsed.search || parsed.hash || parsed.pathname !== "/") {
+        throw new Error("invalid origin");
+      }
+      redirectTo = `${parsed.origin}/reset-password`;
+    } catch {
+      return res.status(503).json({ error: "Password recovery is not configured. Please try again later." });
+    }
+
+    const supabase = createSupabaseClient();
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo,
+    });
+
+    if (error) {
+      const status = Number(error.status);
+      const code = String(error.code || "").toLowerCase();
+      // Account-not-found responses must be indistinguishable from success.
+      if (status === 404 || code === "user_not_found" || code === "email_not_found") {
+        return res.json({ message: RECOVERY_CONFIRMATION });
+      }
+      if (status === 429 || code.includes("rate_limit") || code.includes("over_email_send_rate_limit")) {
+        return res.status(429).json({
+          error: "Too many recovery requests. Please try again later.",
+        });
+      }
+      return res.status(503).json({
+        error: "Unable to request password recovery right now. Please try again later.",
+      });
+    }
+
+    return res.json({ message: RECOVERY_CONFIRMATION });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ========================================
+// PASSWORD RESET COMPLETION (SCRUM-292)
+// Validate a recovery session without creating an application login cookie.
+// Only a verified Supabase session can change a password.
+// ========================================
+function recoveryCredentials(body) {
+  const accessToken = body?.accessToken;
+  const refreshToken = body?.refreshToken;
+  if (typeof accessToken !== "string" || typeof refreshToken !== "string" ||
+      !accessToken || !refreshToken || accessToken.length > 8192 || refreshToken.length > 8192) {
+    return null;
+  }
+  return { access_token: accessToken, refresh_token: refreshToken };
+}
+
+async function establishRecoverySession(body) {
+  const tokens = recoveryCredentials(body);
+  if (!tokens) return { invalid: true };
+
+  const client = createSupabaseClient();
+  const { data, error } = await client.auth.setSession(tokens);
+  if (error || !data?.session || !data?.user) {
+    const status = Number(error?.status);
+    return { invalid: status !== 429 && status !== 500 && status !== 503,
+      rateLimited: status === 429, unavailable: status === 500 || status === 503 };
+  }
+  // Verify the session against Supabase instead of trusting claims supplied by a caller.
+  const verified = await client.auth.getUser(data.session.access_token);
+  if (verified.error || !verified.data?.user || verified.data.user.id !== data.user.id) {
+    return { invalid: true };
+  }
+  return { client };
+}
+
+function respondRecoveryFailure(res, result) {
+  if (result.rateLimited) return res.status(429).json({ error: "Too many attempts. Please try again later." });
+  if (result.unavailable) return res.status(503).json({ error: "Recovery is temporarily unavailable." });
+  return res.status(401).json({ error: "Recovery link is invalid or expired." });
+}
+
+router.post("/password-recovery/validate", async (req, res) => {
+  const tokens = recoveryCredentials(req.body);
+  if (!tokens) return res.status(401).json({ error: "Recovery link is invalid or expired." });
+  try {
+    // Checking an access token directly avoids rotating the refresh token
+    // before the user submits their new password.
+    const client = createSupabaseClient();
+    const { data, error } = await client.auth.getUser(tokens.access_token);
+    if (error || !data?.user) {
+      const status = Number(error?.status);
+      if (status === 429) return res.status(429).json({ error: "Too many attempts. Please try again later." });
+      if (status === 500 || status === 503) return res.status(503).json({ error: "Recovery is temporarily unavailable." });
+      return res.status(401).json({ error: "Recovery link is invalid or expired." });
+    }
+    return res.json({ valid: true });
+  } catch {
+    return res.status(503).json({ error: "Recovery is temporarily unavailable." });
+  }
+});
+
+router.post("/password-recovery/complete", async (req, res) => {
+  const password = req.body?.password;
+  if (typeof password !== "string" || password.length < 8 || password.length > 128) {
+    return res.status(400).json({ error: "Password must be between 8 and 128 characters." });
+  }
+  try {
+    const recovery = await establishRecoverySession(req.body);
+    if (!recovery.client) return respondRecoveryFailure(res, recovery);
+    const { error } = await recovery.client.auth.updateUser({ password });
+    if (error) {
+      const status = Number(error.status);
+      // Supabase checks the submitted password against the current password
+      // hash. Never store or compare a plaintext copy in this application.
+      if (error.code === "same_password") {
+        return res.status(422).json({
+          code: "same_password",
+          error: "Choose a password different from your current password.",
+        });
+      }
+      if (status === 429) return res.status(429).json({ error: "Too many attempts. Please try again later." });
+      if (status === 400 || status === 422) return res.status(400).json({ error: "Password does not meet the account requirements." });
+      if (status === 401 || status === 403) return res.status(401).json({ error: "Recovery link is invalid or expired." });
+      return res.status(503).json({ error: "Unable to update password right now." });
+    }
+    // Do not turn a recovery link into a persisted application login session.
+    // The user deliberately signs in after resetting their password.
+    clearSessionCookies(res);
+    return res.json({ message: "Password updated successfully." });
+  } catch {
+    return res.status(503).json({ error: "Unable to update password right now." });
+  }
+});
 
 // ========================================
 // REGISTER
@@ -135,12 +309,22 @@ router.post(
         });
       }
 
+      // Registration has just requested the initial confirmation email.
+      // Count it as the first send so direct API calls cannot bypass the UI timer.
+      if (!data.session) {
+        startConfirmationCooldown(email);
+      }
+
       // Only create cookies when signup establishes a valid session.
       if (data.session) {
         setSessionCookies(
           res,
           data.session
         );
+      }
+
+      if (!data.session) {
+        markVerificationEmailSent(email.trim().toLowerCase());
       }
 
       return res
@@ -165,6 +349,54 @@ router.post(
   }
 );
 
+
+// ========================================
+// RESEND SIGNUP VERIFICATION CODE
+// Supabase sends the email and enforces its own provider-side limits.
+// The public response does not confirm whether an account exists.
+// ========================================
+router.post("/resend-verification", async (req, res, next) => {
+  try {
+    const email = typeof req.body?.email === "string"
+      ? req.body.email.trim().toLowerCase()
+      : "";
+    if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: "Enter a valid email address." });
+    }
+
+    const retryAfterSeconds = secondsUntilResend(email);
+    if (retryAfterSeconds) {
+      return res.status(429).json({
+        error: "Please wait before requesting another code.",
+        retryAfterSeconds,
+      });
+    }
+
+    const supabase = createSupabaseClient();
+    const { error } = await supabase.auth.resend({ type: "signup", email });
+    if (error) {
+      const code = String(error.code || "").toLowerCase();
+      if (Number(error.status) === 429 || code.includes("rate_limit")) {
+        return res.status(429).json({
+          error: "Please wait before requesting another code.",
+          retryAfterSeconds: 60,
+        });
+      }
+      // Never disclose account existence or verification status.
+      // Suppress account-state errors, but surface service outages.
+      if (Number(error.status) >= 500) {
+        return res.status(503).json({ error: "Unable to resend the code right now." });
+      }
+    }
+    markVerificationEmailSent(email);
+    return res.json({
+      message: "If verification is pending, a new code will be sent.",
+      retryAfterSeconds: 60,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
 // ========================================
 // VERIFY EIGHT-DIGIT EMAIL CODE
@@ -212,6 +444,68 @@ router.post("/verify-email", async (req, res, next) => {
 
 
 // ========================================
+// RESEND SIGNUP CONFIRMATION
+// Use a generic response to avoid revealing account existence.
+// ========================================
+
+router.post("/resend-confirmation", async (req, res, next) => {
+  try {
+    const email = typeof req.body?.email === "string"
+      ? req.body.email.trim().toLowerCase()
+      : "";
+
+    if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: "Enter a valid email address." });
+    }
+
+    const genericMessage = "If another verification email can be sent, please check your inbox shortly.";
+    const remaining = remainingConfirmationCooldown(email);
+    if (remaining > 0) {
+      res.set("Retry-After", String(Math.ceil(remaining / 1000)));
+      return res.status(429).json({
+        error: "Please wait before requesting another confirmation email.",
+      });
+    }
+
+    // Reserve immediately, before awaiting Supabase, to prevent concurrent resends.
+    startConfirmationCooldown(email);
+    let resendResult;
+    try {
+      const supabase = createSupabaseClient();
+      resendResult = await supabase.auth.resend({ type: "signup", email });
+    } catch (failure) {
+      clearConfirmationCooldown(email);
+      throw failure;
+    }
+    const { error } = resendResult;
+
+    if (error) {
+      if (error.status === 429 || error.code === "over_email_send_rate_limit" ||
+          error.code === "over_request_rate_limit") {
+        res.set("Retry-After", "60");
+        return res.status(429).json({
+          error: "Please wait before requesting another confirmation email.",
+        });
+      }
+      // Missing, confirmed and ineligible accounts get the same neutral answer.
+      if (error.status === 400 || error.status === 404 || error.status === 422) {
+        return res.json({ message: genericMessage });
+      }
+      // Service errors should not consume a full cooldown unnecessarily.
+      clearConfirmationCooldown(email);
+      return res.status(503).json({
+        error: "We couldn't request another email right now. Please try again later.",
+      });
+    }
+
+    return res.json({ message: genericMessage });
+  } catch (error) {
+    next(error);
+  }
+});
+
+
+// ========================================
 // LOGIN
 // ========================================
 
@@ -247,10 +541,21 @@ router.post(
             password,
           });
 
+      // Supabase rejects sign-in for a user whose password was accepted but
+      // whose email is not yet confirmed. Do not create application cookies.
+      // Only this specific provider error permits resuming verification.
+      if (error?.code === "email_not_confirmed") {
+        clearSessionCookies(res);
+        return res.status(403).json({
+          code: "verification_required",
+          error: "Email verification is required to continue.",
+        });
+      }
+
       if (
         error ||
-        !data.session ||
-        !data.user
+        !data?.session ||
+        !data?.user
       ) {
         return res.status(401).json({
           error:

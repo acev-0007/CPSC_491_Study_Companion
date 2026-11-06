@@ -331,4 +331,197 @@ router.delete('/:id', requireAuth, async (req, res) => {
     }
 });
 
+// === For AI ===
+const WORK_PLAN_UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isValidWorkPlanDate(value) {
+    if (
+        typeof value !== "string" ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(value)
+    ) {
+        return false;
+    }
+
+    const date = new Date(`${value}T00:00:00Z`);
+
+    return !Number.isNaN(date.getTime()) &&
+        date.toISOString().slice(0, 10) === value;
+}
+
+// CREATE AI-generated assignment tasks
+router.post("/work-plan", requireAuth, async (req, res) => {
+    try {
+        const { assignmentId, workPlan } = req.body ?? {};
+
+        // validate the request
+        if (
+            typeof assignmentId !== "string" ||
+            !WORK_PLAN_UUID_PATTERN.test(assignmentId)
+        ) {
+            return res.status(400).json({
+                error: "A valid assignment ID is required.",
+            });
+        }
+
+        if (
+            !Array.isArray(workPlan) ||
+            workPlan.length === 0 ||
+            workPlan.length > 3
+        ) {
+            return res.status(400).json({
+                error: "Work plan must contain 1 to 3 tasks.",
+            });
+        }
+
+        // retrieve the original assignment
+        const supabase = createUserSupabaseClient(req.accessToken);
+
+        const { data: assignment, error: fetchError } =
+            await supabase
+                .from("assignments")
+                .select("*")
+                .eq("id", assignmentId)
+                .eq("user_id", req.user.id)
+                .maybeSingle();
+
+        if (fetchError) {
+            throw fetchError;
+        }
+
+        if (!assignment) {
+            return res.status(404).json({
+                error: "Original assignment not found.",
+            });
+        }
+
+        if (
+            assignment.status === "Completed" ||
+            assignment.is_ai_generated
+        ) {
+            return res.status(400).json({
+                error: "Cannot create a work plan for this assignment.",
+            });
+        }
+
+        const deadline = new Date(assignment.duedate);
+        const today = new Date().toISOString().slice(0, 10);
+
+        if (Number.isNaN(deadline.getTime())) {
+            return res.status(400).json({
+                error: "Original assignment has an invalid deadline.",
+            });
+        }
+
+        const dueDate = deadline.toISOString().slice(0, 10);
+
+        if (deadline.getTime() <= Date.now()) {
+            return res.status(400).json({
+                error: "Original assignment deadline has passed.",
+            });
+        }
+
+        // validate every generated task
+        for (const task of workPlan) {
+            if (
+                !task ||
+                typeof task.title !== "string" ||
+                !task.title.trim() ||
+                task.title.trim().length > 255 ||
+                typeof task.notes !== "string" ||
+                !isValidWorkPlanDate(task.scheduled_date) ||
+                task.scheduled_date < today ||
+                task.scheduled_date > dueDate ||
+                typeof task.estimated_time !== "number" ||
+                !Number.isFinite(task.estimated_time) ||
+                task.estimated_time <= 0 ||
+                task.estimated_time > 24
+            ) {
+                return res.status(400).json({
+                    error: "Work plan contains invalid study tasks.",
+                });
+            }
+        }
+
+        // check the total study duration
+        const originalHours = intervalToHours(
+            assignment.estimated_time
+        );
+
+        const totalHours = workPlan.reduce(
+            (sum, task) => sum + task.estimated_time,
+            0
+        );
+
+        if (
+            originalHours === null ||
+            !Number.isFinite(originalHours) ||
+            originalHours <= 0 ||
+            Math.abs(totalHours - originalHours) > 0.01
+        ) {
+            return res.status(400).json({
+                error: "Work plan duration does not match the assignment.",
+            });
+        }
+
+        // prevent duplicate work plans
+        const { data: existingTasks, error: duplicateError } =
+            await supabase
+                .from("assignments")
+                .select("id")
+                .eq("user_id", req.user.id)
+                .eq("parent_assignment_id", assignmentId)
+                .limit(1);
+
+        if (duplicateError) {
+            throw duplicateError;
+        }
+
+        if (existingTasks?.length) {
+            return res.status(409).json({
+                error: "A work plan already exists for this assignment.",
+            });
+        }
+
+        // prepare database records
+        const newTasks = workPlan.map((task) => ({
+            user_id: req.user.id,
+            title: task.title.trim(),
+            course: assignment.course,
+            duedate: assignment.duedate,
+            priority: assignment.priority,
+            status: "Upcoming",
+            notes: task.notes.trim(),
+            estimated_time: `${task.estimated_time} hours`,
+            is_ai_generated: true,
+            parent_assignment_id: assignment.id,
+            scheduled_date: task.scheduled_date,
+        }));
+
+        // save generated tasks
+        const { data: savedTasks, error: saveError } =
+            await supabase
+                .from("assignments")
+                .insert(newTasks)
+                .select();
+
+        if (saveError) {
+            throw saveError;
+        }
+
+        // return saved assignments
+        return res.status(201).json({
+            message: "AI work plan saved successfully.",
+            assignments: savedTasks.map(formatAssignment),
+        });
+
+    } catch (error) {
+        console.error("Error saving AI work plan:", error);
+
+        return res.status(500).json({
+            error: "Failed to save AI work plan.",
+        });
+    }
+});
+
+
 export default router;

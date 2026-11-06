@@ -280,6 +280,51 @@
   line-height: 1.45;
 }
 
+.auth-message-success {
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding: 13px 14px;
+  border-color: rgba(123, 216, 143, 0.2);
+  background: var(--auth-success-bg);
+  color: var(--auth-heading);
+}
+
+.auth-message-success-icon {
+  display: grid;
+  flex: 0 0 24px;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid rgba(123, 216, 143, 0.35);
+  border-radius: 50%;
+  color: var(--auth-success);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.auth-message-success-copy {
+  min-width: 0;
+}
+
+.auth-message-success-title {
+  margin: 0;
+  color: var(--auth-heading);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.1px;
+}
+
+.auth-message-success-description {
+  margin: 3px 0 0;
+  color: var(--auth-text);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
 .auth-message-error {
   border-color: var(--auth-error-border);
   background: var(--auth-error-bg);
@@ -602,3 +647,18 @@ a.auth-brand:focus-visible {
   outline-offset: 4px;
   border-radius: 10px;
 }
+
+/* SCRUM-264: recovery status uses the existing auth form language. */
+.recovery-confirmation {
+  margin: 0 0 18px;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 1.55;
+  text-align: center;
+}
+
+/* SCRUM-292: reset-completion links use the same primary control styling. */
+.recovery-primary-link { display: flex; align-items: center; justify-content: center; text-align: center; text-decoration: none; }
+.recovery-primary-link:hover { color: #fff; }
+.recovery-primary-link:focus-visible { outline: 3px solid rgba(124, 92, 255, 0.38); outline-offset: 3px; }
+.recovery-help { margin: 7px 0 0; font-size: 12px; line-height: 1.5; color: var(--auth-text); }

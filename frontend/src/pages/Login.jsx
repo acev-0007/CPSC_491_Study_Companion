@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { loginAccount } from "../api/auth";
 
 function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const resetComplete = location.state?.passwordResetComplete === true;
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -25,6 +27,13 @@ function Login() {
       });
       navigate("/dashboard", { replace: true });
     } catch (error) {
+      if (error.code === "verification_required") {
+        navigate("/auth/confirm", {
+          replace: true,
+          state: { email: formData.email.trim().toLowerCase() },
+        });
+        return;
+      }
       setErrorMessage(
         error.status === 401
           ? "Incorrect email or password. Please try again."
@@ -52,6 +61,15 @@ function Login() {
             <h1 id="login-heading" className="auth-heading">Welcome back</h1>
             <p className="auth-subtitle">Log in to continue studying.</p>
           </div>
+          {resetComplete && (
+            <div className="auth-message auth-message-success" role="status" aria-live="polite">
+              <span className="auth-message-success-icon" aria-hidden="true">✓</span>
+              <div className="auth-message-success-copy">
+                <p className="auth-message-success-title">Password updated</p>
+                <p className="auth-message-success-description">Log in with your new password.</p>
+              </div>
+            </div>
+          )}
           <form className="auth-form" onSubmit={handleSubmit}>
             <div className="form-group">
               <label htmlFor="email">Email Address</label>
