@@ -144,6 +144,95 @@
     margin-top: 20px;
 }
 
+.generate-plan-button {
+    margin-top: 12px;
+    padding: 10px 115px;
+    border: 1px solid #7655a8;
+    border-radius: 8px;
+    background-color: var(--color-accent-border);
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.generate-plan-button:hover {
+    opacity: 0.85;
+}
+
+.generate-plan-button:disabled{
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.ai-generated-label {
+    font-weight: bold;
+    color: #7655a8;
+}
+
+.work-plan-preview {
+    margin-top: 15px;
+    padding: 15px;
+    border: 1px solid #7655a8;
+    border-radius: 8px;
+}
+
+.work-plan-task {
+    margin-bottom: 12px;
+    padding: 12px;
+    border: 1px solid var(--color-accent-border);
+    border-radius: 8px;
+}
+
+.work-plan-task h5 {
+    margin-top: 0;
+}
+
+.work-plan-error {
+    color: #d9534f;
+}
+
+.work-plan-warning {
+    color: #e8cb3b;
+}
+
+.regenerate-plan-button {
+    margin-top: 12px;
+    padding: 10px 5px;
+    border: 1px solid #7655a8;
+    border-radius: 12px;
+    background-color: var(--color-accent-border);
+    color: white;
+    font-weight: bold;
+    cursor: pointer;   
+}
+.save-plan-button {
+    margin-top: 12px;
+    padding: 10px 16px;
+    border: 1px solid #155c27;
+    border-radius: 12px;
+    background-color: #78ae79;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.cancel-plan-button {
+    margin-top: 12px;
+    padding: 10px 16px;
+    border: 1px solid #621313;
+    border-radius: 12px;
+    background-color: #ec4b59;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.work-plan-actions {
+    display: flex;
+    gap: 15px;
+    margin-top: 12px;
+}
+
 .left-panel {
     width: 100%;
     padding: 25px;
