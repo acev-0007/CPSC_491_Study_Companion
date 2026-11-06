@@ -135,3 +135,13 @@ export async function verifyEmail({ email, code }) {
   return parseResponse(response);
 }
 
+
+export async function resendConfirmationEmail({ email }) {
+  const response = await fetch("/api/auth/resend-confirmation", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  return parseResponse(response);
+}
