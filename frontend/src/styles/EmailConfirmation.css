@@ -16,9 +16,11 @@
 @media (max-width: 390px) { .email-code-slots { gap: 4px; } .email-code-slot { height: 43px; font-size: 19px; } }
 @media (prefers-reduced-motion: reduce) { .email-code-slot { transition: none; } }
 
-/* Secondary verification action follows existing auth link styling. */
-.email-verify-resend { text-align: center; margin-top: 0.25rem; }
-.email-resend-button { background: none; border: 0; padding: 0.5rem 0.75rem; color: var(--auth-accent, #475569); font: inherit; font-weight: 600; cursor: pointer; border-radius: 0.5rem; }
+.email-resend { margin-top: 22px; text-align: center; }
+.email-resend > p:first-child { margin: 0 0 6px; color: var(--auth-text); font-size: 13px; }
+.email-resend-button { padding: 8px 12px; border: 0; border-radius: 8px; background: transparent; color: var(--auth-primary); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
 .email-resend-button:hover:not(:disabled) { text-decoration: underline; }
-.email-resend-button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
-.email-resend-button:disabled { opacity: 0.6; cursor: default; }
+.email-resend-button:focus-visible { outline: 2px solid var(--auth-primary); outline-offset: 3px; }
+.email-resend-button:disabled { opacity: 0.65; cursor: not-allowed; }
+.email-resend-message { margin: 9px 0 0; color: var(--auth-text); font-size: 12px; line-height: 1.5; }
+.email-resend-error { color: var(--auth-error, #b42318); }

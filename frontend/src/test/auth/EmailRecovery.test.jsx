@@ -39,7 +39,9 @@ describe("AC-07 verification recovery UI", () => {
     expect(await screen.findByRole("heading", { name: "Verify your email" })).toBeInTheDocument();
     expect(screen.getByLabelText("Verification code")).toBeInTheDocument();
     expect(screen.queryByText("Protected dashboard")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /resend code in/i })).toBeDisabled();
+    // Returning from a failed login does not mean a code was just sent.
+    // The recovered screen should allow a resend unless a prior cooldown exists.
+    expect(screen.getByRole("button", { name: /resend confirmation email/i })).toBeEnabled();
   });
 
   it("does not disclose verification state on incorrect password", async () => {

@@ -24,6 +24,7 @@ import cookieParser from "cookie-parser";
 const {
   signUpMock,
   verifyOtpMock,
+  resendMock,
   signInWithPasswordMock,
   setSessionMock,
   signOutMock,
@@ -32,6 +33,7 @@ const {
 } = vi.hoisted(() => ({
   signUpMock: vi.fn(),
   verifyOtpMock: vi.fn(),
+  resendMock: vi.fn(),
 
   signInWithPasswordMock:
     vi.fn(),
@@ -57,6 +59,7 @@ vi.mock(
             signUpMock,
 
           verifyOtp: verifyOtpMock,
+          resend: resendMock,
 
           signInWithPassword:
             signInWithPasswordMock,
@@ -87,6 +90,7 @@ vi.mock(
 // been replaced with the mock above.
 import authRoutes from
   "../src/routes/authRoutes.js";
+import { resetConfirmationCooldownForTests } from "../src/auth/confirmationCooldown.js";
 
 
 // =========================================================
@@ -172,6 +176,7 @@ const mockSession = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  resetConfirmationCooldownForTests();
 });
 
 
@@ -2014,5 +2019,94 @@ describe("POST /api/auth/logout", () => {
     expect(afterLogout.status).toBe(401);
     expect(afterLogout.body).toEqual({ error: "Authentication required." });
     expect(refreshSessionMock).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("POST /api/auth/resend-confirmation", () => {
+  it("resends signup confirmation for a normalized email", async () => {
+    resendMock.mockResolvedValueOnce({ data: {}, error: null });
+    const res = await request(createTestApp()).post("/api/auth/resend-confirmation")
+      .send({ email: "  Student@Example.com " });
+    expect(res.status).toBe(200);
+    expect(res.body.message).toBe("If another verification email can be sent, please check your inbox shortly.");
+    expect(resendMock).toHaveBeenCalledWith({ type: "signup", email: "student@example.com" });
+    expect(res.headers["set-cookie"]).toBeUndefined();
+  });
+
+  it.each([{}, { email: "invalid" }, { email: " " }, { email: 42 }])(
+    "rejects invalid email payload %#", async (body) => {
+      const res = await request(createTestApp()).post("/api/auth/resend-confirmation").send(body);
+      expect(res.status).toBe(400);
+      expect(resendMock).not.toHaveBeenCalled();
+    });
+
+  it("does not disclose whether an account is confirmed or absent", async () => {
+    resendMock.mockResolvedValueOnce({ error: { status: 400, message: "Email not found" } });
+    const res = await request(createTestApp()).post("/api/auth/resend-confirmation")
+      .send({ email: "missing@example.com" });
+    expect(res.status).toBe(200);
+    expect(res.body.message).toBe("If another verification email can be sent, please check your inbox shortly.");
+    expect(JSON.stringify(res.body)).not.toMatch(/not found|registered|confirmed/i);
+  });
+
+  it("blocks a second direct API request before Supabase is called", async () => {
+    resendMock.mockResolvedValue({ data: {}, error: null });
+    const app = createTestApp();
+    const first = await request(app).post("/api/auth/resend-confirmation")
+      .send({ email: "Student@Example.com" });
+    const second = await request(app).post("/api/auth/resend-confirmation")
+      .send({ email: "student@example.com" });
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(429);
+    expect(Number(second.headers["retry-after"])).toBeGreaterThan(0);
+    expect(resendMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("allows another API resend after the cooldown expires", async () => {
+    resendMock.mockResolvedValue({ data: {}, error: null });
+    const app = createTestApp();
+    const initialTime = Date.now();
+    const clock = vi.spyOn(Date, "now").mockReturnValue(initialTime);
+    try {
+      const first = await request(app).post("/api/auth/resend-confirmation")
+        .send({ email: "student@example.com" });
+      expect(first.status).toBe(200);
+      clock.mockReturnValue(initialTime + 60_001);
+      const second = await request(app).post("/api/auth/resend-confirmation")
+        .send({ email: "student@example.com" });
+      expect(second.status).toBe(200);
+      expect(resendMock).toHaveBeenCalledTimes(2);
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
+  it("counts the registration email toward the backend cooldown", async () => {
+    signUpMock.mockResolvedValueOnce({ data: { user: mockUser, session: null }, error: null });
+    const app = createTestApp();
+    const registration = await request(app).post("/api/auth/register")
+      .send({ name: "Test Student", email: "student@example.com", password: "Password123!" });
+    expect(registration.status).toBe(201);
+    const resend = await request(app).post("/api/auth/resend-confirmation")
+      .send({ email: "student@example.com" });
+    expect(resend.status).toBe(429);
+    expect(resendMock).not.toHaveBeenCalled();
+  });
+
+  it("handles rate limits without leaking provider details", async () => {
+    resendMock.mockResolvedValueOnce({ error: { status: 429, message: "provider internal info" } });
+    const res = await request(createTestApp()).post("/api/auth/resend-confirmation")
+      .send({ email: "student@example.com" });
+    expect(res.status).toBe(429);
+    expect(JSON.stringify(res.body)).not.toContain("provider internal info");
+  });
+
+  it("handles service errors with a generic response", async () => {
+    resendMock.mockResolvedValueOnce({ error: { status: 500, message: "secret detail" } });
+    const res = await request(createTestApp()).post("/api/auth/resend-confirmation")
+      .send({ email: "student@example.com" });
+    expect(res.status).toBe(503);
+    expect(JSON.stringify(res.body)).not.toContain("secret detail");
   });
 });
