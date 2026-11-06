@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, Navigate } from "react-router-dom";
 import Layout from "../components/Layout";
@@ -7,8 +7,10 @@ import Account from "../pages/Account";
 import ProtectedRoute from "../components/ProtectedRoute";
 import { ProfileSettings, SecuritySettings, PreferenceSettings, PrivacySettings, SettingsMenu } from "../components/Account/SettingsSections";
 import { getCurrentUser, logoutAccount } from "../api/auth";
+import { getAccount, updateAccount, uploadAvatar, removeAvatar } from "../api/account";
 
 vi.mock("../api/auth", () => ({ getCurrentUser: vi.fn(), logoutAccount: vi.fn() }));
+vi.mock("../api/account", () => ({ getAccount: vi.fn(), updateAccount: vi.fn(), uploadAvatar: vi.fn(), removeAvatar: vi.fn() }));
 
 function renderAccount(path = "/account/profile") {
   return render(<MemoryRouter initialEntries={[path]}><Routes>
@@ -31,7 +33,8 @@ function renderAccount(path = "/account/profile") {
 describe("Account settings workspace", () => {
   beforeEach(() => {
     vi.stubEnv("VITE_ENABLE_ROUTE_PROTECTION", "true");
-    getCurrentUser.mockResolvedValue({ user: { id: "one", email: "student@example.com", user_metadata: { name: "Study User" } } });
+    getCurrentUser.mockResolvedValue({ user: { id: "one", email: "student@example.com" } });
+    getAccount.mockResolvedValue({ user: { id: "one", email: "student@example.com", displayName: "Study User", createdAt: "2026-10-01T00:00:00Z", avatarUrl: null } });
   });
   afterEach(() => { vi.unstubAllEnvs(); vi.clearAllMocks(); });
 
@@ -41,6 +44,29 @@ describe("Account settings workspace", () => {
     expect(screen.queryByRole("complementary", { name: "Application navigation" })).not.toBeInTheDocument();
     expect(await screen.findByText("Study User", { selector: "h3" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Personal information" })).toBeInTheDocument();
+  });
+  it("saves display-name changes and updates the visible profile", async () => {
+    updateAccount.mockResolvedValue({ user: { id: "one", email: "student@example.com", displayName: "New Name", createdAt: "2026-10-01T00:00:00Z", avatarUrl: null } });
+    renderAccount();
+    const input = await screen.findByRole("textbox", { name: "Display name" });
+    await waitFor(() => expect(input).toBeEnabled());
+    await userEvent.clear(input);
+    await userEvent.type(input, "New Name");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(updateAccount).toHaveBeenCalledWith("New Name");
+    expect(await screen.findByText("New Name", { selector: "h3" })).toBeInTheDocument();
+  });
+  it("uploads an avatar and permits removal", async () => {
+    const base = { id: "one", email: "student@example.com", displayName: "Study User", createdAt: "2026-10-01T00:00:00Z" };
+    uploadAvatar.mockResolvedValue({ user: { ...base, avatarUrl: "https://example.com/avatar.png" } });
+    removeAvatar.mockResolvedValue({ user: { ...base, avatarUrl: null } });
+    renderAccount();
+    await screen.findByText("Study User", { selector: "h3" });
+    const photo = new File([new Uint8Array([137,80,78,71])], "avatar.png", { type: "image/png" });
+    await userEvent.upload(screen.getByLabelText("Choose profile photo"), photo);
+    expect(uploadAvatar).toHaveBeenCalledOnce();
+    await userEvent.click(await screen.findByRole("button", { name: "Remove photo" }));
+    expect(removeAvatar).toHaveBeenCalledOnce();
   });
   it("defaults /account to Profile and switches categories", async () => {
     renderAccount("/account");

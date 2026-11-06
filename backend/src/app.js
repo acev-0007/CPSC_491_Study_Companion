@@ -30,6 +30,7 @@ import {
 
 import authRoutes
   from "./routes/authRoutes.js";
+import accountRoutes from "./routes/accountRoutes.js";
 
 import aiRoutes
   from "./routes/aiRoutes.js";
@@ -119,6 +120,8 @@ export function createApp({
     authRoutes
   );
 
+
+  app.use("/api/account", accountRoutes);
 
   // ========================================
   // AI ROUTES
