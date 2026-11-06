@@ -201,7 +201,8 @@ ${notes.trim()}
     next(error);
   }
 });
-// For assignment tracker work plan
+
+// ========= For assignment tracker work plan =========
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function intervalToHours(interval) {
@@ -332,6 +333,8 @@ router.post("/work-plan", requireAuth, async (req, res, next) => {
       });
     }
 
+    const requiredSessions = Math.ceil(estimatedHours / hoursPerDay);
+
     const deadline = new Date(assignment.duedate);
     
     if (Number.isNaN(deadline.getTime())) {
@@ -367,7 +370,7 @@ router.post("/work-plan", requireAuth, async (req, res, next) => {
 
   Requirements:
   - Break the assignment into manageable study sessions.
-  - Generate up to 3 sessions.
+  - Generate up to ${requiredSessions}.
   - Schedule sessions from the current date through the deadline.
   - Do not exceed ${hoursPerDay} hours on any day.
   - The total session hours should equal ${estimatedHours} hours.
@@ -411,7 +414,7 @@ router.post("/work-plan", requireAuth, async (req, res, next) => {
       !parsed ||
       !Array.isArray(parsed.workPlan) ||
       !Array.isArray(parsed.warnings) ||
-      parsed.workPlan.length > 3 ||
+      parsed.workPlan.length > requiredSessions ||
       !parsed.warnings.every(
         warning => typeof warning === "string"
       )
