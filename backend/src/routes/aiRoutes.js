@@ -1,6 +1,7 @@
 
 import { Router } from "express";
 import { generateClaudeResponse } from "../providers/claudeProvider.js";
+import { parseQuiz } from "../quizValidator.js"; 
 
 const router = Router();
 const MAX_FLASHCARD_TEXT_LENGTH = 20000;
@@ -136,5 +137,66 @@ ${notes.trim()}
     next(error);
   }
 });
+// SCRUM-125: AI quiz generation (exactly 5 multiple-choice questions).
+router.post("/quiz", async (req, res, next) => {
+  try {
+    const { notes } = req.body ?? {};
 
+    if (typeof notes !== "string" || !notes.trim()) {
+      return res.status(400).json({
+        error: "Study material is required.",
+      });
+    }
+
+    if (notes.trim().length > MAX_FLASHCARD_TEXT_LENGTH) {
+      return res.status(400).json({
+        error: "Study material cannot exceed 20,000 characters.",
+      });
+    }
+
+    const prompt = `
+Generate exactly 5 multiple-choice quiz questions from the following material.
+
+Return ONLY a valid JSON object in this exact format:
+{
+  "questions": [
+    {
+      "question": "Question text",
+      "options": ["Choice A text", "Choice B text", "Choice C text", "Choice D text"],
+      "correctOptionId": "B"
+    }
+  ]
+}
+
+Requirements:
+- Exactly 5 questions.
+- Each question has exactly 4 distinct options, in the "options" array.
+- correctOptionId is the letter of the one correct option: "A", "B", "C", or "D".
+- Do not put letters like "A." inside the option text.
+- Vary which letter is correct.
+- Base all questions on the provided study material.
+- Do not invent information.
+- Do not include Markdown code fences or explanations.
+- Return only JSON.
+
+Study material:
+${notes.trim()}
+    `.trim();
+
+    // Five questions need more room than the default 1000-token limit.
+    const response = await generateClaudeResponse(prompt, 2000);
+
+    const questions = parseQuiz(response);
+
+    if (!questions) {
+      return res.status(502).json({
+        error: "Quiz generation failed.",
+      });
+    }
+
+    return res.json({ questions });
+  } catch (error) {
+    next(error);
+  }
+});
 export default router;
