@@ -27,6 +27,9 @@ backend/data/uploads/
 # Test coverage
 coverage/
 
+# Generated test reports
+*-test-results.xml
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
