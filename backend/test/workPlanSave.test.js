@@ -296,4 +296,17 @@ describe("AI Work Plan Save Endpoint", () => {
         expect(response.status).toBe(400);
         expect(database.insertedTasks).toHaveLength(0);
     });
+
+    it("rejects an invalid timezone when saving", async () => {
+        const response = await request(app)
+            .post("/api/assignments/work-plan")
+            .send({
+            assignmentId: ASSIGNMENT_ID,
+            workPlan: makeWorkPlan(),
+            timeZone: "Invalid/Timezone",
+            });
+
+        expect(response.status).toBe(400);
+        expect(database.insertedTasks).toHaveLength(0);
+    });
 });

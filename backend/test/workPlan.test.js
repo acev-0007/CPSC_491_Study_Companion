@@ -227,6 +227,19 @@ describe("AI Work Plan Endpoint", () => {
         expect(response.status).toBe(404);
         expect(generateClaudeResponse).not.toHaveBeenCalled();
     });
+
+    it("rejects an invalid timezone", async () => {
+        const response = await request(app)
+            .post("/api/ai/work-plan")
+            .send({
+            assignmentId: ASSIGNMENT_ID,
+            hoursPerDay: 2,
+            timeZone: "Invalid/Timezone",
+            });
+
+        expect(response.status).toBe(400);
+        expect(generateClaudeResponse).not.toHaveBeenCalled();
+    });
 });
 
   

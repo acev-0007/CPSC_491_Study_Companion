@@ -7,11 +7,16 @@ import {
 import {
     createUserSupabaseClient
 } from "../config/supabase.js"
+import { time } from "node:console";
+import { getDateInTimeZone } from "../utils/dateUtils.js"
+import { type } from "node:os";
+
 
 const router = express.Router();
 
 const VALID_PRIORITIES = ['High', 'Medium', 'Low'];
 const VALID_STATUS = ['Upcoming', 'In Progress', 'Completed'];
+
 
 function intervalToHours(interval) {
     if (interval == null) return null;
@@ -351,7 +356,11 @@ function isValidWorkPlanDate(value) {
 // CREATE AI-generated assignment tasks
 router.post("/work-plan", requireAuth, async (req, res) => {
     try {
-        const { assignmentId, workPlan } = req.body ?? {};
+        const { 
+            assignmentId, 
+            workPlan,
+            timeZone = "UTC",
+        } = req.body ?? {};
 
         // validate the request
         if (
@@ -363,13 +372,29 @@ router.post("/work-plan", requireAuth, async (req, res) => {
             });
         }
 
+        if (typeof timeZone !== "string") {
+            return res.status(400).json({
+                error: "Invalid timezone",
+            });
+        }
+
+        try {
+            new Intl.DateTimeFormat("en-US", { timeZone });
+        } catch {
+            return res.status(400).json({
+                error: "Invalid timezone",
+            });
+        }
+
+        const MAX_WORK_PLAN_SESSIONS = 30;
+
         if (
             !Array.isArray(workPlan) ||
             workPlan.length === 0 ||
-            workPlan.length > 3
+            workPlan.length > MAX_WORK_PLAN_SESSIONS
         ) {
             return res.status(400).json({
-                error: "Work plan must contain 1 to 3 tasks.",
+                error: "Work plan must contain 1 to 30 tasks.",
             });
         }
 
@@ -403,17 +428,38 @@ router.post("/work-plan", requireAuth, async (req, res) => {
             });
         }
 
-        const deadline = new Date(assignment.duedate);
-        const today = new Date().toISOString().slice(0, 10);
+        // const today = getDateInTimeZone(new Date(), timeZone);
 
+        // const deadline = getDateInTimeZone(deadline, timeZone);
+
+        // if (Number.isNaN(deadline.getTime())) {
+        //     return res.status(400).json({
+        //         error: "Original assignment has an invalid deadline.",
+        //     });
+        // }
+
+        // const dueDate = deadline.toISOString().slice(0, 10);
+
+        // if (deadline.getTime() <= Date.now()) {
+        //     return res.status(400).json({
+        //         error: "Original assignment deadline has passed.",
+        //     });
+        // }
+        // Get the original assignment deadline first
+        const deadline = new Date(assignment.duedate);
+
+        // Validate the deadline
         if (Number.isNaN(deadline.getTime())) {
             return res.status(400).json({
                 error: "Original assignment has an invalid deadline.",
             });
         }
 
-        const dueDate = deadline.toISOString().slice(0, 10);
+        // Calculate dates using the user's timezone
+        const today = getDateInTimeZone(new Date(), timeZone);
+        const dueDate = getDateInTimeZone(deadline, timeZone);
 
+        // Check whether the original deadline has passed
         if (deadline.getTime() <= Date.now()) {
             return res.status(400).json({
                 error: "Original assignment deadline has passed.",
