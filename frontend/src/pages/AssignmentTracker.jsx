@@ -35,7 +35,7 @@ function AssignmentTracker() {
     estimated_time: "",
   });
 
-  /*
+
   async function handleGenerateWorkPlan(assignmentId) {
     setGeneratePlan(true);
     setWorkPlanError("");
@@ -55,6 +55,8 @@ function AssignmentTracker() {
           body: JSON.stringify({
             assignmentId,
             hoursPerDay: 2,
+            // Add the user's timezone to the request body
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           }),
         }
       );
@@ -73,49 +75,49 @@ function AssignmentTracker() {
       setGeneratePlan(false);
     }
   }
-  */
+  
 
   // ===== TEMPORARY TESTING FUNCTION (USING FOR NOW UNTIL TESTING) =====
-  async function handleGenerateWorkPlan(assignmentId) {
-    setGeneratePlan(true);
-    setWorkPlanError("");
-    setWorkPlanWarning([]);
-    setWorkPlan(null);
-    setSelectedAssignmentId(assignmentId);
+  // async function handleGenerateWorkPlan(assignmentId) {
+  //   setGeneratePlan(true);
+  //   setWorkPlanError("");
+  //   setWorkPlanWarning([]);
+  //   setWorkPlan(null);
+  //   setSelectedAssignmentId(assignmentId);
   
-    try {
-      // TEMPORARY MOCK DATA - NO CLAUDE API CALL
-      const mockWorkPlan = [
-        {
-          title: "Research Paper - Research",
-          scheduled_date: "2026-11-06",
-          estimated_time: 2,
-          notes: "Find research sources.",
-        },
-        {
-          title: "Research Paper - Outline",
-          scheduled_date: "2026-11-07",
-          estimated_time: 2,
-          notes: "Create the outline.",
-        },
-        {
-          title: "Research Paper - Writing",
-          scheduled_date: "2026-11-08",
-          estimated_time: 2,
-          notes: "Write and revise the paper.",
-        },
-      ];
+  //   try {
+  //     // TEMPORARY MOCK DATA - NO CLAUDE API CALL
+  //     const mockWorkPlan = [
+  //       {
+  //         title: "Research Paper - Research",
+  //         scheduled_date: "2026-11-06",
+  //         estimated_time: 2,
+  //         notes: "Find research sources.",
+  //       },
+  //       {
+  //         title: "Research Paper - Outline",
+  //         scheduled_date: "2026-11-07",
+  //         estimated_time: 2,
+  //         notes: "Create the outline.",
+  //       },
+  //       {
+  //         title: "Research Paper - Writing",
+  //         scheduled_date: "2026-11-08",
+  //         estimated_time: 2,
+  //         notes: "Write and revise the paper.",
+  //       },
+  //     ];
   
-      setWorkPlan(mockWorkPlan);
-      setWorkPlanWarning([]);
+  //     setWorkPlan(mockWorkPlan);
+  //     setWorkPlanWarning([]);
   
-    } catch (error) {
-      console.error(error);
-      setWorkPlanError(error.message);
-    } finally {
-      setGeneratePlan(false);
-    }
-  }
+  //   } catch (error) {
+  //     console.error(error);
+  //     setWorkPlanError(error.message);
+  //   } finally {
+  //     setGeneratePlan(false);
+  //   }
+  // }
   // ===============================================================
 
   async function handleSaveWorkPlan() {
@@ -137,6 +139,7 @@ function AssignmentTracker() {
           body: JSON.stringify({
             assignmentId: selectedAssignmentId,
             workPlan,
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           }),
         }
       );
