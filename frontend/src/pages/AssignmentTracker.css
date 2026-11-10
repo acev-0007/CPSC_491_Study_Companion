@@ -104,7 +104,7 @@
 }
 
 .delete-button:hover {
-    background-color: rgb(48, 48, 48);
+    background-color: rgb(136, 49, 49);
     color: rgb(0, 0, 0);
 
 }
@@ -167,6 +167,7 @@
 .ai-generated-label {
     font-weight: bold;
     color: #7655a8;
+    
 }
 
 .work-plan-preview {
