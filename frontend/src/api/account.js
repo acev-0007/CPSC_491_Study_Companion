@@ -16,3 +16,11 @@ export async function uploadAvatar(file) {
 export async function removeAvatar() {
   return parse(await fetch("/api/account/avatar", { method: "DELETE", credentials: "same-origin" }));
 }
+
+export async function changePassword(currentPassword, newPassword, confirmPassword) {
+  return parse(await fetch("/api/account/password", {
+    method: "PATCH", credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ currentPassword, newPassword, confirmPassword }),
+  }));
+}
