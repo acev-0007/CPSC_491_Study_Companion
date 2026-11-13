@@ -7,10 +7,10 @@ import Account from "../pages/Account";
 import ProtectedRoute from "../components/ProtectedRoute";
 import { ProfileSettings, SecuritySettings, PreferenceSettings, PrivacySettings, SettingsMenu } from "../components/Account/SettingsSections";
 import { getCurrentUser, logoutAccount } from "../api/auth";
-import { getAccount, updateAccount, uploadAvatar, removeAvatar } from "../api/account";
+import { getAccount, updateAccount, uploadAvatar, removeAvatar, changePassword } from "../api/account";
 
 vi.mock("../api/auth", () => ({ getCurrentUser: vi.fn(), logoutAccount: vi.fn() }));
-vi.mock("../api/account", () => ({ getAccount: vi.fn(), updateAccount: vi.fn(), uploadAvatar: vi.fn(), removeAvatar: vi.fn() }));
+vi.mock("../api/account", () => ({ getAccount: vi.fn(), updateAccount: vi.fn(), uploadAvatar: vi.fn(), removeAvatar: vi.fn(), changePassword: vi.fn() }));
 
 function renderAccount(path = "/account/profile") {
   return render(<MemoryRouter initialEntries={[path]}><Routes>
@@ -77,6 +77,39 @@ describe("Account settings workspace", () => {
     expect(screen.getByRole("heading", { name: "Appearance" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("link", { name: "Data & Privacy" }));
     expect(screen.getByRole("heading", { name: "Account lifecycle" })).toBeInTheDocument();
+  });
+  it("updates password after confirmation and clears sensitive fields", async () => {
+    changePassword.mockResolvedValue({ message: "Password updated successfully." });
+    renderAccount("/account/security");
+    await screen.findByRole("heading", { name: "Change password" });
+    await userEvent.type(screen.getByLabelText("Current password"), "oldPassword!123");
+    await userEvent.type(screen.getByLabelText("New password", { exact: true }), "newPassword!456");
+    await userEvent.type(screen.getByLabelText("Confirm new password"), "newPassword!456");
+    await userEvent.click(screen.getByRole("button", { name: "Update password" }));
+    await waitFor(() => expect(changePassword).toHaveBeenCalledWith("oldPassword!123", "newPassword!456", "newPassword!456"));
+    expect(await screen.findByRole("status")).toHaveTextContent("Password updated successfully.");
+    expect(screen.getByLabelText("Current password")).toHaveValue("");
+    expect(screen.getByLabelText("New password", { exact: true })).toHaveValue("");
+  });
+  it("rejects mismatched passwords without calling the API", async () => {
+    renderAccount("/account/security");
+    await screen.findByRole("heading", { name: "Change password" });
+    await userEvent.type(screen.getByLabelText("Current password"), "oldPassword!123");
+    await userEvent.type(screen.getByLabelText("New password", { exact: true }), "newPassword!456");
+    await userEvent.type(screen.getByLabelText("Confirm new password"), "otherPassword!456");
+    await userEvent.click(screen.getByRole("button", { name: "Update password" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("New passwords do not match.");
+    expect(changePassword).not.toHaveBeenCalled();
+  });
+  it("shows a safe error when password change fails", async () => {
+    changePassword.mockRejectedValue(new Error("Current password is incorrect."));
+    renderAccount("/account/security");
+    await screen.findByRole("heading", { name: "Change password" });
+    await userEvent.type(screen.getByLabelText("Current password"), "oldPassword!123");
+    await userEvent.type(screen.getByLabelText("New password", { exact: true }), "newPassword!456");
+    await userEvent.type(screen.getByLabelText("Confirm new password"), "newPassword!456");
+    await userEvent.click(screen.getByRole("button", { name: "Update password" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Current password is incorrect.");
   });
   it("returns to dashboard with the main app sidebar restored", async () => {
     renderAccount();
