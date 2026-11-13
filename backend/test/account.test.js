@@ -3,7 +3,7 @@ import request from "supertest";
 
 const user = { id: "user-a", email: "student@example.com", created_at: "2026-11-01T00:00:00Z", user_metadata: { display_name: "Study User" } };
 const mock = vi.hoisted(() => ({
-  createSignedUrl: vi.fn(), upload: vi.fn(), remove: vi.fn(),
+  createSignedUrl: vi.fn(), upload: vi.fn(), remove: vi.fn(), signInWithPassword: vi.fn(),
 }));
 vi.mock("../src/middleware/requireAuth.js", () => ({
   requireAuth: (req, res, next) => {
@@ -15,6 +15,7 @@ vi.mock("../src/middleware/requireAuth.js", () => ({
 }));
 vi.mock("../src/config/supabase.js", () => ({
   createUserSupabaseClient: () => ({ storage: { from: () => mock } }),
+  createSupabaseClient: () => ({ auth: { signInWithPassword: mock.signInWithPassword } }),
 }));
 import express from "express";
 import accountRoutes from "../src/routes/accountRoutes.js";
@@ -28,6 +29,7 @@ beforeEach(() => {
   mock.createSignedUrl.mockReset().mockResolvedValue({ data: { signedUrl: "https://example.com/signed" }, error: null });
   mock.upload.mockReset().mockResolvedValue({ error: null });
   mock.remove.mockReset().mockResolvedValue({ error: null });
+  mock.signInWithPassword.mockReset().mockResolvedValue({ data: { user: { id: "user-a" } }, error: null });
   vi.stubEnv("SUPABASE_URL", "https://example.supabase.co");
   vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "test-key");
 });
@@ -72,5 +74,55 @@ describe("SCRUM-280 account routes", () => {
     const res = await request(app).delete("/api/account/avatar");
     expect(res.status).toBe(200);
     expect(res.body.user.avatarUrl).toBe(null);
+  });
+});
+
+describe("SCRUM-282 authenticated password change", () => {
+  const valid = { currentPassword: "oldPassword!123", newPassword: "newPassword!456", confirmPassword: "newPassword!456" };
+  it("rejects anonymous attempts before touching Supabase", async () => {
+    expect((await request(app).patch("/api/account/password").set("x-test-anonymous", "1").send(valid)).status).toBe(401);
+    expect(mock.signInWithPassword).not.toHaveBeenCalled();
+  });
+  it("validates missing, short, mismatched, and reused passwords", async () => {
+    for (const body of [
+      { ...valid, currentPassword: "" },
+      { ...valid, newPassword: "short", confirmPassword: "short" },
+      { ...valid, confirmPassword: "not matching" },
+      { ...valid, newPassword: valid.currentPassword, confirmPassword: valid.currentPassword },
+    ]) expect((await request(app).patch("/api/account/password").send(body)).status).toBe(400);
+    expect(mock.signInWithPassword).not.toHaveBeenCalled();
+  });
+  it("does not update when current password is incorrect or identity mismatches", async () => {
+    mock.signInWithPassword.mockResolvedValueOnce({ data: null, error: { message: "Invalid login credentials" } });
+    expect((await request(app).patch("/api/account/password").send(valid)).status).toBe(400);
+    mock.signInWithPassword.mockResolvedValueOnce({ data: { user: { id: "other-user" } }, error: null });
+    expect((await request(app).patch("/api/account/password").send(valid)).status).toBe(400);
+  });
+  it("verifies current password then updates only the authenticated Supabase user", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true }));
+    const res = await request(app).patch("/api/account/password").send(valid);
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ message: "Password updated successfully." });
+    expect(mock.signInWithPassword).toHaveBeenCalledWith({ email: "student@example.com", password: valid.currentPassword });
+    const [, options] = vi.mocked(fetch).mock.calls[0];
+    expect(options.headers.Authorization).toBe("Bearer test-access-token");
+    expect(JSON.parse(options.body)).toEqual({ password: valid.newPassword, current_password: valid.currentPassword });
+    expect(JSON.stringify(res.body)).not.toContain(valid.newPassword);
+    expect(JSON.stringify(res.body)).not.toContain("test-access-token");
+  });
+  it("sanitizes upstream failures and does not return credentials", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({ error: valid.newPassword, access_token: "secret" }) }));
+    const res = await request(app).patch("/api/account/password").send(valid);
+    expect(res.status).toBe(502);
+    expect(JSON.stringify(res.body)).not.toContain(valid.newPassword);
+    expect(JSON.stringify(res.body)).not.toContain("secret");
+  });
+  it("reports upstream current-password, policy and throttling failures safely", async () => {
+    for (const [code, expected] of [["current_password_mismatch",400],["weak_password",400],["same_password",400]]) {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok:false, status:422, json:async()=>({code}) }));
+      expect((await request(app).patch("/api/account/password").send(valid)).status).toBe(expected);
+    }
+    mock.signInWithPassword.mockResolvedValueOnce({ data:null, error:{status:429} });
+    expect((await request(app).patch("/api/account/password").send(valid)).status).toBe(429);
   });
 });
