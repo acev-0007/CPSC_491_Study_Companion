@@ -477,7 +477,7 @@ function AssignmentTracker() {
 
   async function handleSubmit(event) {
     event.preventDefault();
-    if(!formData.title || !formData.course || !formData.duedate) {
+    if(!formData.title.trim() || !formData.course.trim() || !formData.duedate) {
       setMessage("Please fill in all the required fields.");
       return;
     }
