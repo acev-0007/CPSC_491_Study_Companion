@@ -31,7 +31,7 @@ import "./StudyMaterialInput.css";
  * owns only input state (text, loading, error); what happens with the
  * result belongs to the parent.
  */
-function StudyMaterialInput({ onGenerate }) {
+function StudyMaterialInput({ onGenerate, initialDocumentId = null,}) {
   const [text, setText] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState(null);
@@ -61,6 +61,47 @@ function StudyMaterialInput({ onGenerate }) {
       abortRef.current?.abort();
     };
   }, []);
+
+  // Load document if passed
+    useEffect(() => {
+    if (!initialDocumentId) return;
+
+    handleLoadDocuments();
+  }, [initialDocumentId]);
+
+  // Selects handoff doc
+    useEffect(() => {
+      if (
+        !initialDocumentId ||
+        listStatus !== "loaded"
+      ) {
+        return;
+      }
+
+      const matchedDocument = documents.find(
+        (doc) =>
+          String(doc.id) === String(initialDocumentId)
+      );
+
+      if (!matchedDocument) {
+        setSelectedId("");
+        setDocError("Document not found.");
+        return;
+      }
+
+      if (!isReadyDocument(matchedDocument)) {
+        setSelectedId("");
+        setDocError(DOCUMENT_ERRORS.notReady);
+        return;
+      }
+
+      setSelectedId(String(matchedDocument.id));
+      setDocError(null);
+    }, [
+      initialDocumentId,
+      documents,
+      listStatus,
+    ]);
 
   const isBusy = isGenerating || isFetchingDoc;
   const readyDocuments = documents.filter(isReadyDocument);

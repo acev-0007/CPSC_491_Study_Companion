@@ -1,4 +1,5 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import {
   saveGeneratedFlashcards,
@@ -12,6 +13,11 @@ import SavedDeckList from "../components/SavedDeckList";
 import "../components/Flashcards.css";
 
 function Flashcards() {
+  // Revieves Document ID
+  const [searchParams] = useSearchParams();
+  const documentId = searchParams.get("documentId");
+
+
   // Saved and generated decks remain separate.
   const [isSaving, setIsSaving] = useState(false);
   const [saveResult, setSaveResult] = useState(null);
@@ -54,6 +60,13 @@ function Flashcards() {
 
   const isFirstCard = currentIndex === 0;
   const isLastCard = currentIndex === totalCards - 1;
+
+
+  useEffect(() => {
+    if (documentId) {
+      setView("generate");
+    }
+  }, [documentId]);
 
   // The viewer can edit either deck without mixing their data.
 
@@ -343,7 +356,9 @@ return (
           ← Back
         </button>
 
-        <StudyMaterialInput onGenerate={handleGenerate} />
+        <StudyMaterialInput
+        onGenerate={handleGenerate}
+        initialDocumentId={documentId}/>
 
         {generationNotice && (
           <p
