@@ -158,7 +158,7 @@ function TextbookHub() {
           <p className="hub-eyebrow">Study materials</p>
           <h2>Textbook Hub</h2>
           <p className="hub-intro">
-            Upload your TXT and PDF study documents so they can be organized here and
+            Upload your TXT, PDF, and DOCX study documents so they can be organized here and
             read by AI study features later.
           </p>
         </div>
@@ -232,7 +232,7 @@ function TextbookHub() {
         <div className="hub-empty-state">
           <h3>No documents yet</h3>
           <p>
-            Upload a TXT or PDF file to start building your study library.
+            Upload a TXT, PDF, or DOCX file to start building your study library.
           </p>
         </div>
       ) : filteredDocuments.length === 0 ? (

@@ -20,7 +20,7 @@ function DocumentUploadForm({
 
     if (selected && !isSupportedDocument(selected)) {
       setFile(null);
-      setValidationError("Only TXT and PDF files are supported.");
+      setValidationError("Only TXT, PDF, and DOCX files are supported.");
       return;
     }
 
@@ -31,7 +31,7 @@ function DocumentUploadForm({
     event.preventDefault();
 
     if (!file) {
-      setValidationError("Choose a TXT or PDF file first.");
+      setValidationError("Choose a TXT, PDF, or DOCX file first.");
       return;
     }
 
@@ -54,7 +54,7 @@ function DocumentUploadForm({
         </label>
 
         <p className="hub-help">
-          TXT and digital-text PDF files, up to 10 MB.
+          TXT, DOCX, and digital-text PDF files, up to 10 MB.
         </p>
       </div>
 
@@ -64,7 +64,7 @@ function DocumentUploadForm({
           id="study-document"
           name="study-document"
           type="file"
-          accept=".txt,.pdf,text/plain,application/pdf"
+          accept=".txt,.pdf,.docx,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
           onChange={handleFileChange}
           disabled={uploading}
         />
