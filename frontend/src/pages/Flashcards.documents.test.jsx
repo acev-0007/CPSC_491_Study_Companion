@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 import Flashcards from "./Flashcards";
 import { getDocumentAiContent, listDocuments } from "../api/documents";
 import { generateFlashcards } from "../services/flashcardGeneration";
-
+import { MemoryRouter } from "react-router-dom";
 // FLASH-11 integration: a Document Hub selection must reach the existing
 // Flashcards.handleGenerate -> generateFlashcards pipeline, unchanged.
 vi.mock("../data/flashcardSource", () => ({ getFlashcards: vi.fn() }));
@@ -26,10 +26,25 @@ beforeEach(() => {
   vi.resetAllMocks();
 });
 
+function renderFlashcards(initialEntries = ["/flashcards"]) {
+  return render(
+    <MemoryRouter initialEntries={initialEntries}>
+      <Flashcards />
+    </MemoryRouter>
+  );
+}
+
+
 async function openGenerateScreen() {
   const user = userEvent.setup();
-  render(<Flashcards />);
-  await user.click(screen.getByRole("button", { name: "Generate New Flashcards" }));
+  renderFlashcards();
+
+  await user.click(
+    screen.getByRole("button", {
+      name: "Generate New Flashcards",
+    })
+  );
+
   return user;
 }
 

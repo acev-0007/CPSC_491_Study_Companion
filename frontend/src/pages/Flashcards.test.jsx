@@ -15,7 +15,7 @@ import {
 } from "@testing-library/react";
 
 import userEvent from "@testing-library/user-event";
-
+import { MemoryRouter } from "react-router-dom";
 import Flashcards from "./Flashcards";
 import { getFlashcards } from "../data/flashcardSource";
 import { deleteDeck, listDecks } from "../services/flashcardDecks";
@@ -70,13 +70,24 @@ vi.mock("../services/flashcardGeneration", async (importOriginal) => {
   };
 });
 
+
+
+function renderFlashcards(initialEntries = ["/flashcards"]) {
+  return render(
+    <MemoryRouter initialEntries={initialEntries}>
+      <Flashcards />
+    </MemoryRouter>
+  );
+}
+
+
 /**
  * Opens the saved-deck list (the page no longer loads cards up front).
  */
 async function openSavedDecks(decks = [DECK_OS]) {
   listDecks.mockResolvedValue(decks);
 
-  render(<Flashcards />);
+  renderFlashcards();
 
   const user = userEvent.setup();
 
@@ -427,7 +438,7 @@ describe("Flashcards page - loading, empty, and failure states", () => {
 
     listDecks.mockReturnValue(new Promise(() => {}));
 
-    render(<Flashcards />);
+    renderFlashcards();
 
     await user.click(
       screen.getByRole("button", {
@@ -467,7 +478,7 @@ describe("Flashcards page - loading, empty, and failure states", () => {
   it("shows an error when loading decks fails", async () => {
     listDecks.mockRejectedValue(new Error("network down"));
 
-    render(<Flashcards />);
+    renderFlashcards();
     const user = userEvent.setup();
 
     await user.click(
@@ -650,7 +661,7 @@ describe("Flashcards page - saved cards visibility (SCRUM-121)", () => {
   it("shows the home screen without opening either deck", async () => {
   getFlashcards.mockResolvedValue(SAMPLE_CARDS);
 
-  render(<Flashcards />);
+  renderFlashcards();
 
   // Cards load only after a deck is chosen.
   expect(getFlashcards).not.toHaveBeenCalled();
@@ -691,7 +702,7 @@ describe("Flashcards page - saved cards visibility (SCRUM-121)", () => {
       new Error("Flashcard generation failed.")
     );
 
-    render(<Flashcards />);
+    renderFlashcards();
 
     await user.click(
   screen.getByRole("button", {
@@ -738,7 +749,7 @@ describe("Flashcards page - AI generation (SCRUM-122)", () => {
       isStub: false,
     });
 
-    render(<Flashcards />);
+    renderFlashcards();
 
     await user.click(
   screen.getByRole("button", {
@@ -787,7 +798,7 @@ describe("SCRUM-123: generated flashcard study view", () => {
       isStub: false,
     });
 
-    render(<Flashcards />);
+    renderFlashcards();
 
     await user.click(
       screen.getByRole("button", {
