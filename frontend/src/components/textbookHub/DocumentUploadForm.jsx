@@ -13,10 +13,22 @@ function DocumentUploadForm({
   const inputRef = useRef(null);
   const [file, setFile] = useState(null);
   const [validationError, setValidationError] = useState("");
+  const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
   function handleFileChange(event) {
     const selected = event.target.files?.[0] ?? null;
     setValidationError("");
+    
+    if (selected && selected.size > MAX_FILE_SIZE) {
+      setFile(null);
+      setValidationError("File is too large. Maximum upload size is 10 MB.");
+
+      if (inputRef.current) {
+        inputRef.current.value = "";
+      }
+
+      return;
+    }
 
     if (selected && !isSupportedDocument(selected)) {
       setFile(null);
