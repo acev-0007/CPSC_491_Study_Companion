@@ -39,7 +39,12 @@ function Flashcards() {
   // instead of pulling them into a generated deck they did not ask for.
   const generateRequestRef = useRef(0);
 
-  const [view, setView] = useState("home");
+  const [view, setView] = useState(
+    () =>
+      documentId
+        ? "generate"
+        : "home"
+  );
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
@@ -60,13 +65,6 @@ function Flashcards() {
 
   const isFirstCard = currentIndex === 0;
   const isLastCard = currentIndex === totalCards - 1;
-
-
-  useEffect(() => {
-    if (documentId) {
-      setView("generate");
-    }
-  }, [documentId]);
 
   // The viewer can edit either deck without mixing their data.
 

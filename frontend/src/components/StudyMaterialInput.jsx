@@ -38,7 +38,7 @@ function StudyMaterialInput({ onGenerate, initialDocumentId = null,}) {
 
   // Document Hub path state. Kept separate from the pasted text.
   const [documents, setDocuments] = useState([]);
-  const [listStatus, setListStatus] = useState("idle"); // idle|loading|loaded|error
+  const [listStatus, setListStatus] = useState(initialDocumentId ? "loading" : "idle");
   const [listError, setListError] = useState(null);
   const [selectedId, setSelectedId] = useState("");
   const [isFetchingDoc, setIsFetchingDoc] = useState(false);
@@ -62,46 +62,82 @@ function StudyMaterialInput({ onGenerate, initialDocumentId = null,}) {
     };
   }, []);
 
-  // Load document if passed
-    useEffect(() => {
-    if (!initialDocumentId) return;
+  // Automatically load and select a Document Hub file passed in the URL.
+  useEffect(() => {
+    if (!initialDocumentId) {
+      return;
+    }
 
-    handleLoadDocuments();
+    const requestId = ++listIdRef.current;
+
+    listDocuments()
+      .then((loaded) => {
+        if (requestId !== listIdRef.current) {
+          return;
+        }
+
+        const next =
+          Array.isArray(loaded)
+            ? loaded
+            : [];
+
+        setDocuments(next);
+        setListStatus("loaded");
+        setListError(null);
+
+        const matchedDocument =
+          next.find(
+            (doc) =>
+              String(doc.id) ===
+              String(initialDocumentId)
+          );
+
+        if (!matchedDocument) {
+          setSelectedId("");
+          setDocError(
+            "Document not found."
+          );
+          return;
+        }
+
+        if (
+          !isReadyDocument(
+            matchedDocument
+          )
+        ) {
+          setSelectedId("");
+          setDocError(
+            DOCUMENT_ERRORS.notReady
+          );
+          return;
+        }
+
+        setSelectedId(
+          String(matchedDocument.id)
+        );
+
+        setDocError(null);
+      })
+      .catch((err) => {
+        if (
+          requestId !==
+          listIdRef.current
+        ) {
+          return;
+        }
+
+        setListError(
+          err?.status === undefined ||
+            err.status === 401 ||
+            err.status === 403
+            ? documentErrorMessage(err)
+            : "Could not load your documents. Please try again."
+        );
+
+        setListStatus("error");
+      });
   }, [initialDocumentId]);
 
-  // Selects handoff doc
-    useEffect(() => {
-      if (
-        !initialDocumentId ||
-        listStatus !== "loaded"
-      ) {
-        return;
-      }
-
-      const matchedDocument = documents.find(
-        (doc) =>
-          String(doc.id) === String(initialDocumentId)
-      );
-
-      if (!matchedDocument) {
-        setSelectedId("");
-        setDocError("Document not found.");
-        return;
-      }
-
-      if (!isReadyDocument(matchedDocument)) {
-        setSelectedId("");
-        setDocError(DOCUMENT_ERRORS.notReady);
-        return;
-      }
-
-      setSelectedId(String(matchedDocument.id));
-      setDocError(null);
-    }, [
-      initialDocumentId,
-      documents,
-      listStatus,
-    ]);
 
   const isBusy = isGenerating || isFetchingDoc;
   const readyDocuments = documents.filter(isReadyDocument);
