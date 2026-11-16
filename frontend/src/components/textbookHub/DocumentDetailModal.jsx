@@ -1,14 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-
-
-
 function DocumentDetailModal({
   document,
   categories,
   onSave,
   onDelete,
+  onRetry,
   onClose,
 }) {
   const [name, setName] = useState(document.name);
@@ -16,7 +14,8 @@ function DocumentDetailModal({
   const [course, setCourse] = useState(document.course || "");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
- 
+  const [retrying, setRetrying] = useState(false);
+
   const navigate = useNavigate();
 
   const isReady =
@@ -31,24 +30,24 @@ function DocumentDetailModal({
       `${path}?documentId=${document.id}`
     );
   }
-  
-async function handleSave() {
-  setSaving(true);
 
-  const success = await onSave(document.id, {
-    name,
-    category,
-    course,
-  });
+  async function handleSave() {
+    setSaving(true);
 
-  setSaving(false);
+    const success = await onSave(document.id, {
+      name,
+      category,
+      course,
+    });
 
-  if (success) {
-    onClose();
+    setSaving(false);
+
+    if (success) {
+      onClose();
+    }
   }
-}
 
-async function handleDelete() {
+  async function handleDelete() {
     const confirmed = window.confirm(
       `Delete "${document.name}"? This cannot be undone.`
     );
@@ -66,18 +65,41 @@ async function handleDelete() {
     }
   }
 
+  async function handleRetry() {
+    setRetrying(true);
+
+    try {
+      await onRetry(document.id);
+    } finally {
+      setRetrying(false);
+    }
+  }
+
   function handleOverlayClick(event) {
-    if (event.target === event.currentTarget) {
+    if (
+      event.target === event.currentTarget &&
+      !saving &&
+      !deleting &&
+      !retrying
+    ) {
       onClose();
     }
   }
 
-
   return (
-    <div className="document-modal-overlay" onClick={handleOverlayClick}>
-      <section className="document-modal" role="dialog" aria-modal="true">
+    <div
+      className="document-modal-overlay"
+      onClick={handleOverlayClick}
+    >
+      <section
+        className="document-modal"
+        role="dialog"
+        aria-modal="true"
+      >
         <div className="document-modal-header">
-          <h2 style={{ color: 'black' }}>Document details</h2>   
+          <h2 style={{ color: "black" }}>
+            Document details
+          </h2>
         </div>
 
         <div className="document-modal-actions">
@@ -85,17 +107,16 @@ async function handleDelete() {
             type="button"
             className="document-delete-button"
             onClick={handleDelete}
-            disabled={deleting || saving}
+            disabled={deleting || saving || retrying}
           >
             {deleting ? "Deleting..." : "Delete"}
           </button>
-
 
           <button
             type="button"
             className="hub-primary-button"
             onClick={handleSave}
-            disabled={saving || deleting}
+            disabled={saving || deleting || retrying}
           >
             {saving ? "Saving..." : "Save"}
           </button>
@@ -104,7 +125,7 @@ async function handleDelete() {
             type="button"
             className="hub-secondary-button"
             onClick={onClose}
-            disabled={saving || deleting}
+            disabled={saving || deleting || retrying}
           >
             Close
           </button>
@@ -112,80 +133,100 @@ async function handleDelete() {
 
         <div className="document-modal-fields">
           <label>
-            <h2 style={{ color: 'black' }}>Name</h2>  
+            <h2 style={{ color: "black" }}>
+              Name
+            </h2>
+
             <input
               type="text"
               value={name}
-              onChange={(event) => setName(event.target.value)}
+              onChange={(event) =>
+                setName(event.target.value)
+              }
+              disabled={retrying}
             />
           </label>
 
-
-
-
-
-
           <div className="document-study-actions">
-          <button
-            type="button"
-            className="hub-primary-button"
-            onClick={() =>
-              handleStudyAction(
-                "/summarization"
-              )
-            }
-            disabled={!isReady}
-          >
-            Generate Notes
-          </button>
+            <button
+              type="button"
+              className="hub-primary-button"
+              onClick={() =>
+                handleStudyAction(
+                  "/summarization"
+                )
+              }
+              disabled={!isReady || retrying}
+            >
+              Generate Notes
+            </button>
 
-          <button
-            type="button"
-            className="hub-primary-button"
-            onClick={() =>
-              handleStudyAction(
-                "/quiz"
-              )
-            }
-            disabled={!isReady}
-          >
-            Generate Quiz
-          </button>
+            <button
+              type="button"
+              className="hub-primary-button"
+              onClick={() =>
+                handleStudyAction(
+                  "/quiz"
+                )
+              }
+              disabled={!isReady || retrying}
+            >
+              Generate Quiz
+            </button>
 
-          <button
-            type="button"
-            className="hub-primary-button"
-            onClick={() =>
-              handleStudyAction(
-                "/flashcards"
-              )
-            }
-            disabled={!isReady}
-          >
-            Generate Flashcards
-          </button>
-        </div>
+            <button
+              type="button"
+              className="hub-primary-button"
+              onClick={() =>
+                handleStudyAction(
+                  "/flashcards"
+                )
+              }
+              disabled={!isReady || retrying}
+            >
+              Generate Flashcards
+            </button>
+          </div>
 
+          {!isReady && (
+            <p
+              className="hub-message hub-message-error"
+              role="status"
+            >
+              AI study actions are unavailable until this document is ready.
+            </p>
+          )}
 
-        {!isReady && (
-          <p
-            className="hub-message hub-message-error"
-            role="status"
-          >
-            AI study actions are unavailable until this document is ready.
-          </p>
-        )}
-
-
+          {document.status === "failed" && (
+            <button
+              type="button"
+              className="hub-primary-button"
+              onClick={handleRetry}
+              disabled={deleting || saving || retrying}
+            >
+              {retrying
+                ? "Retrying..."
+                : "Retry Processing"}
+            </button>
+          )}
 
           <label>
-            <h2 style={{ color: 'black' }}>Category</h2>  
+            <h2 style={{ color: "black" }}>
+              Category
+            </h2>
+
             <select
               value={category}
-              onChange={(event) => setCategory(event.target.value)}
+              onChange={(event) =>
+                setCategory(event.target.value)
+              }
+              disabled={retrying}
             >
               {categories.map((option) => (
-                <option key={option} value={option}>
+                <option
+                  key={option}
+                  value={option}
+                >
                   {option}
                 </option>
               ))}
@@ -193,35 +234,49 @@ async function handleDelete() {
           </label>
 
           <label>
-            <h2 style={{ color: 'black' }}>Course</h2>  
+            <h2 style={{ color: "black" }}>
+              Course
+            </h2>
+
             <input
               type="text"
               value={course}
-              onChange={(event) => setCourse(event.target.value)}
+              onChange={(event) =>
+                setCourse(event.target.value)
+              }
+              disabled={retrying}
             />
           </label>
         </div>
 
         <div className="document-modal-metadata">
           <p>
-            <strong>Type:</strong> {document.type}
+            <strong>Type:</strong>{" "}
+            {document.type}
           </p>
 
           <p>
-            <strong>Status:</strong> {document.status}
+            <strong>Status:</strong>{" "}
+            {retrying
+              ? "processing"
+              : document.status}
           </p>
 
           <p>
-            <strong>Size:</strong> {document.size} bytes
+            <strong>Size:</strong>{" "}
+            {document.size} bytes
           </p>
 
           <p>
-            <strong>Text length:</strong> {document.textLength ?? 0}
+            <strong>Text length:</strong>{" "}
+            {document.textLength ?? 0}
           </p>
 
           <p>
             <strong>Uploaded:</strong>{" "}
-            {new Date(document.uploadedAt).toLocaleString()}
+            {new Date(
+              document.uploadedAt
+            ).toLocaleString()}
           </p>
         </div>
       </section>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import DocumentCard from "../components/textbookHub/DocumentCard";
 import DocumentUploadForm from "../components/textbookHub/DocumentUploadForm";
-import { listDocuments, uploadDocument, updateDocument, deleteDocument} from "../api/documents";
+import {listDocuments, uploadDocument, updateDocument, deleteDocument, retryDocument,} from "../api/documents";
 import "./TextbookHub.css";
 import DocumentDetailModal from "../components/textbookHub/DocumentDetailModal";
 
@@ -151,6 +151,29 @@ function TextbookHub() {
     }
   }
 
+  async function handleRetryDocument(id) {
+    setError("");
+
+    try {
+      const updated = await retryDocument(id);
+
+      setDocuments((current) =>
+        current.map((document) =>
+          document.id === updated.id
+            ? updated
+            : document
+        )
+      );
+
+      setSelectedDocument(updated);
+
+      return true;
+    } catch (requestError) {
+      setError(requestError.message);
+      return false;
+    }
+  }
+
   return (
     <section className="textbook-hub">
       <header className="hub-page-header">
@@ -254,17 +277,18 @@ function TextbookHub() {
         </div>
       )}
 
-      {selectedDocument && (<DocumentDetailModal
-        document={selectedDocument}
-        categories={CATEGORIES}
-        onSave={handleUpdateDocument}
-        onDelete={handleDeleteDocument}
-        onClose={() => setSelectedDocument(null)}
-        />)}
+      {selectedDocument && (
+        <DocumentDetailModal
+          document={selectedDocument}
+          categories={CATEGORIES}
+          onSave={handleUpdateDocument}
+          onDelete={handleDeleteDocument}
+          onRetry={handleRetryDocument}
+          onClose={() => setSelectedDocument(null)}
+        />
+      )}
     </section>
-    
-  )
-
+  );
 }
 
 export default TextbookHub;

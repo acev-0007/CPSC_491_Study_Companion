@@ -59,6 +59,19 @@ export async function uploadDocument(file, category, course) {
   return body.document;
 }
 
+export async function retryDocument(id) {
+  const response = await fetch(
+    `/api/documents/${encodeURIComponent(id)}/retry`,
+    {
+      method: "POST",
+      credentials: "same-origin",
+    }
+  );
+
+  const body = await parseResponse(response);
+  return body.document;
+}
+
 
 export async function updateDocument(id, updates) {
   const response = await fetch(`/api/documents/${id}`, {
