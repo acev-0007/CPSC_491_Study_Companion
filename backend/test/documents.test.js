@@ -991,10 +991,9 @@ describe(
 
 
         expect(
-          response.body
-            .error
+          response.body.error
         ).toMatch(
-          /only txt and pdf/i
+          /only txt, pdf, and docx/i
         );
 
 
