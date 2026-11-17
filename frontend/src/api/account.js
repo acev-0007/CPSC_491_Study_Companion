@@ -16,3 +16,10 @@ export async function uploadAvatar(file) {
 export async function removeAvatar() {
   return parse(await fetch("/api/account/avatar", { method: "DELETE", credentials: "same-origin" }));
 }
+
+export async function updatePreferences(theme) {
+  return parse(await fetch("/api/account/preferences", {
+    method: "PATCH", credentials: "same-origin",
+    headers: { "Content-Type": "application/json" }, body: JSON.stringify({ theme }),
+  }));
+}
