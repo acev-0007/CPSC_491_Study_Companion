@@ -8,7 +8,7 @@
 }
 
 .dashboard-eyebrow {
-  color: #a995ff;
+  color: var(--color-accent-label);
   font-size: 12px;
   font-weight: 700;
   line-height: 1.4;

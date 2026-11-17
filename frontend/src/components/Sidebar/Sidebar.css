@@ -7,7 +7,7 @@
   flex-direction: column;
   padding: var(--space-6) var(--space-4) var(--space-5);
   border-right: 1px solid var(--color-border-subtle);
-  background: #111217;
+  background: var(--sidebar-background);
 }
 
 .sidebar-brand,
@@ -34,7 +34,7 @@
   border: 1px solid var(--color-accent-border);
   border-radius: var(--radius-md);
   background: var(--color-accent-soft);
-  color: #a691ff;
+  color: var(--color-accent-label);
   font-size: 16px;
   line-height: 1;
 }
@@ -99,7 +99,7 @@
 .sidebar-nav-link.is-active {
   border-color: rgba(124, 92, 255, 0.22);
   background: var(--color-accent-soft);
-  color: #c0b2ff;
+  color: var(--color-accent-label);
 }
 
 .sidebar-footer {
@@ -202,7 +202,7 @@
     overflow-y: auto;
     padding: var(--space-2) var(--space-5) var(--space-5);
     border-top: 1px solid var(--color-border-subtle);
-    background: #111217;
+    background: var(--sidebar-background);
   }
 
   .mobile-nav-panel.is-open {
