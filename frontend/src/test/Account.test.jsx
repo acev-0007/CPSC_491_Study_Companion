@@ -32,6 +32,7 @@ function renderAccount(path = "/account/profile") {
 
 describe("Account settings workspace", () => {
   beforeEach(() => {
+    vi.resetAllMocks();
     vi.stubEnv("VITE_ENABLE_ROUTE_PROTECTION", "true");
     getCurrentUser.mockResolvedValue({ user: { id: "one", email: "student@example.com" } });
     getAccount.mockResolvedValue({ user: { id: "one", email: "student@example.com", displayName: "Study User", createdAt: "2026-10-01T00:00:00Z", avatarUrl: null } });
@@ -82,14 +83,19 @@ describe("Account settings workspace", () => {
     changePassword.mockResolvedValue({ message: "Password updated successfully." });
     renderAccount("/account/security");
     await screen.findByRole("heading", { name: "Change password" });
+    const submitButton = screen.getByRole("button", { name: "Update password" });
+    await waitFor(() => expect(submitButton).toBeEnabled());
     await userEvent.type(screen.getByLabelText("Current password"), "oldPassword!123");
     await userEvent.type(screen.getByLabelText("New password", { exact: true }), "newPassword!456");
     await userEvent.type(screen.getByLabelText("Confirm new password"), "newPassword!456");
-    await userEvent.click(screen.getByRole("button", { name: "Update password" }));
+    fireEvent.submit(submitButton.closest("form"));
     await waitFor(() => expect(changePassword).toHaveBeenCalledWith("oldPassword!123", "newPassword!456", "newPassword!456"));
     expect(await screen.findByRole("status")).toHaveTextContent("Password updated successfully.");
-    expect(screen.getByLabelText("Current password")).toHaveValue("");
-    expect(screen.getByLabelText("New password", { exact: true })).toHaveValue("");
+    await waitFor(() => {
+      expect(screen.getByLabelText("Current password")).toHaveValue("");
+      expect(screen.getByLabelText("New password", { exact: true })).toHaveValue("");
+      expect(screen.getByLabelText("Confirm new password")).toHaveValue("");
+    });
   });
   it("rejects mismatched passwords without calling the API", async () => {
     renderAccount("/account/security");
@@ -108,11 +114,16 @@ describe("Account settings workspace", () => {
     changePassword.mockRejectedValue(new Error("Current password is incorrect."));
     renderAccount("/account/security");
     await screen.findByRole("heading", { name: "Change password" });
+    const submitButton = screen.getByRole("button", { name: "Update password" });
+    await waitFor(() => expect(submitButton).toBeEnabled());
     await userEvent.type(screen.getByLabelText("Current password"), "oldPassword!123");
     await userEvent.type(screen.getByLabelText("New password", { exact: true }), "newPassword!456");
     await userEvent.type(screen.getByLabelText("Confirm new password"), "newPassword!456");
-    await userEvent.click(screen.getByRole("button", { name: "Update password" }));
+    // Exercise React's submit handler directly, matching the mismatch test.
+    fireEvent.submit(submitButton.closest("form"));
+    await waitFor(() => expect(changePassword).toHaveBeenCalledWith("oldPassword!123", "newPassword!456", "newPassword!456"));
     expect(await screen.findByRole("alert")).toHaveTextContent("Current password is incorrect.");
+    expect(screen.getByLabelText("Current password")).toHaveValue("oldPassword!123");
   });
   it("returns to dashboard with the main app sidebar restored", async () => {
     renderAccount();
