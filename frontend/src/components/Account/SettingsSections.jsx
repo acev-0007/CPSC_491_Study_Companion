@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
-import { updateAccount, uploadAvatar, removeAvatar } from "../../api/account";
+import { updateAccount, uploadAvatar, removeAvatar, updatePreferences } from "../../api/account";
+import { useTheme } from "../../theme/themeContext";
 import { settingsItems } from "./settingsItems";
 
 function Section({ title, subtitle, children }) {
@@ -89,8 +90,46 @@ export function SecuritySettings() {
   </Section>;
 }
 export function PreferenceSettings() {
+  const { user, loading, error, retry, updateUser } = useOutletContext();
+  const { preference, setPreference } = useTheme();
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const saved = user?.preferences?.theme || "system";
+
+  const chooseTheme = async theme => {
+    if (saving || loading || error || theme === preference) return;
+    setSaveError("");
+    setSaving(true);
+    setPreference(theme); // Immediate feedback; revert if persistence fails.
+    try {
+      const result = await updatePreferences(theme);
+      updateUser(result.user);
+    } catch (cause) {
+      setPreference(saved);
+      setSaveError(cause.message || "Unable to save appearance preference. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return <Section title="Preferences" subtitle="Personalize the way AI Study Companion looks and feels.">
-    <Group title="Appearance" description="Choose how the interface is displayed."><Item title="Theme" description="System, light, and dark themes are planned. Theme changes are not enabled on this screen yet." future /></Group>
+    {error && <div className="settings-inline-error" role="alert"><span>Unable to load your preferences.</span><button type="button" onClick={retry}>Try again</button></div>}
+    <Group title="Appearance" description="Choose how the interface is displayed.">
+      <div className="settings-appearance-row">
+        <div className="settings-row-info"><h3>Theme</h3><p>System matches your device appearance.</p></div>
+        <fieldset className="settings-theme-options" disabled={loading || error || saving} aria-label="Appearance theme">
+          <legend className="sr-only">Appearance theme</legend>
+          {["system", "light", "dark"].map(theme =>
+            <label key={theme} className={preference === theme ? "settings-theme-option selected" : "settings-theme-option"}>
+              <input type="radio" name="appearance-theme" value={theme} checked={preference === theme} onChange={() => void chooseTheme(theme)} />
+              <span>{theme[0].toUpperCase() + theme.slice(1)}</span>
+            </label>
+          )}
+        </fieldset>
+      </div>
+    </Group>
+    {saving && <p className="settings-feedback" role="status">Saving appearance preference…</p>}
+    {saveError && <p className="settings-feedback settings-feedback-error" role="alert">{saveError}</p>}
     <Group title="Interface" description="Additional personalization options may be added as the application grows."><Item title="Language" description="The interface currently uses English. Additional languages are not yet supported." value="English" /></Group>
   </Section>;
 }
