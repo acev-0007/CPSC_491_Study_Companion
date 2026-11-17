@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor, within, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, Navigate } from "react-router-dom";
 import Layout from "../components/Layout";
@@ -94,10 +94,13 @@ describe("Account settings workspace", () => {
   it("rejects mismatched passwords without calling the API", async () => {
     renderAccount("/account/security");
     await screen.findByRole("heading", { name: "Change password" });
+    const submitButton = screen.getByRole("button", { name: "Update password" });
+    await waitFor(() => expect(submitButton).toBeEnabled());
     await userEvent.type(screen.getByLabelText("Current password"), "oldPassword!123");
     await userEvent.type(screen.getByLabelText("New password", { exact: true }), "newPassword!456");
     await userEvent.type(screen.getByLabelText("Confirm new password"), "otherPassword!456");
-    await userEvent.click(screen.getByRole("button", { name: "Update password" }));
+    // Submit directly to test the React mismatch guard, independent of native form validation.
+    fireEvent.submit(submitButton.closest("form"));
     expect(await screen.findByRole("alert")).toHaveTextContent("New passwords do not match.");
     expect(changePassword).not.toHaveBeenCalled();
   });
