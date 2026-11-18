@@ -1,6 +1,11 @@
 async function parse(response) {
   const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.error || "Request failed.");
+  if (!response.ok) {
+    if (body.error) throw new Error(body.error);
+    if (response.status === 404) throw new Error("Account settings endpoint not found. Restart the updated backend server.");
+    if (response.status === 401) throw new Error("Your session has expired. Sign in again to save your preference.");
+    throw new Error(`Unable to complete account request (HTTP ${response.status}).`);
+  }
   return body;
 }
 export async function getAccount() {
@@ -18,7 +23,7 @@ export async function removeAvatar() {
 }
 
 export async function updatePreferences(theme) {
-  return parse(await fetch("/api/account/preferences", {
+  return parse(await fetch("/api/account", {
     method: "PATCH", credentials: "same-origin",
     headers: { "Content-Type": "application/json" }, body: JSON.stringify({ theme }),
   }));

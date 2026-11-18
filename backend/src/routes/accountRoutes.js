@@ -51,6 +51,7 @@ async function serialize(user, accessToken) {
     displayName: user.user_metadata?.display_name || "",
     createdAt: user.created_at,
     avatarUrl,
+    preferences: { theme: ["system", "light", "dark"].includes(user.user_metadata?.preferences?.theme) ? user.user_metadata.preferences.theme : "system" },
   };
 }
 
@@ -59,7 +60,32 @@ router.get("/", async (req, res, next) => {
   try { res.json({ user: await serialize(req.user, req.accessToken) }); } catch (error) { next(error); }
 });
 
+// Reuse the existing account endpoint for both profile-name and theme updates.
+// Keeping the update on /api/account avoids a separate route just for appearance.
+const THEMES = ["system", "light", "dark"];
+
+async function saveTheme(req, res) {
+  const { theme } = req.body ?? {};
+  if (!THEMES.includes(theme) || Object.keys(req.body ?? {}).some(key => key !== "theme")) {
+    return res.status(400).json({ error: "Choose System, Light, or Dark appearance." });
+  }
+  try {
+    const metadata = req.user.user_metadata ?? {};
+    const preferences = metadata.preferences && typeof metadata.preferences === "object" && !Array.isArray(metadata.preferences)
+      ? metadata.preferences : {};
+    const user = await updateMetadata(req, { preferences: { ...preferences, theme } });
+    return res.json({ user: await serialize(user, req.accessToken) });
+  } catch (error) {
+    console.error("Account preference update failed:", error);
+    return res.status(502).json({ error: "Unable to save appearance preference. Please try again." });
+  }
+}
+
 router.patch("/", async (req, res) => {
+  // Theme-only payloads are handled by the same route used for existing account edits.
+  if (req.body && Object.prototype.hasOwnProperty.call(req.body, "theme")) {
+    return saveTheme(req, res);
+  }
   const { displayName } = req.body ?? {};
   if (typeof displayName !== "string" || !displayName.trim() || displayName.trim().length > 80) {
     return res.status(400).json({ error: "Display name must contain 1–80 characters." });
@@ -72,6 +98,9 @@ router.patch("/", async (req, res) => {
     return res.status(502).json({ error: "Unable to update your name. Please try again." });
   }
 });
+
+// Preserve the original SCRUM-281 endpoint for clients already using it.
+router.patch("/preferences", saveTheme);
 
 router.post("/avatar", (req, res, next) => {
   upload.single("avatar")(req, res, error => {

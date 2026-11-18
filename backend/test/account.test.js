@@ -25,6 +25,7 @@ app.use("/api/account", accountRoutes);
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  user.user_metadata = { display_name: "Study User" };
   mock.createSignedUrl.mockReset().mockResolvedValue({ data: { signedUrl: "https://example.com/signed" }, error: null });
   mock.upload.mockReset().mockResolvedValue({ error: null });
   mock.remove.mockReset().mockResolvedValue({ error: null });
@@ -36,7 +37,7 @@ describe("SCRUM-280 account routes", () => {
   it("returns only the signed-in user's public profile", async () => {
     const res = await request(app).get("/api/account");
     expect(res.status).toBe(200);
-    expect(res.body.user).toEqual({ id: "user-a", email: "student@example.com", displayName: "Study User", createdAt: "2026-11-01T00:00:00Z", avatarUrl: null });
+    expect(res.body.user).toEqual({ id: "user-a", email: "student@example.com", displayName: "Study User", createdAt: "2026-11-01T00:00:00Z", avatarUrl: null, preferences: { theme: "system" } });
   });
   it("rejects anonymous access", async () => {
     expect((await request(app).get("/api/account").set("x-test-anonymous", "1")).status).toBe(401);
@@ -72,5 +73,51 @@ describe("SCRUM-280 account routes", () => {
     const res = await request(app).delete("/api/account/avatar");
     expect(res.status).toBe(200);
     expect(res.body.user.avatarUrl).toBe(null);
+  });
+});
+
+
+describe("SCRUM-281 account appearance preferences", () => {
+  it("returns system when no preference exists", async () => {
+    const res = await request(app).get("/api/account");
+    expect(res.body.user.preferences).toEqual({ theme: "system" });
+  });
+
+  it("rejects unauthenticated and invalid preference updates", async () => {
+    expect((await request(app).patch("/api/account").set("x-test-anonymous", "1").send({ theme: "dark" })).status).toBe(401);
+    for (const value of ["purple", null, 9, {}, []]) {
+      expect((await request(app).patch("/api/account").send({ theme: value })).status).toBe(400);
+    }
+    expect((await request(app).patch("/api/account").send({ theme: "dark", role: "admin" })).status).toBe(400);
+  });
+
+  it.each(["system", "light", "dark"])("updates %s and preserves unrelated metadata", async theme => {
+    const old = { display_name: "Study User", avatar_path: "user-a/picture.png", preferences: { notifications: false, theme: "light" } };
+    user.user_metadata = old;
+    const updated = { ...user, user_metadata: { ...old, preferences: { notifications: false, theme } } };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => updated }));
+    const res = await request(app).patch("/api/account").send({ theme });
+    expect(res.status).toBe(200);
+    expect(res.body.user.preferences).toEqual({ theme });
+    const payload = JSON.parse(vi.mocked(fetch).mock.calls[0][1].body);
+    expect(payload.data).toEqual(updated.user_metadata);
+  });
+
+  it("reports persistence failures without claiming success", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+    const res = await request(app).patch("/api/account").send({ theme: "dark" });
+    expect(res.status).toBe(502);
+    expect(res.body.error).toMatch(/unable to save appearance/i);
+  });
+});
+
+// Backward compatibility: existing clients calling the original preferences path still work.
+describe("SCRUM-281 legacy preferences route", () => {
+  it("accepts the original preferences endpoint", async () => {
+    const updated = { ...user, user_metadata: { ...user.user_metadata, preferences: { theme: "dark" } } };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => updated }));
+    const res = await request(app).patch("/api/account/preferences").send({ theme: "dark" });
+    expect(res.status).toBe(200);
+    expect(res.body.user.preferences.theme).toBe("dark");
   });
 });
