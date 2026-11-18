@@ -56,7 +56,7 @@ function AssignmentTracker() {
             assignmentId,
             hoursPerDay: 2,
             // Add the user's timezone to the request body
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           }),
         }
       );
