@@ -4,8 +4,8 @@ import { generateClaudeResponse } from "../providers/claudeProvider.js";
 import { parseQuiz } from "../quizValidator.js"; 
 import { requireAuth } from "../middleware/requireAuth.js"
 import { createUserSupabaseClient } from "../config/supabase.js";
-import { time } from "node:console";
 import { getDateInTimeZone } from "../utils/dateUtils.js"
+import { MAX_WORK_PLAN_SESSIONS } from "../utils/workPlanConstants.js"
 
 const router = Router();
 const MAX_FLASHCARD_TEXT_LENGTH = 20000;
@@ -355,6 +355,13 @@ router.post("/work-plan", requireAuth, async (req, res, next) => {
     }
 
     const requiredSessions = Math.ceil(estimatedHours / hoursPerDay);
+    if (requiredSessions > MAX_WORK_PLAN_SESSIONS) {
+      return res.status(400).json({
+        error:
+          `This assignment requires ${requiredSessions} study sessions, ` +
+          `but the maximum allowed is ${MAX_WORK_PLAN_SESSIONS}.`,
+      });
+    }
 
     const deadline = new Date(assignment.duedate);
     
