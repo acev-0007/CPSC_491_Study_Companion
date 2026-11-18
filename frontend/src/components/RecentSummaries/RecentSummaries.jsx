@@ -29,7 +29,7 @@ function RecentSummaries() {
         }
 
         if (!cancelled) {
-          setSummaries(data.summaries);
+          setSummaries(data.summaries.slice(0, 15));
         }
       } catch (requestError) {
         if (!cancelled) {

@@ -67,7 +67,8 @@ router.get("/", requireAuth, async (req, res, next) => {
       .from("generated_summaries")
       .select("id, source_text, summary_text, created_at")
       .eq("user_id", req.user.id)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(15);
 
     if (error) {
       console.error("Failed to retrieve summaries:", error);
