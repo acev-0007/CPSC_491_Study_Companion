@@ -7,9 +7,8 @@ import {
 import {
     createUserSupabaseClient
 } from "../config/supabase.js"
-import { time } from "node:console";
 import { getDateInTimeZone } from "../utils/dateUtils.js"
-import { type } from "node:os";
+import { MAX_WORK_PLAN_SESSIONS } from "../utils/workPlanConstants.js"
 
 
 const router = express.Router();
@@ -386,15 +385,13 @@ router.post("/work-plan", requireAuth, async (req, res) => {
             });
         }
 
-        const MAX_WORK_PLAN_SESSIONS = 30;
-
         if (
             !Array.isArray(workPlan) ||
             workPlan.length === 0 ||
             workPlan.length > MAX_WORK_PLAN_SESSIONS
         ) {
             return res.status(400).json({
-                error: "Work plan must contain 1 to 30 tasks.",
+                error: `Work plan must contain 1 to ${MAX_WORK_PLAN_SESSIONS} tasks.`,
             });
         }
 
