@@ -275,7 +275,7 @@ describe(
             "status"
           )
         ).toHaveTextContent(
-          /unavailable until this document is ready/i
+          /still being processed/i
         );
       }
     );

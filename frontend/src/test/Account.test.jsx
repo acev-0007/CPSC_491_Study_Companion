@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor, within, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, Navigate } from "react-router-dom";
 import Layout from "../components/Layout";
@@ -7,10 +7,10 @@ import Account from "../pages/Account";
 import ProtectedRoute from "../components/ProtectedRoute";
 import { ProfileSettings, SecuritySettings, PreferenceSettings, PrivacySettings, SettingsMenu } from "../components/Account/SettingsSections";
 import { getCurrentUser, logoutAccount } from "../api/auth";
-import { getAccount, updateAccount, uploadAvatar, removeAvatar } from "../api/account";
+import { getAccount, updateAccount, uploadAvatar, removeAvatar, changePassword } from "../api/account";
 
 vi.mock("../api/auth", () => ({ getCurrentUser: vi.fn(), logoutAccount: vi.fn() }));
-vi.mock("../api/account", () => ({ getAccount: vi.fn(), updateAccount: vi.fn(), uploadAvatar: vi.fn(), removeAvatar: vi.fn() }));
+vi.mock("../api/account", () => ({ getAccount: vi.fn(), updateAccount: vi.fn(), uploadAvatar: vi.fn(), removeAvatar: vi.fn(), changePassword: vi.fn() }));
 
 function renderAccount(path = "/account/profile") {
   return render(<MemoryRouter initialEntries={[path]}><Routes>
@@ -32,6 +32,7 @@ function renderAccount(path = "/account/profile") {
 
 describe("Account settings workspace", () => {
   beforeEach(() => {
+    vi.resetAllMocks();
     vi.stubEnv("VITE_ENABLE_ROUTE_PROTECTION", "true");
     getCurrentUser.mockResolvedValue({ user: { id: "one", email: "student@example.com" } });
     getAccount.mockResolvedValue({ user: { id: "one", email: "student@example.com", displayName: "Study User", createdAt: "2026-10-01T00:00:00Z", avatarUrl: null } });
@@ -77,6 +78,52 @@ describe("Account settings workspace", () => {
     expect(screen.getByRole("heading", { name: "Appearance" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("link", { name: "Data & Privacy" }));
     expect(screen.getByRole("heading", { name: "Account lifecycle" })).toBeInTheDocument();
+  });
+  it("updates password after confirmation and clears sensitive fields", async () => {
+    changePassword.mockResolvedValue({ message: "Password updated successfully." });
+    renderAccount("/account/security");
+    await screen.findByRole("heading", { name: "Change password" });
+    const submitButton = screen.getByRole("button", { name: "Update password" });
+    await waitFor(() => expect(submitButton).toBeEnabled());
+    await userEvent.type(screen.getByLabelText("Current password"), "oldPassword!123");
+    await userEvent.type(screen.getByLabelText("New password", { exact: true }), "newPassword!456");
+    await userEvent.type(screen.getByLabelText("Confirm new password"), "newPassword!456");
+    fireEvent.submit(submitButton.closest("form"));
+    await waitFor(() => expect(changePassword).toHaveBeenCalledWith("oldPassword!123", "newPassword!456", "newPassword!456"));
+    expect(await screen.findByRole("status")).toHaveTextContent("Password updated successfully.");
+    await waitFor(() => {
+      expect(screen.getByLabelText("Current password")).toHaveValue("");
+      expect(screen.getByLabelText("New password", { exact: true })).toHaveValue("");
+      expect(screen.getByLabelText("Confirm new password")).toHaveValue("");
+    });
+  });
+  it("rejects mismatched passwords without calling the API", async () => {
+    renderAccount("/account/security");
+    await screen.findByRole("heading", { name: "Change password" });
+    const submitButton = screen.getByRole("button", { name: "Update password" });
+    await waitFor(() => expect(submitButton).toBeEnabled());
+    await userEvent.type(screen.getByLabelText("Current password"), "oldPassword!123");
+    await userEvent.type(screen.getByLabelText("New password", { exact: true }), "newPassword!456");
+    await userEvent.type(screen.getByLabelText("Confirm new password"), "otherPassword!456");
+    // Submit directly to test the React mismatch guard, independent of native form validation.
+    fireEvent.submit(submitButton.closest("form"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("New passwords do not match.");
+    expect(changePassword).not.toHaveBeenCalled();
+  });
+  it("shows a safe error when password change fails", async () => {
+    changePassword.mockRejectedValue(new Error("Current password is incorrect."));
+    renderAccount("/account/security");
+    await screen.findByRole("heading", { name: "Change password" });
+    const submitButton = screen.getByRole("button", { name: "Update password" });
+    await waitFor(() => expect(submitButton).toBeEnabled());
+    await userEvent.type(screen.getByLabelText("Current password"), "oldPassword!123");
+    await userEvent.type(screen.getByLabelText("New password", { exact: true }), "newPassword!456");
+    await userEvent.type(screen.getByLabelText("Confirm new password"), "newPassword!456");
+    // Exercise React's submit handler directly, matching the mismatch test.
+    fireEvent.submit(submitButton.closest("form"));
+    await waitFor(() => expect(changePassword).toHaveBeenCalledWith("oldPassword!123", "newPassword!456", "newPassword!456"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Current password is incorrect.");
+    expect(screen.getByLabelText("Current password")).toHaveValue("oldPassword!123");
   });
   it("returns to dashboard with the main app sidebar restored", async () => {
     renderAccount();

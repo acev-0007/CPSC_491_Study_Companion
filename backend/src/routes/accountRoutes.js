@@ -2,7 +2,7 @@ import express from "express";
 import multer from "multer";
 import { randomUUID } from "node:crypto";
 import { requireAuth } from "../middleware/requireAuth.js";
-import { createUserSupabaseClient } from "../config/supabase.js";
+import { createSupabaseClient, createUserSupabaseClient } from "../config/supabase.js";
 
 const router = express.Router();
 const BUCKET = "avatars";
@@ -53,6 +53,68 @@ async function serialize(user, accessToken) {
     avatarUrl,
   };
 }
+
+// SCRUM-282: Password changes require a valid session AND proof of the current password.
+// Verify on a separate stateless Supabase client, never replacing the caller's cookies.
+router.patch("/password", requireAuth, async (req, res) => {
+  const { currentPassword, newPassword, confirmPassword } = req.body ?? {};
+  if (typeof currentPassword !== "string" || !currentPassword) {
+    return res.status(400).json({ error: "Enter your current password." });
+  }
+  if (typeof newPassword !== "string" || newPassword.length < 8 || newPassword.length > 128) {
+    return res.status(400).json({ error: "New password must contain 8–128 characters." });
+  }
+  if (typeof confirmPassword !== "string" || newPassword !== confirmPassword) {
+    return res.status(400).json({ error: "New passwords do not match." });
+  }
+  if (newPassword === currentPassword) {
+    return res.status(400).json({ error: "Choose a password different from your current password." });
+  }
+
+  try {
+    const verifier = createSupabaseClient();
+    const { data, error } = await verifier.auth.signInWithPassword({
+      email: req.user.email,
+      password: currentPassword,
+    });
+    if (error || data?.user?.id !== req.user.id) {
+      const throttled = Number(error?.status) === 429;
+      return res.status(throttled ? 429 : 400).json({
+        error: throttled ? "Too many attempts. Try again later." : "Current password is incorrect.",
+      });
+    }
+
+    // The Auth REST endpoint uses the user's existing verified access token.
+    // Include current_password so projects with Supabase's security toggle enabled
+    // also enforce their native current-password protection.
+    const response = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
+      method: "PUT",
+      headers: {
+        apikey: process.env.SUPABASE_PUBLISHABLE_KEY,
+        Authorization: `Bearer ${req.accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ password: newPassword, current_password: currentPassword }),
+    });
+    if (!response.ok) {
+      const result = await response.json().catch(() => ({}));
+      const code = String(result.code || "");
+      if (code === "same_password") return res.status(400).json({ error: "Choose a different password." });
+      if (code === "weak_password") return res.status(400).json({ error: "Password does not meet security requirements." });
+      if (code === "current_password_mismatch" || code === "current_password_required") {
+        return res.status(400).json({ error: "Current password is incorrect." });
+      }
+      if (response.status === 429) return res.status(429).json({ error: "Too many attempts. Try again later." });
+      if (response.status === 401 || response.status === 403) return res.status(401).json({ error: "Session expired. Please sign in again." });
+      return res.status(502).json({ error: "Unable to update password. Please try again." });
+    }
+    // Do not echo user details, credentials, or tokens returned by Supabase.
+    return res.json({ message: "Password updated successfully." });
+  } catch {
+    // Never log request bodies or upstream auth errors that might include credentials.
+    return res.status(502).json({ error: "Unable to update password. Please try again." });
+  }
+});
 
 router.use(requireAuth);
 router.get("/", async (req, res, next) => {
