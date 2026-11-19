@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import DocumentCard from "../components/textbookHub/DocumentCard";
 import DocumentUploadForm from "../components/textbookHub/DocumentUploadForm";
@@ -22,6 +22,13 @@ const CATEGORIES = [
   "Reference",
   "Other",
 ];
+
+const SORT_OPTIONS = {
+  NEWEST: "newest",
+  OLDEST: "oldest",
+  NAME_ASC: "name-asc",
+  NAME_DESC: "name-desc",
+};
 
 function getRequestError(
   requestError,
@@ -72,36 +79,120 @@ function TextbookHub() {
     setCourseFilter,
   ] = useState("All");
 
-  const courseOptions = [
-    ...new Set(
-      documents
-        .map(
-          (document) =>
-            document.course
-        )
-        .filter(Boolean)
-    ),
-  ].sort();
+  const [
+    sortOrder,
+    setSortOrder,
+  ] = useState(
+    SORT_OPTIONS.NEWEST
+  );
 
-  const filteredDocuments =
-    documents.filter(
-      (document) => {
-        const matchesCategory =
-          categoryFilter === "All" ||
-          document.category ===
-            categoryFilter;
+  const courseOptions =
+    useMemo(() => {
+      return [
+        ...new Set(
+          documents
+            .map(
+              (document) =>
+                document.course
+            )
+            .filter(Boolean)
+        ),
+      ].sort((a, b) =>
+        a.localeCompare(b)
+      );
+    }, [documents]);
 
-        const matchesCourse =
-          courseFilter === "All" ||
-          document.course ===
-            courseFilter;
+  const visibleDocuments =
+    useMemo(() => {
+      const filtered =
+        documents.filter(
+          (document) => {
+            const matchesCategory =
+              categoryFilter ===
+                "All" ||
+              document.category ===
+                categoryFilter;
 
-        return (
-          matchesCategory &&
-          matchesCourse
+            const matchesCourse =
+              courseFilter ===
+                "All" ||
+              document.course ===
+                courseFilter;
+
+            return (
+              matchesCategory &&
+              matchesCourse
+            );
+          }
         );
-      }
-    );
+
+      return [
+        ...filtered,
+      ].sort(
+        (
+          firstDocument,
+          secondDocument
+        ) => {
+          if (
+            sortOrder ===
+            SORT_OPTIONS.OLDEST
+          ) {
+            return (
+              new Date(
+                firstDocument.uploadedAt
+              ).getTime() -
+              new Date(
+                secondDocument.uploadedAt
+              ).getTime()
+            );
+          }
+
+          if (
+            sortOrder ===
+            SORT_OPTIONS.NAME_ASC
+          ) {
+            return (
+              firstDocument.name ??
+              ""
+            ).localeCompare(
+              secondDocument.name ??
+                ""
+            );
+          }
+
+          if (
+            sortOrder ===
+            SORT_OPTIONS.NAME_DESC
+          ) {
+            return (
+              secondDocument.name ??
+              ""
+            ).localeCompare(
+              firstDocument.name ??
+                ""
+            );
+          }
+
+          return (
+            new Date(
+              secondDocument.uploadedAt
+            ).getTime() -
+            new Date(
+              firstDocument.uploadedAt
+            ).getTime()
+          );
+        }
+      );
+    }, [
+      documents,
+      categoryFilter,
+      courseFilter,
+      sortOrder,
+    ]);
+
+  const hasActiveFilters =
+    categoryFilter !== "All" ||
+    courseFilter !== "All";
 
   useEffect(() => {
     let cancelled = false;
@@ -348,6 +439,11 @@ function TextbookHub() {
     setSelectedDocument(null);
   }
 
+  function clearFilters() {
+    setCategoryFilter("All");
+    setCourseFilter("All");
+  }
+
   return (
     <section className="textbook-hub">
       <header className="hub-page-header">
@@ -468,7 +564,81 @@ function TextbookHub() {
             )}
           </select>
         </label>
+
+        <label>
+          Sort
+
+          <select
+            value={sortOrder}
+            onChange={(event) =>
+              setSortOrder(
+                event.target.value
+              )
+            }
+          >
+            <option
+              value={
+                SORT_OPTIONS.NEWEST
+              }
+            >
+              Newest first
+            </option>
+
+            <option
+              value={
+                SORT_OPTIONS.OLDEST
+              }
+            >
+              Oldest first
+            </option>
+
+            <option
+              value={
+                SORT_OPTIONS.NAME_ASC
+              }
+            >
+              Name A–Z
+            </option>
+
+            <option
+              value={
+                SORT_OPTIONS.NAME_DESC
+              }
+            >
+              Name Z–A
+            </option>
+          </select>
+        </label>
+
+        <button
+          type="button"
+          className="hub-secondary-button"
+          onClick={clearFilters}
+          disabled={
+            !hasActiveFilters
+          }
+        >
+          Clear filters
+        </button>
       </div>
+
+      {!loading &&
+        documents.length > 0 && (
+          <p
+            className="hub-state"
+            role="status"
+          >
+            Showing{" "}
+            {
+              visibleDocuments.length
+            }{" "}
+            of {documents.length}{" "}
+            document
+            {documents.length === 1
+              ? ""
+              : "s"}.
+          </p>
+        )}
 
       {loading ? (
         <p
@@ -491,7 +661,7 @@ function TextbookHub() {
             library.
           </p>
         </div>
-      ) : filteredDocuments.length ===
+      ) : visibleDocuments.length ===
         0 ? (
         <div className="hub-empty-state">
           <h3>
@@ -499,14 +669,25 @@ function TextbookHub() {
           </h3>
 
           <p>
-            Try changing the
-            selected category or
-            course.
+            No documents match the
+            selected filters.
           </p>
+
+          {hasActiveFilters && (
+            <button
+              type="button"
+              className="hub-secondary-button"
+              onClick={
+                clearFilters
+              }
+            >
+              Clear filters
+            </button>
+          )}
         </div>
       ) : (
         <div className="document-grid">
-          {filteredDocuments.map(
+          {visibleDocuments.map(
             (document) => (
               <DocumentCard
                 key={document.id}
