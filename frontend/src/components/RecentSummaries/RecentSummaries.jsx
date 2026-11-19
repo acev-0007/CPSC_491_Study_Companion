@@ -1,11 +1,13 @@
 
 import { useEffect, useState } from "react";
+import ReactMarkdown from "react-markdown";
 
 function RecentSummaries({ limit = 5, refreshKey = 0 }) {
   const [summaries, setSummaries] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  
 
   useEffect(() => {
     let cancelled = false;
@@ -86,7 +88,9 @@ function RecentSummaries({ limit = 5, refreshKey = 0 }) {
           {selectedId === item.id && (
             <div className="recent-summary-detail">
               <h4>Generated Summary</h4>
-              <p>{item.summary}</p>
+              <div className="recent-summary-markdown">
+                <ReactMarkdown>{item.summary}</ReactMarkdown>
+              </div>
 
               <h4>Original Study Material</h4>
               <p>{item.sourceText}</p>

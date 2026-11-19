@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { getAiReadyDocumentContent } from "../api/documents";
 import "./Summarization.css";
+import ReactMarkdown from "react-markdown";
 
 
 function SummarizationContent() {
@@ -265,12 +266,17 @@ function SummarizationContent() {
         {summary && (
           <div className="summarization-result">
             <h2>Generated Summary</h2>
-            <p>{summary}</p>
+
+            <div className="summarization-markdown">
+              <ReactMarkdown>{summary}</ReactMarkdown>
+            </div>
+            
             {isSaving && (
               <p className="summarization-loading" role="status">
                 Saving your summary...
               </p>
             )}
+            
             {saveError && (
               <button
                 type="button"
