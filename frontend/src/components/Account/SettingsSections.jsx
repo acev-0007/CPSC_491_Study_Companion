@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
-import { updateAccount, uploadAvatar, removeAvatar } from "../../api/account";
+import { updateAccount, uploadAvatar, removeAvatar, changePassword } from "../../api/account";
 import { settingsItems } from "./settingsItems";
 
 function Section({ title, subtitle, children }) {
@@ -83,9 +83,48 @@ export function ProfileSettings() {
 }
 export function SecuritySettings() {
   const { user, loading, error } = useOutletContext();
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [actionError, setActionError] = useState("");
+  const submit = async event => {
+    event.preventDefault();
+    if (busy || loading || error) return;
+    setMessage(""); setActionError("");
+    if (!currentPassword) return setActionError("Enter your current password.");
+    if (newPassword.length < 8 || newPassword.length > 128) return setActionError("New password must contain 8–128 characters.");
+    if (newPassword !== confirmPassword) return setActionError("New passwords do not match.");
+    if (newPassword === currentPassword) return setActionError("Choose a password different from your current password.");
+    setBusy(true);
+    try {
+      await changePassword(currentPassword, newPassword, confirmPassword);
+      setCurrentPassword(""); setNewPassword(""); setConfirmPassword("");
+      setMessage("Password updated successfully.");
+    } catch (cause) { setActionError(cause.message || "Unable to update your password."); }
+    finally { setBusy(false); }
+  };
+  const disabled = loading || error || busy;
   return <Section title="Security" subtitle="Review your sign-in information and account protections.">
-    <Group title="Sign-in details" description="Your account's current login information."><Item title="Email address" description="Used to sign in and receive account-related messages." value={loading ? "Loading…" : error ? "Unavailable" : user?.email || "Not available"}/><Item title="Password management" description="Changing your password securely will be available later." future /></Group>
-    <Group title="Account access" description="Keep your account recoverable and protected."><Item title="Account recovery" description="Password recovery and reset management." future/><Item title="Email verification" description="Email confirmation is handled by your sign-in flow; account-status management is not yet available here." future/></Group>
+    <Group title="Sign-in details" description="Your account's current login information.">
+      <Item title="Email address" description="Used to sign in and receive account-related messages." value={loading ? "Loading…" : error ? "Unavailable" : user?.email || "Not available"}/>
+    </Group>
+    <Group title="Change password" description="Confirm your current password before choosing a new one.">
+      <form className="settings-password-form" onSubmit={submit}>
+        <label htmlFor="security-current-password">Current password</label>
+        <input id="security-current-password" type="password" autoComplete="current-password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} disabled={disabled} required />
+        <label htmlFor="security-new-password">New password</label>
+        <input id="security-new-password" type="password" autoComplete="new-password" value={newPassword} onChange={e => setNewPassword(e.target.value)} disabled={disabled} minLength={8} maxLength={128} aria-describedby="security-password-hint" required />
+        <p id="security-password-hint" className="settings-password-hint">Use at least 8 characters and a password you haven't used before.</p>
+        <label htmlFor="security-confirm-password">Confirm new password</label>
+        <input id="security-confirm-password" type="password" autoComplete="new-password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} disabled={disabled} required />
+        {actionError && <p className="settings-feedback settings-feedback-error" role="alert">{actionError}</p>}
+        {message && <p className="settings-feedback" role="status">{message}</p>}
+        <div className="settings-password-actions"><button type="submit" disabled={disabled}>{busy ? "Updating…" : "Update password"}</button></div>
+      </form>
+    </Group>
+    <Group title="Account access" description="Keep your account recoverable and protected."><Item title="Account recovery" description="If you forget your password, use the existing recovery option on the sign-in page." value="Available at sign in"/><Item title="Email verification" description="Email confirmation is handled by your sign-in flow; account-status management is not yet available here." future/></Group>
   </Section>;
 }
 export function PreferenceSettings() {
