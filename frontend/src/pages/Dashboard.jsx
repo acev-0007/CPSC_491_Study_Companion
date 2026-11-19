@@ -77,7 +77,7 @@ function Dashboard() {
           </div>
         </div>
 
-        <RecentSummaries />
+        <RecentSummaries limit={5} />
       </section>
     </div>
   );

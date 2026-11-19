@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from "react";
 
-function RecentSummaries() {
+function RecentSummaries({ limit = 5, refreshKey = 0 }) {
   const [summaries, setSummaries] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -29,7 +29,7 @@ function RecentSummaries() {
         }
 
         if (!cancelled) {
-          setSummaries(data.summaries.slice(0, 15));
+          setSummaries(data.summaries.slice(0, limit));
         }
       } catch (requestError) {
         if (!cancelled) {
@@ -50,7 +50,7 @@ function RecentSummaries() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [limit, refreshKey]);
 
   if (loading) {
     return <p role="status">Loading saved summaries...</p>;
