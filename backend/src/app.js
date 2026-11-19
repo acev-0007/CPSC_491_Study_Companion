@@ -228,17 +228,21 @@ export function createApp({
     requireAuth,
 
     async (req, res, next) => {
+      let store;
+      let document;
+      let retryStarted = false;
+
       try {
-        const store =
+        store =
           new SupabaseDocumentStore(
             req.accessToken
           );
 
-        const document =
+        document =
           await store.getForUser(
             req.params.id,
             req.user.id
-          );
+      );
 
         if (!document) {
           return res
@@ -300,23 +304,32 @@ export function createApp({
           throw error;
         }
 
-        await store.updateProcessingState(
-          document.id,
-          req.user.id,
-          {
-            status:
-              "processing",
+        const processingDocument =
+          await store.updateProcessingState(
+            document.id,
+            req.user.id,
+            {
+              status:
+                "processing",
 
-            extractionError:
-              null,
+              extractionError:
+                null,
 
-            textLength:
-              0,
+              textLength:
+                0,
 
-            extractedText:
-              "",
-          }
-        );
+              extractedText:
+                "",
+            }
+          );
+
+        if (!processingDocument) {
+          throw new Error(
+            "Document processing record could not be updated."
+          );
+        }
+
+        retryStarted = true;
 
         const retryFile = {
           originalname:
@@ -375,22 +388,23 @@ export function createApp({
             });
         }
 
-        await store.updateProcessingState(
-          document.id,
-          req.user.id,
-          {
-            status:
-              "processing",
+        const processingDocumentWithText =
+          await store.updateProcessingState(
+            document.id,
+            req.user.id,
+            {
+              status: "processing",
+              extractionError: null,
+              textLength: extractedText.length,
+              extractedText,
+            }
+          );
 
-            extractionError:
-              null,
-
-            textLength:
-              extractedText.length,
-
-            extractedText,
-          }
-        );
+        if (!processingDocumentWithText) {
+          throw new Error(
+            "Document processing record could not be updated."
+          );
+        }
 
         try {
           const chunks =
@@ -467,6 +481,32 @@ export function createApp({
           });
 
       } catch (error) {
+        if (
+          retryStarted &&
+          store &&
+          document
+        ) {
+          try {
+            await store.updateProcessingState(
+              document.id,
+              req.user.id,
+              {
+                status:
+                  "failed",
+
+                extractionError:
+                  error.message ||
+                  "Document processing failed unexpectedly.",
+              }
+            );
+          } catch (recoveryError) {
+            console.error(
+              "Failed to restore document retry state:",
+              recoveryError
+            );
+          }
+        }
+
         next(error);
       }
     }
@@ -938,6 +978,8 @@ export function createApp({
               "Document processing record could not be updated."
             );
           }
+
+          
 
 
           return res
