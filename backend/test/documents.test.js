@@ -38,6 +38,9 @@ const mockDocumentOperations = [];
 let failNextDocumentInsert = false;
 let failNextChunkInsert = false;
 
+let documentUpdateCount = 0;
+let failDocumentUpdateOnCall = null;
+
 
 function clone(value) {
   return JSON.parse(
@@ -144,6 +147,29 @@ function createFakeQuery(
     }
 
     if (operation === "update") {
+      if (
+        tableName === "documents"
+      ) {
+        documentUpdateCount += 1;
+
+        if (
+          failDocumentUpdateOnCall ===
+          documentUpdateCount
+        ) {
+          failDocumentUpdateOnCall =
+            null;
+
+          return {
+            data:
+              null,
+
+            error:
+              new Error(
+                "Simulated document update failure"
+              ),
+          };
+        }
+      }
       const index =
         tableRows.findIndex(
           matches
@@ -667,6 +693,10 @@ describe(
         failNextChunkInsert =
           false;
 
+        documentUpdateCount = 0;
+
+        failDocumentUpdateOnCall = null;
+
 
         tempRoot =
           await mkdtemp(
@@ -991,10 +1021,9 @@ describe(
 
 
         expect(
-          response.body
-            .error
+          response.body.error
         ).toMatch(
-          /only txt and pdf/i
+          /only txt, pdf, and docx/i
         );
 
 
@@ -2547,7 +2576,653 @@ describe(
     );
 
 
+    it(
+      "retries a failed document using the same document record",
+
+      async () => {
+        const uploadResponse =
+          await request(
+            app
+          )
+            .post(
+              "/api/documents"
+            )
+            .set(
+              "Cookie",
+              `${ACCESS_COOKIE}=student-1-token`
+            )
+            .attach(
+              "file",
+
+              Buffer.from(
+                "Retry processing should reuse this stored document."
+              ),
+
+              {
+                filename:
+                  "retry-notes.txt",
+
+                contentType:
+                  "text/plain",
+              }
+            );
+
+
+        expect(
+          uploadResponse.status
+        ).toBe(
+          201
+        );
+
+
+        const documentId =
+          uploadResponse
+            .body
+            .document
+            .id;
+
+
+        const storedDocument =
+          mockDocuments.find(
+            (document) =>
+              document.id ===
+              documentId
+          );
+
+
+        storedDocument.status =
+          "failed";
+
+        storedDocument.extraction_error =
+          "Simulated recoverable failure";
+
+        storedDocument.text_length =
+          0;
+
+        storedDocument.extracted_text =
+          "";
+
+
+        mockDocumentChunks.length =
+          0;
+
+
+        const documentCountBeforeRetry =
+          mockDocuments.length;
+
+
+        const response =
+          await request(
+            app
+          )
+            .post(
+              `/api/documents/${documentId}/retry`
+            )
+            .set(
+              "Cookie",
+              `${ACCESS_COOKIE}=student-1-token`
+            );
+
+
+        expect(
+          response.status
+        ).toBe(
+          200
+        );
+
+
+        expect(
+          response.body
+            .document
+            .id
+        ).toBe(
+          documentId
+        );
+
+
+        expect(
+          response.body
+            .document
+            .status
+        ).toBe(
+          "ready"
+        );
+
+
+        expect(
+          mockDocuments
+        ).toHaveLength(
+          documentCountBeforeRetry
+        );
+
+
+        const retriedDocument =
+          mockDocuments.find(
+            (document) =>
+              document.id ===
+              documentId
+          );
+
+        expect(
+          retriedDocument.status
+        ).toBe(
+          "ready"
+        );
+
+        expect(
+          retriedDocument
+            .extraction_error
+        ).toBeNull();
+
+        expect(
+          retriedDocument
+            .text_length
+        ).toBeGreaterThan(
+          0
+        );
+
+
+        expect(
+          mockDocumentChunks
+            .length
+        ).toBeGreaterThan(
+          0
+        );
+
+
+        expect(
+          mockDocumentChunks[
+            0
+          ].document_id
+        ).toBe(
+          documentId
+        );
+      }
+    );
+
+
+    it(
+      "does not retry a document that is already ready",
+
+      async () => {
+        const uploadResponse =
+          await request(
+            app
+          )
+            .post(
+              "/api/documents"
+            )
+            .set(
+              "Cookie",
+              `${ACCESS_COOKIE}=student-1-token`
+            )
+            .attach(
+              "file",
+
+              Buffer.from(
+                "Already processed document"
+              ),
+
+              {
+                filename:
+                  "already-ready.txt",
+
+                contentType:
+                  "text/plain",
+              }
+            );
+
+
+        const documentId =
+          uploadResponse
+            .body
+            .document
+            .id;
+
+
+        const response =
+          await request(
+            app
+          )
+            .post(
+              `/api/documents/${documentId}/retry`
+            )
+            .set(
+              "Cookie",
+              `${ACCESS_COOKIE}=student-1-token`
+            );
+
+
+        expect(
+          response.status
+        ).toBe(
+          409
+        );
+
+
+        expect(
+          response.body.error
+        ).toMatch(
+          /only failed documents can be retried/i
+        );
+
+
+        expect(
+          mockDocuments[
+            0
+          ].status
+        ).toBe(
+          "ready"
+        );
+      }
+    );
+
+
+
+
+
+    it(
+      "does not allow another user to retry a document",
+
+      async () => {
+        const uploadResponse =
+          await request(
+            app
+          )
+            .post(
+              "/api/documents"
+            )
+            .set(
+              "Cookie",
+              `${ACCESS_COOKIE}=student-1-token`
+            )
+            .attach(
+              "file",
+
+              Buffer.from(
+                "Private retry document"
+              ),
+
+              {
+                filename:
+                  "private-retry.txt",
+
+                contentType:
+                  "text/plain",
+              }
+            );
+
+
+        const documentId =
+          uploadResponse
+            .body
+            .document
+            .id;
+
+
+        const storedDocument =
+          mockDocuments.find(
+            (document) =>
+              document.id ===
+              documentId
+          );
+
+
+        storedDocument.status =
+          "failed";
+
+
+        const response =
+          await request(
+            app
+          )
+            .post(
+              `/api/documents/${documentId}/retry`
+            )
+            .set(
+              "Cookie",
+              `${ACCESS_COOKIE}=student-2-token`
+            );
+
+
+        expect(
+          response.status
+        ).toBe(
+          404
+        );
+
+
+        expect(
+          response.body.error
+        ).toMatch(
+          /document not found/i
+        );
+
+
+        expect(
+          storedDocument.status
+        ).toBe(
+          "failed"
+        );
+      }
+    );
+
+
+
+
+    it(
+      "returns a controlled error when the original retry file is missing",
+
+      async () => {
+        const uploadResponse =
+          await request(
+            app
+          )
+            .post(
+              "/api/documents"
+            )
+            .set(
+              "Cookie",
+              `${ACCESS_COOKIE}=student-1-token`
+            )
+            .attach(
+              "file",
+
+              Buffer.from(
+                "Missing source file test"
+              ),
+
+              {
+                filename:
+                  "missing-source.txt",
+
+                contentType:
+                  "text/plain",
+              }
+            );
+
+
+        const documentId =
+          uploadResponse
+            .body
+            .document
+            .id;
+
+
+        const storedDocument =
+          mockDocuments.find(
+            (document) =>
+              document.id ===
+              documentId
+          );
+
+
+        storedDocument.status =
+          "failed";
+
+
+        await rm(
+          path.join(
+            tempRoot,
+            "uploads",
+            storedDocument.stored_filename
+          ),
+          {
+            force:
+              true,
+          }
+        );
+
+
+        const response =
+          await request(
+            app
+          )
+            .post(
+              `/api/documents/${documentId}/retry`
+            )
+            .set(
+              "Cookie",
+              `${ACCESS_COOKIE}=student-1-token`
+            );
+
+
+        expect(
+          response.status
+        ).toBe(
+          422
+        );
+
+
+        expect(
+          response.body.error
+        ).toMatch(
+          /original uploaded file is unavailable/i
+        );
+
+
+        expect(
+          storedDocument.status
+        ).toBe(
+          "failed"
+        );
+      }
+    );
+
+
+
+    it(
+      "keeps a document failed when retry extraction fails again",
+
+      async () => {
+        const uploadResponse =
+          await request(
+            app
+          )
+            .post(
+              "/api/documents"
+            )
+            .set(
+              "Cookie",
+              `${ACCESS_COOKIE}=student-1-token`
+            )
+            .attach(
+              "file",
+
+              Buffer.from(
+                "this is not actually a pdf"
+              ),
+
+              {
+                filename:
+                  "retry-broken.pdf",
+
+                contentType:
+                  "application/pdf",
+              }
+            );
+
+
+        expect(
+          uploadResponse.status
+        ).toBe(
+          201
+        );
+
+
+        expect(
+          uploadResponse.body
+            .document
+            .status
+        ).toBe(
+          "failed"
+        );
+
+
+        const documentId =
+          uploadResponse.body
+            .document
+            .id;
+
+
+        const response =
+          await request(
+            app
+          )
+            .post(
+              `/api/documents/${documentId}/retry`
+            )
+            .set(
+              "Cookie",
+              `${ACCESS_COOKIE}=student-1-token`
+            );
+
+
+        expect(
+          response.status
+        ).toBe(
+          422
+        );
+
+
+        expect(
+          response.body
+            .document
+            .status
+        ).toBe(
+          "failed"
+        );
+
+
+        expect(
+          mockDocuments[
+            0
+          ].status
+        ).toBe(
+          "failed"
+        );
+
+
+        expect(
+          mockDocumentChunks
+        ).toHaveLength(
+          0
+        );
+      }
+    );
     
+
+    it(
+      "restores failed status when retry processing throws unexpectedly",
+
+      async () => {
+        const uploadResponse =
+          await request(
+            app
+          )
+            .post(
+              "/api/documents"
+            )
+            .set(
+              "Cookie",
+              `${ACCESS_COOKIE}=student-1-token`
+            )
+            .attach(
+              "file",
+
+              Buffer.from(
+                "Unexpected retry failure test"
+              ),
+
+              {
+                filename:
+                  "retry-unexpected.txt",
+
+                contentType:
+                  "text/plain",
+              }
+            );
+
+
+        const documentId =
+          uploadResponse
+            .body
+            .document
+            .id;
+
+
+        const storedDocument =
+          mockDocuments.find(
+            (document) =>
+              document.id ===
+              documentId
+          );
+
+
+        storedDocument.status =
+          "failed";
+
+        storedDocument.extraction_error =
+          "Original failure";
+
+
+        /*
+        * Upload already performed two document updates:
+        *   1. processing with extracted text
+        *   2. ready
+        *
+        * Retry update #3 sets processing before extraction.
+        * Retry update #4 saves extracted text.
+        *
+        * Fail update #4 so retryStarted is already true.
+        */
+        failDocumentUpdateOnCall =
+          documentUpdateCount + 2;
+
+
+        const response =
+          await request(
+            app
+          )
+            .post(
+              `/api/documents/${documentId}/retry`
+            )
+            .set(
+              "Cookie",
+              `${ACCESS_COOKIE}=student-1-token`
+            );
+
+
+        expect(
+          response.status
+        ).toBe(
+          500
+        );
+
+
+        const recoveredDocument =
+          mockDocuments.find(
+            (document) =>
+              document.id ===
+              documentId
+          );
+
+        expect(
+          recoveredDocument.status
+        ).toBe(
+          "failed"
+        );
+
+        expect(
+          recoveredDocument
+            .extraction_error
+        ).toMatch(
+          /simulated document update failure/i
+        );
+      }
+    );
+
+
 
     it(
       "does not allow a user to delete another user's document",

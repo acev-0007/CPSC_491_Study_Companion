@@ -7,7 +7,7 @@ import { getFlashcards } from "../../data/flashcardSource";
 import { listDecks } from "../../services/flashcardDecks";
 import { generateFlashcards } from "../../services/flashcardGeneration";
 import { saveGeneratedFlashcards } from "../../services/flashcardPersistence";
-
+import { MemoryRouter } from "react-router-dom";
 // FLASH-UI-4: regression tests for asynchronous safety.
 // Each test controls when a mocked request settles, so we can prove that a
 // response arriving after the student has moved on does not change the view.
@@ -29,6 +29,15 @@ vi.mock("../../services/flashcardGeneration", async (importOriginal) => {
 vi.mock("../../services/flashcardPersistence", () => ({
   saveGeneratedFlashcards: vi.fn(),
 }));
+
+
+function renderFlashcards(initialEntries = ["/flashcards"]) {
+  return render(
+    <MemoryRouter initialEntries={initialEntries}>
+      <Flashcards />
+    </MemoryRouter>
+  );
+}
 
 const DECK = {
   id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
@@ -83,7 +92,7 @@ describe("Flashcards reliability - stale deck-list responses (FLASH-UI-4)", () =
     const pending = deferred();
     listDecks.mockReturnValue(pending.promise);
 
-    render(<Flashcards />);
+    renderFlashcards();
 
     await user.click(
       screen.getByRole("button", { name: "Study Saved Flashcards" })
@@ -112,7 +121,7 @@ describe("Flashcards reliability - stale deck-list responses (FLASH-UI-4)", () =
     const pending = deferred();
     listDecks.mockReturnValue(pending.promise);
 
-    render(<Flashcards />);
+    renderFlashcards();
 
     await user.click(
       screen.getByRole("button", { name: "Study Saved Flashcards" })
@@ -139,7 +148,7 @@ describe("Flashcards reliability - stale deck cards (FLASH-UI-4)", () => {
     listDecks.mockResolvedValue([DECK]);
     getFlashcards.mockReturnValue(pendingCards.promise);
 
-    render(<Flashcards />);
+    renderFlashcards();
 
     await user.click(
       screen.getByRole("button", { name: "Study Saved Flashcards" })
@@ -170,7 +179,7 @@ describe("Flashcards reliability - stale generation (FLASH-UI-4)", () => {
     const pending = deferred();
     generateFlashcards.mockReturnValue(pending.promise);
 
-    render(<Flashcards />);
+    renderFlashcards();
     await startGeneration(user);
 
     // Generation is in flight; the student backs out.
@@ -195,7 +204,7 @@ describe("Flashcards reliability - stale generation (FLASH-UI-4)", () => {
     const pending = deferred();
     generateFlashcards.mockReturnValue(pending.promise);
 
-    render(<Flashcards />);
+    renderFlashcards();
     await startGeneration(user);
 
     pending.resolve({
@@ -220,7 +229,7 @@ describe("Flashcards reliability - rejected generation (FLASH-UI-4)", () => {
     globalThis.process.on("unhandledRejection", unhandled);
 
     try {
-      render(<Flashcards />);
+      renderFlashcards();
       await startGeneration(user);
 
       await user.click(screen.getByRole("button", { name: /back/i }));
@@ -246,7 +255,7 @@ describe("Flashcards reliability - rejected generation (FLASH-UI-4)", () => {
     const user = userEvent.setup();
     generateFlashcards.mockRejectedValue(new Error("provider unavailable"));
 
-    render(<Flashcards />);
+    renderFlashcards();
     await startGeneration(user);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
@@ -266,7 +275,7 @@ describe("Flashcards reliability - in-flight save (FLASH-UI-4)", () => {
     });
     saveGeneratedFlashcards.mockReturnValue(pendingSave.promise);
 
-    render(<Flashcards />);
+    renderFlashcards();
     await startGeneration(user);
     await screen.findByText("AI-generated deck");
 
