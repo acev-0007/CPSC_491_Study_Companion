@@ -1,0 +1,25 @@
+# SCRUM-226: provider-independent verification of the GitHub production approval gate.
+# This workflow NEVER deploys and intentionally receives no production secrets.
+name: Production Protection Readiness Check
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  approval-check:
+    name: Verify production approval gate
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 5
+    steps:
+      - name: Record approved readiness check
+        run: |
+          echo "Production environment approval gate passed. No deployment performed."
+          echo "## SCRUM-226 Production Readiness Check" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Result:** Environment gate released; no deployment performed." >> "$GITHUB_STEP_SUMMARY"
+          echo "**Commit:** $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Run:** $GITHUB_RUN_ID" >> "$GITHUB_STEP_SUMMARY"
