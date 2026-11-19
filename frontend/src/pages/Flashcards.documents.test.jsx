@@ -328,7 +328,7 @@ describe(
             "alert"
           )
         ).toHaveTextContent(
-          /not ready/i
+          /still being processed/i
         );
 
         expect(
@@ -365,7 +365,7 @@ describe(
             "alert"
           )
         ).toHaveTextContent(
-          /not ready/i
+          /still being processed/i
         );
 
         expect(
