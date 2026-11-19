@@ -1,9 +1,18 @@
 import { useEffect, useState } from "react";
+
 import DocumentCard from "../components/textbookHub/DocumentCard";
 import DocumentUploadForm from "../components/textbookHub/DocumentUploadForm";
-import {listDocuments, uploadDocument, updateDocument, deleteDocument, retryDocument,} from "../api/documents";
-import "./TextbookHub.css";
 import DocumentDetailModal from "../components/textbookHub/DocumentDetailModal";
+
+import {
+  listDocuments,
+  uploadDocument,
+  updateDocument,
+  deleteDocument,
+  retryDocument,
+} from "../api/documents";
+
+import "./TextbookHub.css";
 
 const CATEGORIES = [
   "Textbook",
@@ -13,56 +22,116 @@ const CATEGORIES = [
   "Reference",
   "Other",
 ];
+
+function getRequestError(
+  requestError,
+  fallback
+) {
+  if (
+    typeof requestError?.message ===
+      "string" &&
+    requestError.message.trim()
+  ) {
+    return requestError.message;
+  }
+
+  return fallback;
+}
+
 function TextbookHub() {
-  const [documents, setDocuments] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState("");
-  const [category, setCategory] = useState("Other");
-  const [course, setCourse] = useState("");
-  const [selectedDocument, setSelectedDocument] = useState(null);
+  const [documents, setDocuments] =
+    useState([]);
 
+  const [loading, setLoading] =
+    useState(true);
 
+  const [uploading, setUploading] =
+    useState(false);
 
-  const [categoryFilter, setCategoryFilter] = useState("All");
-  const [courseFilter, setCourseFilter] = useState("All");
+  const [error, setError] =
+    useState("");
+
+  const [category, setCategory] =
+    useState("Other");
+
+  const [course, setCourse] =
+    useState("");
+
+  const [
+    selectedDocument,
+    setSelectedDocument,
+  ] = useState(null);
+
+  const [
+    categoryFilter,
+    setCategoryFilter,
+  ] = useState("All");
+
+  const [
+    courseFilter,
+    setCourseFilter,
+  ] = useState("All");
 
   const courseOptions = [
-  ...new Set(
-    documents
-      .map((document) => document.course)
-      .filter(Boolean)),].sort();
+    ...new Set(
+      documents
+        .map(
+          (document) =>
+            document.course
+        )
+        .filter(Boolean)
+    ),
+  ].sort();
 
-  const filteredDocuments = documents.filter((document) => {
-  const matchesCategory =
-    categoryFilter === "All" ||
-    document.category === categoryFilter;
+  const filteredDocuments =
+    documents.filter(
+      (document) => {
+        const matchesCategory =
+          categoryFilter === "All" ||
+          document.category ===
+            categoryFilter;
 
-  const matchesCourse =
-    courseFilter === "All" ||
-    document.course === courseFilter;
+        const matchesCourse =
+          courseFilter === "All" ||
+          document.course ===
+            courseFilter;
 
-  return matchesCategory && matchesCourse;});
+        return (
+          matchesCategory &&
+          matchesCourse
+        );
+      }
+    );
 
-
-  
-    //used to be const Load documents, changed for linting purposes.
   useEffect(() => {
     let cancelled = false;
 
     listDocuments()
-      .then((loadedDocuments) => {
-        if (!cancelled) {
-          setDocuments(
-            Array.isArray(loadedDocuments) ? loadedDocuments : []
-          );
+      .then(
+        (loadedDocuments) => {
+          if (!cancelled) {
+            setDocuments(
+              Array.isArray(
+                loadedDocuments
+              )
+                ? loadedDocuments
+                : []
+            );
+          }
         }
-      })
-      .catch((requestError) => {
-        if (!cancelled) {
-          setError(requestError.message);
+      )
+      .catch(
+        (requestError) => {
+          if (!cancelled) {
+            setError(
+              getRequestError(
+                requestError,
+                "Could not load your documents. Please try again."
+              )
+            );
+          }
         }
-      })
+      )
       .finally(() => {
         if (!cancelled) {
           setLoading(false);
@@ -79,212 +148,404 @@ function TextbookHub() {
     setError("");
 
     try {
-      const loadedDocuments = await listDocuments();
+      const loadedDocuments =
+        await listDocuments();
 
       setDocuments(
-        Array.isArray(loadedDocuments) ? loadedDocuments : []
+        Array.isArray(
+          loadedDocuments
+        )
+          ? loadedDocuments
+          : []
       );
     } catch (requestError) {
-      setError(requestError.message);
+      setError(
+        getRequestError(
+          requestError,
+          "Could not refresh your documents. Please try again."
+        )
+      );
     } finally {
       setLoading(false);
     }
   }
-
-
 
   async function handleUpload(file) {
     setUploading(true);
     setError("");
 
     try {
-      const created = await uploadDocument(file, category, course);
-      setDocuments((current) => [created, ...current]);
+      const created =
+        await uploadDocument(
+          file,
+          category,
+          course
+        );
+
+      setDocuments(
+        (current) => [
+          created,
+          ...current,
+        ]
+      );
+
       setCategory("Other");
       setCourse("");
+
       return true;
     } catch (requestError) {
-      setError(requestError.message);
+      setError(
+        getRequestError(
+          requestError,
+          "Could not upload this document. Please try again."
+        )
+      );
+
       return false;
     } finally {
       setUploading(false);
     }
   }
 
-  async function handleDeleteDocument(id) {
+  async function handleDeleteDocument(
+    id
+  ) {
     setError("");
 
     try {
       await deleteDocument(id);
 
-      setDocuments((current) =>
-        current.filter((document) => document.id !== id)
+      setDocuments(
+        (current) =>
+          current.filter(
+            (document) =>
+              document.id !== id
+          )
       );
 
       setSelectedDocument(null);
 
-      return true;
+      return {
+        success: true,
+      };
     } catch (requestError) {
-      setError(requestError.message);
-      return false;
+      const message =
+        getRequestError(
+          requestError,
+          "Could not delete this document. Please try again."
+        );
+
+      setError(message);
+
+      return {
+        success: false,
+        error: message,
+      };
     }
   }
 
-  async function handleUpdateDocument(id, updates) {
+  async function handleUpdateDocument(
+    id,
+    updates
+  ) {
     setError("");
 
     try {
-      const updated = await updateDocument(id, updates);
+      const updated =
+        await updateDocument(
+          id,
+          updates
+        );
 
-      setDocuments((current) =>
-        current.map((document) =>
-          document.id === updated.id ? updated : document
-        )
+      setDocuments(
+        (current) =>
+          current.map(
+            (document) =>
+              document.id ===
+              updated.id
+                ? updated
+                : document
+          )
       );
 
-      setSelectedDocument(updated);
+      setSelectedDocument(
+        updated
+      );
 
-      return true;
+      return {
+        success: true,
+      };
     } catch (requestError) {
-      setError(requestError.message);
-      return false;
+      const message =
+        getRequestError(
+          requestError,
+          "Could not save document changes. Please try again."
+        );
+
+      setError(message);
+
+      return {
+        success: false,
+        error: message,
+      };
     }
   }
 
-  async function handleRetryDocument(id) {
+  async function handleRetryDocument(
+    id
+  ) {
     setError("");
 
     try {
-      const updated = await retryDocument(id);
+      const updated =
+        await retryDocument(id);
 
-      setDocuments((current) =>
-        current.map((document) =>
-          document.id === updated.id
-            ? updated
-            : document
-        )
+      setDocuments(
+        (current) =>
+          current.map(
+            (document) =>
+              document.id ===
+              updated.id
+                ? updated
+                : document
+          )
       );
 
-      setSelectedDocument(updated);
+      setSelectedDocument(
+        updated
+      );
 
-      return true;
+      return {
+        success: true,
+      };
     } catch (requestError) {
-      setError(requestError.message);
-      return false;
+      const message =
+        getRequestError(
+          requestError,
+          "Could not retry document processing. Please try again."
+        );
+
+      setError(message);
+
+      return {
+        success: false,
+        error: message,
+      };
     }
+  }
+
+  function handleOpenDocument(
+    document
+  ) {
+    setError("");
+    setSelectedDocument(
+      document
+    );
+  }
+
+  function handleCloseDocument() {
+    setError("");
+    setSelectedDocument(null);
   }
 
   return (
     <section className="textbook-hub">
       <header className="hub-page-header">
         <div>
-          <p className="hub-eyebrow">Study materials</p>
-          <h2>Textbook Hub</h2>
+          <p className="hub-eyebrow">
+            Study materials
+          </p>
+
+          <h2>
+            Textbook Hub
+          </h2>
+
           <p className="hub-intro">
-            Upload your TXT, PDF, and DOCX study documents so they can be organized here and
-            read by AI study features later.
+            Upload your TXT, PDF,
+            and DOCX study
+            documents so they can
+            be organized here and
+            read by AI study
+            features later.
           </p>
         </div>
       </header>
 
-      <DocumentUploadForm onUpload={handleUpload} uploading={uploading} category={category} setCategory={setCategory} categories={CATEGORIES} course={course} setCourse={setCourse}/>
+      <DocumentUploadForm
+        onUpload={handleUpload}
+        uploading={uploading}
+        category={category}
+        setCategory={setCategory}
+        categories={CATEGORIES}
+        course={course}
+        setCourse={setCourse}
+      />
 
-      {error && (
-        <p className="hub-message hub-message-error" role="alert">
-          {error}
-        </p>
-      )}
+      {error &&
+        !selectedDocument && (
+          <p
+            className="hub-message hub-message-error"
+            role="alert"
+          >
+            {error}
+          </p>
+        )}
 
       <div className="hub-library-heading">
-        <h2>Your documents --- (select a card to edit or delete)</h2>
-        <button className="hub-secondary-button" type="button" onClick={loadDocuments}>
-          Refresh
+        <h2>
+          Your documents — select
+          a card to view, edit, or
+          delete
+        </h2>
+
+        <button
+          className="hub-secondary-button"
+          type="button"
+          onClick={loadDocuments}
+          disabled={loading}
+        >
+          {loading
+            ? "Refreshing..."
+            : "Refresh"}
         </button>
       </div>
-
-
-
 
       <div className="hub-filters">
         <label>
           Category
+
           <select
-            value={categoryFilter}
+            value={
+              categoryFilter
+            }
             onChange={(event) =>
-              setCategoryFilter(event.target.value)
+              setCategoryFilter(
+                event.target.value
+              )
             }
           >
-            <option value="All">All categories</option>
+            <option value="All">
+              All categories
+            </option>
 
-            {CATEGORIES.map((category) => (
-              <option key={category} value={category}>
-                {category}
-              </option>
-            ))}
+            {CATEGORIES.map(
+              (option) => (
+                <option
+                  key={option}
+                  value={option}
+                >
+                  {option}
+                </option>
+              )
+            )}
           </select>
         </label>
 
         <label>
           Course
+
           <select
             value={courseFilter}
             onChange={(event) =>
-              setCourseFilter(event.target.value)
+              setCourseFilter(
+                event.target.value
+              )
             }
           >
-            <option value="All">All courses</option>
+            <option value="All">
+              All courses
+            </option>
 
-            {courseOptions.map((course) => (
-              <option key={course} value={course}>
-                {course}
-              </option>
-            ))}
+            {courseOptions.map(
+              (option) => (
+                <option
+                  key={option}
+                  value={option}
+                >
+                  {option}
+                </option>
+              )
+            )}
           </select>
         </label>
       </div>
 
-
-
-
-
       {loading ? (
-        <p className="hub-state" role="status">
+        <p
+          className="hub-state"
+          role="status"
+        >
           Loading documents...
         </p>
-      ) : documents.length === 0 ? (
+      ) : documents.length ===
+        0 ? (
         <div className="hub-empty-state">
-          <h3>No documents yet</h3>
+          <h3>
+            No documents yet
+          </h3>
+
           <p>
-            Upload a TXT, PDF, or DOCX file to start building your study library.
+            Upload a TXT, PDF, or
+            DOCX file to start
+            building your study
+            library.
           </p>
         </div>
-      ) : filteredDocuments.length === 0 ? (
+      ) : filteredDocuments.length ===
+        0 ? (
         <div className="hub-empty-state">
-          <h3>No matching documents</h3>
+          <h3>
+            No matching documents
+          </h3>
+
           <p>
-            Try changing the selected category or course.
+            Try changing the
+            selected category or
+            course.
           </p>
         </div>
       ) : (
         <div className="document-grid">
-          {filteredDocuments.map((document) => (
-            <DocumentCard
-              key={document.id}
-              document={document}
-              onOpen={() => setSelectedDocument(document)}
-            />
-          ))}
+          {filteredDocuments.map(
+            (document) => (
+              <DocumentCard
+                key={document.id}
+                document={document}
+                onOpen={() =>
+                  handleOpenDocument(
+                    document
+                  )
+                }
+              />
+            )
+          )}
         </div>
       )}
 
       {selectedDocument && (
         <DocumentDetailModal
-          document={selectedDocument}
-          categories={CATEGORIES}
-          onSave={handleUpdateDocument}
-          onDelete={handleDeleteDocument}
-          onRetry={handleRetryDocument}
-          onClose={() => setSelectedDocument(null)}
+          document={
+            selectedDocument
+          }
+          categories={
+            CATEGORIES
+          }
+          onSave={
+            handleUpdateDocument
+          }
+          onDelete={
+            handleDeleteDocument
+          }
+          onRetry={
+            handleRetryDocument
+          }
+          requestError={error}
+          onClearError={() =>
+            setError("")
+          }
+          onClose={
+            handleCloseDocument
+          }
         />
       )}
     </section>

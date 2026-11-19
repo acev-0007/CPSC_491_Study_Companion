@@ -1,5 +1,14 @@
-import { useRef, useState } from "react";
-import { isSupportedDocument } from "./documentUtils";
+import {
+  useRef,
+  useState,
+} from "react";
+
+import {
+  isSupportedDocument,
+} from "./documentUtils";
+
+const MAX_FILE_SIZE =
+  10 * 1024 * 1024;
 
 function DocumentUploadForm({
   onUpload,
@@ -10,63 +19,114 @@ function DocumentUploadForm({
   course,
   setCourse,
 }) {
-  const inputRef = useRef(null);
-  const [file, setFile] = useState(null);
-  const [validationError, setValidationError] = useState("");
-  const MAX_FILE_SIZE = 10 * 1024 * 1024;
+  const inputRef =
+    useRef(null);
 
-  function handleFileChange(event) {
-    const selected = event.target.files?.[0] ?? null;
+  const [file, setFile] =
+    useState(null);
+
+  const [
+    validationError,
+    setValidationError,
+  ] = useState("");
+
+  function clearFileInput() {
+    setFile(null);
+
+    if (inputRef.current) {
+      inputRef.current.value =
+        "";
+    }
+  }
+
+  function handleFileChange(
+    event
+  ) {
+    const selected =
+      event.target.files?.[0] ??
+      null;
+
     setValidationError("");
-    
-    if (selected && selected.size > MAX_FILE_SIZE) {
-      setFile(null);
-      setValidationError("File is too large. Maximum upload size is 10 MB.");
 
-      if (inputRef.current) {
-        inputRef.current.value = "";
-      }
+    if (!selected) {
+      setFile(null);
+      return;
+    }
+
+    if (
+      selected.size >
+      MAX_FILE_SIZE
+    ) {
+      clearFileInput();
+
+      setValidationError(
+        "File is too large. Maximum upload size is 10 MB."
+      );
 
       return;
     }
 
-    if (selected && !isSupportedDocument(selected)) {
-      setFile(null);
-      setValidationError("Only TXT, PDF, and DOCX files are supported.");
+    if (
+      !isSupportedDocument(
+        selected
+      )
+    ) {
+      clearFileInput();
+
+      setValidationError(
+        "Unsupported file type. Choose a TXT, PDF, or DOCX file."
+      );
+
       return;
     }
 
     setFile(selected);
   }
 
-  async function handleSubmit(event) {
+  async function handleSubmit(
+    event
+  ) {
     event.preventDefault();
 
+    setValidationError("");
+
     if (!file) {
-      setValidationError("Choose a TXT, PDF, or DOCX file first.");
+      setValidationError(
+        "Choose a TXT, PDF, or DOCX file before uploading."
+      );
+
       return;
     }
 
-    const success = await onUpload(file);
+    const success =
+      await onUpload(file);
 
     if (success) {
-      setFile(null);
-
-      if (inputRef.current) {
-        inputRef.current.value = "";
-      }
+      clearFileInput();
     }
   }
 
   return (
-    <form className="hub-upload" onSubmit={handleSubmit}>
+    <form
+      className="hub-upload"
+      onSubmit={handleSubmit}
+      noValidate
+    >
       <div>
-        <label className="hub-label" htmlFor="study-document">
+        <label
+          className="hub-label"
+          htmlFor="study-document"
+        >
           Add a study document
         </label>
 
-        <p className="hub-help">
-          TXT, DOCX, and digital-text PDF files, up to 10 MB.
+        <p
+          className="hub-help"
+          id="study-document-help"
+        >
+          TXT, DOCX, and
+          digital-text PDF files,
+          up to 10 MB.
         </p>
       </div>
 
@@ -77,28 +137,55 @@ function DocumentUploadForm({
           name="study-document"
           type="file"
           accept=".txt,.pdf,.docx,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-          onChange={handleFileChange}
+          onChange={
+            handleFileChange
+          }
           disabled={uploading}
+          aria-describedby={
+            validationError
+              ? "study-document-error"
+              : "study-document-help"
+          }
+          aria-invalid={
+            validationError
+              ? "true"
+              : undefined
+          }
         />
 
-        <label className="hub-label" htmlFor="document-category">
+        <label
+          className="hub-label"
+          htmlFor="document-category"
+        >
           Category
         </label>
 
         <select
           id="document-category"
           value={category}
-          onChange={(event) => setCategory(event.target.value)}
+          onChange={(event) =>
+            setCategory(
+              event.target.value
+            )
+          }
           disabled={uploading}
         >
-          {categories.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
+          {categories.map(
+            (option) => (
+              <option
+                key={option}
+                value={option}
+              >
+                {option}
+              </option>
+            )
+          )}
         </select>
 
-        <label className="hub-label" htmlFor="document-course">
+        <label
+          className="hub-label"
+          htmlFor="document-course"
+        >
           Course
         </label>
 
@@ -106,7 +193,11 @@ function DocumentUploadForm({
           id="document-course"
           type="text"
           value={course}
-          onChange={(event) => setCourse(event.target.value)}
+          onChange={(event) =>
+            setCourse(
+              event.target.value
+            )
+          }
           placeholder="e.g. CPSC 491"
           disabled={uploading}
         />
@@ -116,18 +207,27 @@ function DocumentUploadForm({
           type="submit"
           disabled={uploading}
         >
-          {uploading ? "Uploading..." : "Upload"}
+          {uploading
+            ? "Uploading..."
+            : "Upload"}
         </button>
       </div>
 
       {file && (
-        <p className="hub-selected-file">
+        <p
+          className="hub-selected-file"
+          role="status"
+        >
           Selected: {file.name}
         </p>
       )}
 
       {validationError && (
-        <p className="hub-message hub-message-error" role="alert">
+        <p
+          id="study-document-error"
+          className="hub-message hub-message-error"
+          role="alert"
+        >
           {validationError}
         </p>
       )}

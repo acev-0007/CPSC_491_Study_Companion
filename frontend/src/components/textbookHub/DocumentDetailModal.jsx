@@ -1,5 +1,34 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import {
+  useState,
+} from "react";
+
+import {
+  useNavigate,
+} from "react-router-dom";
+
+function actionSucceeded(
+  result
+) {
+  return (
+    result === true ||
+    result?.success === true
+  );
+}
+
+function actionError(
+  result,
+  fallback
+) {
+  if (
+    typeof result?.error ===
+      "string" &&
+    result.error.trim()
+  ) {
+    return result.error;
+  }
+
+  return fallback;
+}
 
 function DocumentDetailModal({
   document,
@@ -7,21 +36,75 @@ function DocumentDetailModal({
   onSave,
   onDelete,
   onRetry,
+  requestError,
+  onClearError,
   onClose,
 }) {
-  const [name, setName] = useState(document.name);
-  const [category, setCategory] = useState(document.category || "Other");
-  const [course, setCourse] = useState(document.course || "");
-  const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [retrying, setRetrying] = useState(false);
+  const [name, setName] =
+    useState(document.name);
 
-  const navigate = useNavigate();
+  const [
+    category,
+    setCategory,
+  ] = useState(
+    document.category ||
+      "Other"
+  );
+
+  const [course, setCourse] =
+    useState(
+      document.course || ""
+    );
+
+  const [saving, setSaving] =
+    useState(false);
+
+  const [deleting, setDeleting] =
+    useState(false);
+
+  const [retrying, setRetrying] =
+    useState(false);
+
+  const [
+    actionMessage,
+    setActionMessage,
+  ] = useState("");
+
+  const [
+    localError,
+    setLocalError,
+  ] = useState("");
+
+  const navigate =
+    useNavigate();
 
   const isReady =
-    document.status === "ready";
+    document.status ===
+    "ready";
 
-  function handleStudyAction(path) {
+  const isFailed =
+    document.status ===
+    "failed";
+
+  const isProcessing =
+    document.status ===
+    "processing";
+
+  const displayedError =
+    localError ||
+    requestError ||
+    "";
+
+  function clearMessages() {
+    setLocalError("");
+    setActionMessage("");
+
+    onClearError?.();
+  }
+
+  function handleStudyAction(
+    path
+  ) {
     if (!isReady) {
       return;
     }
@@ -32,25 +115,51 @@ function DocumentDetailModal({
   }
 
   async function handleSave() {
+    clearMessages();
     setSaving(true);
 
-    const success = await onSave(document.id, {
-      name,
-      category,
-      course,
-    });
+    try {
+      const result =
+        await onSave(
+          document.id,
+          {
+            name,
+            category,
+            course,
+          }
+        );
 
-    setSaving(false);
+      if (
+        actionSucceeded(
+          result
+        )
+      ) {
+        onClose();
+        return;
+      }
 
-    if (success) {
-      onClose();
+      setLocalError(
+        actionError(
+          result,
+          "Could not save document changes. Please try again."
+        )
+      );
+    } catch {
+      setLocalError(
+        "Could not save document changes. Please try again."
+      );
+    } finally {
+      setSaving(false);
     }
   }
 
   async function handleDelete() {
-    const confirmed = window.confirm(
-      `Delete "${document.name}"? This cannot be undone.`
-    );
+    clearMessages();
+
+    const confirmed =
+      window.confirm(
+        `Delete "${document.name}"? This cannot be undone.`
+      );
 
     if (!confirmed) {
       return;
@@ -59,25 +168,75 @@ function DocumentDetailModal({
     setDeleting(true);
 
     try {
-      await onDelete(document.id);
+      const result =
+        await onDelete(
+          document.id
+        );
+
+      if (
+        !actionSucceeded(
+          result
+        )
+      ) {
+        setLocalError(
+          actionError(
+            result,
+            "Could not delete this document. Please try again."
+          )
+        );
+      }
+    } catch {
+      setLocalError(
+        "Could not delete this document. Please try again."
+      );
     } finally {
       setDeleting(false);
     }
   }
 
   async function handleRetry() {
+    clearMessages();
     setRetrying(true);
 
     try {
-      await onRetry(document.id);
+      const result =
+        await onRetry(
+          document.id
+        );
+
+      if (
+        actionSucceeded(
+          result
+        )
+      ) {
+        setActionMessage(
+          "Document processing completed successfully."
+        );
+
+        return;
+      }
+
+      setLocalError(
+        actionError(
+          result,
+          "Could not retry document processing. Please try again."
+        )
+      );
+    } catch {
+      setLocalError(
+        "Could not retry document processing. Please try again."
+      );
     } finally {
       setRetrying(false);
     }
   }
 
-  function handleOverlayClick(event) {
+  function handleOverlayClick(
+    event
+  ) {
     if (
-      event.target === event.currentTarget &&
+      event.target ===
+        event.currentTarget &&
       !saving &&
       !deleting &&
       !retrying
@@ -89,43 +248,90 @@ function DocumentDetailModal({
   return (
     <div
       className="document-modal-overlay"
-      onClick={handleOverlayClick}
+      onClick={
+        handleOverlayClick
+      }
     >
       <section
         className="document-modal"
         role="dialog"
         aria-modal="true"
+        aria-labelledby="document-details-title"
       >
         <div className="document-modal-header">
-          <h2 style={{ color: "black" }}>
+          <h2
+            id="document-details-title"
+            style={{
+              color:
+                "black",
+            }}
+          >
             Document details
           </h2>
         </div>
+
+        {displayedError && (
+          <p
+            className="hub-message hub-message-error"
+            role="alert"
+          >
+            {displayedError}
+          </p>
+        )}
+
+        {actionMessage && (
+          <p
+            className="hub-message"
+            role="status"
+          >
+            {actionMessage}
+          </p>
+        )}
 
         <div className="document-modal-actions">
           <button
             type="button"
             className="document-delete-button"
-            onClick={handleDelete}
-            disabled={deleting || saving || retrying}
+            onClick={
+              handleDelete
+            }
+            disabled={
+              deleting ||
+              saving ||
+              retrying
+            }
           >
-            {deleting ? "Deleting..." : "Delete"}
+            {deleting
+              ? "Deleting..."
+              : "Delete"}
           </button>
 
           <button
             type="button"
             className="hub-primary-button"
-            onClick={handleSave}
-            disabled={saving || deleting || retrying}
+            onClick={
+              handleSave
+            }
+            disabled={
+              saving ||
+              deleting ||
+              retrying
+            }
           >
-            {saving ? "Saving..." : "Save"}
+            {saving
+              ? "Saving..."
+              : "Save"}
           </button>
 
           <button
             type="button"
             className="hub-secondary-button"
             onClick={onClose}
-            disabled={saving || deleting || retrying}
+            disabled={
+              saving ||
+              deleting ||
+              retrying
+            }
           >
             Close
           </button>
@@ -133,7 +339,12 @@ function DocumentDetailModal({
 
         <div className="document-modal-fields">
           <label>
-            <h2 style={{ color: "black" }}>
+            <h2
+              style={{
+                color:
+                  "black",
+              }}
+            >
               Name
             </h2>
 
@@ -141,9 +352,15 @@ function DocumentDetailModal({
               type="text"
               value={name}
               onChange={(event) =>
-                setName(event.target.value)
+                setName(
+                  event.target.value
+                )
               }
-              disabled={retrying}
+              disabled={
+                saving ||
+                deleting ||
+                retrying
+              }
             />
           </label>
 
@@ -156,7 +373,10 @@ function DocumentDetailModal({
                   "/summarization"
                 )
               }
-              disabled={!isReady || retrying}
+              disabled={
+                !isReady ||
+                retrying
+              }
             >
               Generate Notes
             </button>
@@ -169,7 +389,10 @@ function DocumentDetailModal({
                   "/quiz"
                 )
               }
-              disabled={!isReady || retrying}
+              disabled={
+                !isReady ||
+                retrying
+              }
             >
               Generate Quiz
             </button>
@@ -182,59 +405,115 @@ function DocumentDetailModal({
                   "/flashcards"
                 )
               }
-              disabled={!isReady || retrying}
+              disabled={
+                !isReady ||
+                retrying
+              }
             >
               Generate Flashcards
             </button>
           </div>
 
-          {!isReady && (
+          {isProcessing && (
             <p
-              className="hub-message hub-message-error"
+              className="hub-message"
               role="status"
             >
-              AI study actions are unavailable until this document is ready.
+              This document is
+              still being
+              processed. AI study
+              actions will become
+              available when
+              processing finishes.
             </p>
           )}
 
-          {document.status === "failed" && (
-            <button
-              type="button"
-              className="hub-primary-button"
-              onClick={handleRetry}
-              disabled={deleting || saving || retrying}
-            >
-              {retrying
-                ? "Retrying..."
-                : "Retry Processing"}
-            </button>
+          {isFailed && (
+            <div>
+              <p
+                className="hub-message hub-message-error"
+                role="alert"
+              >
+                {document.extractionError ||
+                  "Document processing failed. You can retry processing using the original uploaded file."}
+              </p>
+
+              <button
+                type="button"
+                className="hub-primary-button"
+                onClick={
+                  handleRetry
+                }
+                disabled={
+                  deleting ||
+                  saving ||
+                  retrying
+                }
+              >
+                {retrying
+                  ? "Retrying processing..."
+                  : "Retry Processing"}
+              </button>
+            </div>
           )}
 
+          {!isReady &&
+            !isProcessing &&
+            !isFailed && (
+              <p
+                className="hub-message"
+                role="status"
+              >
+                AI study actions
+                are unavailable
+                until this
+                document is ready.
+              </p>
+            )}
+
           <label>
-            <h2 style={{ color: "black" }}>
+            <h2
+              style={{
+                color:
+                  "black",
+              }}
+            >
               Category
             </h2>
 
             <select
               value={category}
               onChange={(event) =>
-                setCategory(event.target.value)
+                setCategory(
+                  event.target.value
+                )
               }
-              disabled={retrying}
+              disabled={
+                saving ||
+                deleting ||
+                retrying
+              }
             >
-              {categories.map((option) => (
-                <option
-                  key={option}
-                  value={option}
-                >
-                  {option}
-                </option>
-              ))}
+              {categories.map(
+                (option) => (
+                  <option
+                    key={option}
+                    value={option}
+                  >
+                    {option}
+                  </option>
+                )
+              )}
             </select>
           </label>
 
           <label>
-            <h2 style={{ color: "black" }}>
+            <h2
+              style={{
+                color:
+                  "black",
+              }}
+            >
               Course
             </h2>
 
@@ -242,38 +521,55 @@ function DocumentDetailModal({
               type="text"
               value={course}
               onChange={(event) =>
-                setCourse(event.target.value)
+                setCourse(
+                  event.target.value
+                )
               }
-              disabled={retrying}
+              disabled={
+                saving ||
+                deleting ||
+                retrying
+              }
             />
           </label>
         </div>
 
         <div className="document-modal-metadata">
           <p>
-            <strong>Type:</strong>{" "}
+            <strong>
+              Type:
+            </strong>{" "}
             {document.type}
           </p>
 
           <p>
-            <strong>Status:</strong>{" "}
+            <strong>
+              Status:
+            </strong>{" "}
             {retrying
               ? "processing"
               : document.status}
           </p>
 
           <p>
-            <strong>Size:</strong>{" "}
+            <strong>
+              Size:
+            </strong>{" "}
             {document.size} bytes
           </p>
 
           <p>
-            <strong>Text length:</strong>{" "}
-            {document.textLength ?? 0}
+            <strong>
+              Text length:
+            </strong>{" "}
+            {document.textLength ??
+              0}
           </p>
 
           <p>
-            <strong>Uploaded:</strong>{" "}
+            <strong>
+              Uploaded:
+            </strong>{" "}
             {new Date(
               document.uploadedAt
             ).toLocaleString()}
