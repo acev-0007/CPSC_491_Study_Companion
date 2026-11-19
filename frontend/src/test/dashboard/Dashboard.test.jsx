@@ -1,6 +1,6 @@
 
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import Dashboard from "../../pages/Dashboard";
 
@@ -81,21 +81,49 @@ describe("Dashboard", () => {
     ).toBeInTheDocument();
   });
 
-  it("keeps the unfinished AI chat composer disabled", () => {
+  it("enables the AI Study Companion chat when a question is entered", () => {
     renderDashboard();
 
+    // Verify the AI Study Companion is displayed.
     expect(
-      screen.getByText("AI chat is not connected yet")
+      screen.getByRole("heading", {
+        name: "AI Study Companion",
+      })
     ).toBeInTheDocument();
 
+    // Verify the new empty-state message.
     expect(
-      screen.getByRole("textbox", {
-        name: "Ask your study companion",
-      })
-    ).toBeDisabled();
+      screen.getByText("What would you like to study?")
+    ).toBeInTheDocument();
 
-    expect(
-      screen.getByRole("button", { name: "Send" })
-    ).toBeDisabled();
+    // Find the chat input.
+    const textarea = screen.getByRole("textbox", {
+      name: "Ask your study companion",
+    });
+
+    expect(textarea).toBeEnabled();
+
+    // The Send button starts disabled because the input is empty.
+    const sendButton = screen.getByRole("button", {
+      name: "Send",
+    });
+
+    expect(sendButton).toBeDisabled();
+
+    // Simulate the student typing a question.
+    fireEvent.change(textarea, {
+      target: {
+        value: "Can you explain binary search?",
+      },
+    });
+
+    // The Send button should now be enabled.
+    expect(sendButton).toBeEnabled();
+
+    // Verify the question appears in the input.
+    expect(textarea).toHaveValue(
+      "Can you explain binary search?"
+    );
   });
+
 });
