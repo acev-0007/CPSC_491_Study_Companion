@@ -121,6 +121,9 @@ describe("SCRUM-281 legacy preferences route", () => {
     const res = await request(app).patch("/api/account/preferences").send({ theme: "dark" });
     expect(res.status).toBe(200);
     expect(res.body.user.preferences.theme).toBe("dark");
+  });
+});
+
 describe("SCRUM-282 authenticated password change", () => {
   const valid = { currentPassword: "oldPassword!123", newPassword: "newPassword!456", confirmPassword: "newPassword!456" };
   it("rejects anonymous attempts before touching Supabase", async () => {
