@@ -200,8 +200,6 @@ function QuizSession({
       answers[question.id] === question.correctOptionId
   ).length;
 
-  const incorrectCount = answeredCount - correctCount;
-
   const scorePercent = Math.round(
     (correctCount / totalQuestions) * 100
   );
