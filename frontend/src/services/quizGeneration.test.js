@@ -46,7 +46,11 @@ describe("generateQuiz", () => {
 
     const result = await generateQuiz("  Process notes  ");
 
-    expect(result).toEqual(mockQuiz);
+    expect(result).toEqual({
+  quizId: null,
+  topic: "General",
+  questions: mockQuiz,
+});
     const [url, options] = fetch.mock.calls[0];
     expect(url).toBe(QUIZ_ENDPOINT);
     expect(options.method).toBe("POST");

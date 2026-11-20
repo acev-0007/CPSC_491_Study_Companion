@@ -84,7 +84,18 @@ export async function generateQuiz(studyText) {
     throw new Error(GENERIC_ERROR);
   }
 
-  return data.questions;
+  return {
+  quizId:
+    typeof data.quizId === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(data.quizId)
+      ? data.quizId
+      : null,
+  topic:
+    typeof data.topic === "string" && data.topic.trim()
+      ? data.topic.trim()
+      : "General",
+  questions: data.questions,
+};
 }
 
 export default generateQuiz;

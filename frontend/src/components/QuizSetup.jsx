@@ -89,9 +89,9 @@ function QuizSetup({ onQuizReady }) {
     setError("");
 
     try {
-      const questions = await generateQuiz(notes);
+      const generatedQuiz = await generateQuiz(notes);
       if (!isMountedRef.current) return;
-      onQuizReady(questions);
+      onQuizReady(generatedQuiz);
     } catch (err) {
       if (!isMountedRef.current) return;
       setError(err.message);

@@ -42,3 +42,11 @@ export function createUserSupabaseClient(accessToken) {
     }
   );
 }
+
+// Privileged server-only client. Never expose this key in frontend code,
+// responses, logs, or a VITE_ environment variable.
+export function createServiceRoleSupabaseClient() {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!key) throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY in backend/.env");
+  return createClient(supabaseUrl, key, { auth: authOptions });
+}

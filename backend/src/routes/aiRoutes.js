@@ -1,11 +1,12 @@
 
 import { Router } from "express";
 import { generateClaudeResponse } from "../providers/claudeProvider.js";
-import { parseQuiz } from "../quizValidator.js";
+import { parseQuiz, parseQuizTopic } from "../quizValidator.js";
+import { saveGeneratedQuiz } from "../generatedQuizStore.js";
 import { requireAuth } from "../middleware/requireAuth.js";
 import { createUserSupabaseClient } from "../config/supabase.js";
-import { getDateInTimeZone } from "../utils/dateUtils.js"
-import { MAX_WORK_PLAN_SESSIONS } from "../utils/workPlanConstants.js"
+import { getDateInTimeZone } from "../utils/dateUtils.js";
+import { MAX_WORK_PLAN_SESSIONS } from "../utils/workPlanConstants.js";
 
 const router = Router();
 
@@ -164,7 +165,15 @@ ${notes.trim()}
   }
 });
 
-// SCRUM-125: AI quiz generation (exactly 5 multiple-choice questions).
+
+/**
+ * SCRUM-125: AI quiz generation.
+ * SCRUM-128: Trusted quiz identity and history persistence.
+ *
+ * Generates exactly five multiple-choice questions,
+ * validates them, and stores a trusted server-side
+ * snapshot for authoritative grading.
+ */
 router.post("/quiz", async (req, res, next) => {
   try {
     const { notes } = req.body ?? {};
@@ -186,6 +195,7 @@ Generate exactly 5 multiple-choice quiz questions from the following material.
 
 Return ONLY a valid JSON object in this exact format:
 {
+  "topic": "Operating Systems",
   "questions": [
     {
       "question": "Question text",
@@ -195,12 +205,16 @@ Return ONLY a valid JSON object in this exact format:
         "Choice C text",
         "Choice D text"
       ],
-      "correctOptionId": "B"
+      "correctOptionId": "B",
+      "category": "Deadlocks"
     }
   ]
 }
 
 Requirements:
+- "topic" is a short name (2-4 words, Title Case) for the subject of the whole material.
+- Each question has a "category": a short subtopic label (1-3 words, Title Case).
+- Reuse the same category label for questions about the same subtopic.
 - Exactly 5 questions.
 - Each question has exactly 4 distinct options, in the "options" array.
 - correctOptionId is the letter of the one correct option: "A", "B", "C", or "D".
@@ -215,8 +229,12 @@ Study material:
 ${notes.trim()}
     `.trim();
 
-    // Five questions need more room than the default token limit.
-    const response = await generateClaudeResponse(prompt, 2000);
+    // Five questions require more output tokens than
+    // the default Claude response limit.
+    const response = await generateClaudeResponse(
+      prompt,
+      2000
+    );
 
     const questions = parseQuiz(response);
 
@@ -226,11 +244,27 @@ ${notes.trim()}
       });
     }
 
-    return res.json({ questions });
+    // SCRUM-128: Persist a trusted quiz snapshot.
+    // The database UUID identifies the generated quiz
+    // for subsequent server-side grading.
+    const topic = parseQuizTopic(response);
+
+    const quizId = await saveGeneratedQuiz(
+      req.user.id,
+      topic,
+      questions
+    );
+
+    return res.json({
+      quizId,
+      topic,
+      questions,
+    });
   } catch (error) {
     next(error);
   }
 });
+
 
 // ========= For assignment tracker work plan =========
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
