@@ -6,7 +6,7 @@
 
 html {
   min-width: 320px;
-  color-scheme: dark;
+  color-scheme: dark; /* overridden by resolved data-theme */
   background: var(--color-bg);
 }
 
@@ -89,3 +89,5 @@ textarea:focus-visible {
     animation-iteration-count: 1 !important;
   }
 }
+
+:root[data-theme="light"] { color-scheme: light; }

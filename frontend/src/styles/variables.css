@@ -65,3 +65,48 @@
   --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --shadow: rgba(0, 0, 0, 0.28) 0 10px 24px -14px;
 }
+
+/* SCRUM-281: semantic light palette; dark remains the existing visual baseline. */
+:root[data-theme="light"] {
+  --color-bg: #f4f5f7;
+  --color-surface: #fdfdfe;
+  --color-surface-raised: #fdfdfe;
+  --color-surface-hover: #eceef3;
+  --color-border-subtle: #e6e8ed;
+  --color-border: #d9dce4;
+  --color-border-strong: #b6bdca;
+  --color-text-primary: #1c2230;
+  --color-text-secondary: #4e586c;
+  --color-text-label: #293246;
+  --color-text-muted: #616b7c;
+  --color-accent: #6145df;
+  --color-accent-hover: #5136cb;
+  --color-accent-active: #4229b5;
+  --color-accent-soft: rgba(97,69,223,.09);
+  --color-accent-border: rgba(97,69,223,.35);
+  --color-error: #aa2932;
+  --color-error-soft: rgba(170,41,50,.07);
+  --color-error-border: rgba(170,41,50,.3);
+  --color-success: #187645;
+  --color-success-soft: rgba(24,118,69,.09);
+  --sidebar-background: #fafafb;
+  --color-accent-label: #5236cc;
+  --shadow: rgba(28,34,48,.10) 0 10px 24px -14px;
+}
+:root[data-theme="dark"] {
+  --sidebar-background: #111217;
+  --color-accent-label: #c0b2ff;
+}
+@media (prefers-color-scheme: light) {
+  /* Before React initializes, honor the system preference. */
+  :root:not([data-theme]) {
+    --color-bg: #f4f5f7;
+    --color-surface: #fdfdfe;
+    --color-surface-raised: #fdfdfe;
+    --color-surface-hover: #eceef3;
+    --color-text-primary: #1c2230;
+    --color-text-secondary: #4e586c;
+    --color-border: #d9dce4;
+    --sidebar-background: #fafafb;
+  }
+}
