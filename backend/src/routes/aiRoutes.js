@@ -1,15 +1,18 @@
+
 import { Router } from "express";
 import { generateClaudeResponse } from "../providers/claudeProvider.js";
 import { parseQuiz, parseQuizTopic } from "../quizValidator.js";
 import { saveGeneratedQuiz } from "../generatedQuizStore.js";
-import { requireAuth } from "../middleware/requireAuth.js"
+import { requireAuth } from "../middleware/requireAuth.js";
 import { createUserSupabaseClient } from "../config/supabase.js";
-import { getDateInTimeZone } from "../utils/dateUtils.js"
-import { MAX_WORK_PLAN_SESSIONS } from "../utils/workPlanConstants.js"
+import { getDateInTimeZone } from "../utils/dateUtils.js";
+import { MAX_WORK_PLAN_SESSIONS } from "../utils/workPlanConstants.js";
 
 const router = Router();
+
 const MAX_FLASHCARD_TEXT_LENGTH = 20000;
 
+// General AI generation
 router.post("/generate", async (req, res, next) => {
   try {
     const { prompt } = req.body ?? {};
@@ -20,16 +23,15 @@ router.post("/generate", async (req, res, next) => {
       });
     }
 
-    const response = await generateClaudeResponse(prompt);
+    const response = await generateClaudeResponse(prompt, 2048);
 
-    return res.json({
-      response,
-    });
+    return res.json({ response });
   } catch (error) {
     next(error);
   }
 });
 
+// AI summarization
 router.post("/summarize", async (req, res, next) => {
   try {
     const { notes } = req.body ?? {};
@@ -50,15 +52,13 @@ ${notes.trim()}
 
     const summary = await generateClaudeResponse(prompt);
 
-    return res.json({
-      summary,
-    });
+    return res.json({ summary });
   } catch (error) {
     next(error);
   }
 });
 
-
+// AI flashcard generation
 router.post("/flashcards", async (req, res, next) => {
   try {
     const { notes } = req.body ?? {};
@@ -101,18 +101,34 @@ Study material:
 ${notes.trim()}
     `.trim();
 
-    const response = await generateClaudeResponse(prompt);
+    // Increased output budget for document-based flashcards.
+    const response = await generateClaudeResponse(prompt, 2048);
 
     let parsed;
 
     try {
-      parsed = JSON.parse(response);
-    } catch {
+      // Accept plain JSON or JSON wrapped in Markdown fences.
+      // Do not extract arbitrary JSON from unrelated text.
+      const cleanedResponse = response
+        .trim()
+        .replace(/^```(?:json)?\s*\r?\n/i, "")
+        .replace(/\r?\n\s*```\s*$/, "")
+        .trim();
+
+      parsed = JSON.parse(cleanedResponse);
+    } catch (error) {
+      console.error("Flashcard JSON parsing failed:", {
+        error: error.message,
+        responseLength:
+          typeof response === "string" ? response.length : null,
+      });
+
       return res.status(502).json({
         error: "Flashcard generation failed.",
       });
     }
 
+    // Validate the AI response structure.
     if (
       !parsed ||
       !Array.isArray(parsed.flashcards) ||
@@ -126,6 +142,13 @@ ${notes.trim()}
           card.back.trim().length > 0
       )
     ) {
+      console.error("Flashcard response validation failed:", {
+        hasFlashcardsArray: Array.isArray(parsed?.flashcards),
+        flashcardCount: Array.isArray(parsed?.flashcards)
+          ? parsed.flashcards.length
+          : null,
+      });
+
       return res.status(502).json({
         error: "Flashcard generation failed.",
       });
@@ -141,7 +164,16 @@ ${notes.trim()}
     next(error);
   }
 });
-// SCRUM-125: AI quiz generation (exactly 5 multiple-choice questions).
+
+
+/**
+ * SCRUM-125: AI quiz generation.
+ * SCRUM-128: Trusted quiz identity and history persistence.
+ *
+ * Generates exactly five multiple-choice questions,
+ * validates them, and stores a trusted server-side
+ * snapshot for authoritative grading.
+ */
 router.post("/quiz", async (req, res, next) => {
   try {
     const { notes } = req.body ?? {};
@@ -167,7 +199,12 @@ Return ONLY a valid JSON object in this exact format:
   "questions": [
     {
       "question": "Question text",
-      "options": ["Choice A text", "Choice B text", "Choice C text", "Choice D text"],
+      "options": [
+        "Choice A text",
+        "Choice B text",
+        "Choice C text",
+        "Choice D text"
+      ],
       "correctOptionId": "B",
       "category": "Deadlocks"
     }
@@ -192,8 +229,12 @@ Study material:
 ${notes.trim()}
     `.trim();
 
-    // Five questions need more room than the default 1000-token limit.
-    const response = await generateClaudeResponse(prompt, 2000);
+    // Five questions require more output tokens than
+    // the default Claude response limit.
+    const response = await generateClaudeResponse(
+      prompt,
+      2000
+    );
 
     const questions = parseQuiz(response);
 
@@ -203,20 +244,27 @@ ${notes.trim()}
       });
     }
 
-    // SCRUM-128: keep a trusted snapshot so the finished quiz can be graded and
-    // saved to history by the server. quizId is null if the snapshot failed.
+    // SCRUM-128: Persist a trusted quiz snapshot.
+    // The database UUID identifies the generated quiz
+    // for subsequent server-side grading.
     const topic = parseQuizTopic(response);
+
     const quizId = await saveGeneratedQuiz(
       req.user.id,
       topic,
       questions
     );
 
-    return res.json({ quizId, topic, questions });
+    return res.json({
+      quizId,
+      topic,
+      questions,
+    });
   } catch (error) {
     next(error);
   }
 });
+
 
 // ========= For assignment tracker work plan =========
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -226,9 +274,11 @@ function intervalToHours(interval) {
     return Number.isFinite(interval) ? interval : null;
   }
 
-  if (typeof interval !== "string") return null;
+  if (typeof interval !== "string") {
+    return null;
+  }
 
-  // Supports PostgreSQL formats such as:
+  // Supports PostgreSQL formats:
   // "02:30:00", "2 hours", "1 hour 30 mins"
   const value = interval.trim();
 
@@ -244,7 +294,8 @@ function intervalToHours(interval) {
     );
   }
 
-  const unitPattern = /(\d+(?:\.\d+)?)\s*(hours?|hrs?|minutes?|mins?|seconds?|secs?)/gi;
+  const unitPattern =
+    /(\d+(?:\.\d+)?)\s*(hours?|hrs?|minutes?|mins?|seconds?|secs?)/gi;
 
   let total = 0;
   let matched = false;
@@ -256,31 +307,42 @@ function intervalToHours(interval) {
     const amount = Number(match[1]);
     const unit = match[2].toLowerCase();
 
-    if (unit.startsWith("h")) total += amount;
-    else if (unit.startsWith("m")) total += amount / 60;
-    else total += amount / 3600;
+    if (unit.startsWith("h")) {
+      total += amount;
+    } else if (unit.startsWith("m")) {
+      total += amount / 60;
+    } else {
+      total += amount / 3600;
+    }
 
     remainder = remainder.replace(match[0], "");
   }
 
-  if (!matched || remainder.trim()) return null;
+  if (!matched || remainder.trim()) {
+    return null;
+  }
 
   return total;
 }
 
 
 function isValidDate(value) {
-  if (typeof value !== "string" ||
-      !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+  if (
+    typeof value !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(value)
+  ) {
     return false;
   }
 
   const date = new Date(`${value}T00:00:00Z`);
 
-  return !Number.isNaN(date.getTime()) &&
-    date.toISOString().slice(0, 10) === value;
+  return (
+    !Number.isNaN(date.getTime()) &&
+    date.toISOString().slice(0, 10) === value
+  );
 }
 
+// AI-generated assignment work plans
 router.post("/work-plan", requireAuth, async (req, res, next) => {
   try {
   // Validate request
@@ -290,12 +352,13 @@ router.post("/work-plan", requireAuth, async (req, res, next) => {
       timeZone = "UTC", 
     } = req.body ?? {};
 
+    // Validate request.
     if (
       typeof assignmentId !== "string" ||
       !UUID_PATTERN.test(assignmentId)
     ) {
       return res.status(400).json({
-        error: "A valid assignment ID is required."
+        error: "A valid assignment ID is required.",
       });
     }
 
@@ -306,7 +369,7 @@ router.post("/work-plan", requireAuth, async (req, res, next) => {
       hoursPerDay > 24
     ) {
       return res.status(400).json({
-        error: "Available hours must be between 0 and 24."
+        error: "Available hours must be between 0 and 24.",
       });
     }
 
@@ -340,23 +403,25 @@ router.post("/work-plan", requireAuth, async (req, res, next) => {
 
     if (!assignment) {
       return res.status(404).json({
-        error: "Assignment not found."
+        error: "Assignment not found.",
       });
     }
 
     if (assignment.status === "Completed") {
       return res.status(400).json({
-        error: "Cannot generate a plan for a completed assignment."
+        error: "Cannot generate a plan for a completed assignment.",
       });
     }
 
     if (assignment.is_ai_generated) {
       return res.status(400).json({
-        error: "Select an original assignment."
+        error: "Select an original assignment.",
       });
     }
 
-    const estimatedHours = intervalToHours(assignment.estimated_time);
+    const estimatedHours = intervalToHours(
+      assignment.estimated_time
+    );
 
     if (
       estimatedHours === null ||
@@ -364,7 +429,7 @@ router.post("/work-plan", requireAuth, async (req, res, next) => {
       estimatedHours <= 0
     ) {
       return res.status(400).json({
-        error: "Assignment estimated time is invalid."
+        error: "Assignment estimated time is invalid.",
       });
     }
 
@@ -378,10 +443,10 @@ router.post("/work-plan", requireAuth, async (req, res, next) => {
     }
 
     const deadline = new Date(assignment.duedate);
-    
+
     if (Number.isNaN(deadline.getTime())) {
       return res.status(400).json({
-        error: "Assignment due date is invalid."
+        error: "Assignment due date is invalid.",
       });
     }
 
@@ -390,11 +455,10 @@ router.post("/work-plan", requireAuth, async (req, res, next) => {
 
     if (deadline.getTime() <= Date.now()) {
       return res.status(400).json({
-        error: "Assignment deadline has passed."
+        error: "Assignment deadline has passed.",
       });
     }
 
-    // Prompt
     const prompt = `
     You are an AI study planning assistant for college students.
 
@@ -484,22 +548,22 @@ router.post("/work-plan", requireAuth, async (req, res, next) => {
       parsed = JSON.parse(response.trim());
     } catch {
       return res.status(502).json({
-        error: "AI returned invalid JSON."
+        error: "AI returned invalid JSON.",
       });
     }
 
-    // Validate response structure
+    // Validate response structure.
     if (
       !parsed ||
       !Array.isArray(parsed.workPlan) ||
       !Array.isArray(parsed.warnings) ||
       parsed.workPlan.length > requiredSessions ||
       !parsed.warnings.every(
-        warning => typeof warning === "string"
+        (warning) => typeof warning === "string"
       )
     ) {
       return res.status(502).json({
-        error: "AI returned an invalid work plan."
+        error: "AI returned an invalid work plan.",
       });
     }
 
@@ -523,17 +587,19 @@ router.post("/work-plan", requireAuth, async (req, res, next) => {
         task.estimated_time <= 0
       ) {
         return res.status(502).json({
-          error: "AI generated invalid study tasks."
+          error: "AI generated invalid study tasks.",
         });
       }
 
       totalHours += task.estimated_time;
 
-      const dailyTotal = (dailyHours.get(task.scheduled_date) ?? 0) + task.estimated_time;
+      const dailyTotal =
+        (dailyHours.get(task.scheduled_date) ?? 0) +
+        task.estimated_time;
 
       if (dailyTotal > hoursPerDay + 0.01) {
         return res.status(502).json({
-          error: "AI exceeded the daily study limit."
+          error: "AI exceeded the daily study limit.",
         });
       }
 
@@ -545,7 +611,7 @@ router.post("/work-plan", requireAuth, async (req, res, next) => {
       Math.abs(totalHours - estimatedHours) > 0.01
     ) {
       return res.status(502).json({
-        error: "AI generated an inconsistent work plan."
+        error: "AI generated an inconsistent work plan.",
       });
     }
 
@@ -554,21 +620,20 @@ router.post("/work-plan", requireAuth, async (req, res, next) => {
       parsed.warnings.length === 0
     ) {
       return res.status(502).json({
-        error: "AI returned an empty work plan."
+        error: "AI returned an empty work plan.",
       });
     }
 
     return res.status(200).json({
       assignmentId: assignment.id,
-      workPlan: parsed.workPlan.map(task => ({
+      workPlan: parsed.workPlan.map((task) => ({
         title: task.title.trim(),
         scheduled_date: task.scheduled_date,
         estimated_time: task.estimated_time,
-        notes: task.notes.trim()
+        notes: task.notes.trim(),
       })),
-      warnings: parsed.warnings
+      warnings: parsed.warnings,
     });
-
   } catch (error) {
     next(error);
   }

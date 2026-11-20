@@ -6,6 +6,7 @@ import Summarization from "../../pages/Summarization";
 
 describe("SCRUM-273 Summarization Smoke Tests", () => {
   afterEach(() => {
+    vi.unstubAllGlobals(); 
     vi.restoreAllMocks();
   });
 
@@ -119,20 +120,39 @@ describe("SCRUM-273 Summarization Smoke Tests", () => {
       "Please enter study material before generating a summary."
     );
 
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(
+      fetchMock.mock.calls.filter(
+        ([url]) => url === "/api/ai/summarize"
+      )
+    ).toHaveLength(0);
   });
 
   it("displays an error when AI summarization fails", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: false,
-      status: 500,
-      headers: {
-        get: () => "application/json",
-      },
-      json: async () => ({
-        error: "AI provider unavailable.",
-      }),
+    const fetchMock = vi.fn(async (url, options) => {
+      if (url === "/api/summaries" && options?.method !== "POST") {
+        return {
+          ok: true,
+          json: async () => ({ summaries: [] }),
+        };
+      }
+
+      if (url === "/api/ai/summarize") {
+        return {
+          ok: false,
+          status: 500,
+          headers: {
+            get: () => "application/json",
+          },
+          json: async () => ({
+            error: "AI provider unavailable.",
+          }),
+        };
+      }
+
+      throw new Error(`Unexpected request: ${url}`);
     });
+
+    vi.stubGlobal("fetch", fetchMock);
 
     render(
       <MemoryRouter>
@@ -158,8 +178,8 @@ describe("SCRUM-273 Summarization Smoke Tests", () => {
     );
 
     expect(
-      await screen.findByRole("alert")
-    ).toHaveTextContent("AI provider unavailable.");
+      await screen.findByText("AI provider unavailable.")
+    ).toBeInTheDocument();
 
     expect(
       screen.queryByRole("heading", {
@@ -171,12 +191,32 @@ describe("SCRUM-273 Summarization Smoke Tests", () => {
   it("shows a loading state while generating a summary", async () => {
     let resolveRequest;
 
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(
-      () =>
-        new Promise((resolve) => {
+    const fetchMock = vi.fn(async (url, options) => {
+      if (url === "/api/summaries" && options?.method === "POST") {
+        return {
+          ok: true,
+          status: 201,
+          json: async () => ({ id: "saved-123" }),
+        };
+      }
+
+      if (url === "/api/summaries") {
+        return {
+          ok: true,
+          json: async () => ({ summaries: [] }),
+        };
+      }
+
+      if (url === "/api/ai/summarize") {
+        return new Promise((resolve) => {
           resolveRequest = resolve;
-        })
-    );
+        });
+      }
+
+      throw new Error(`Unexpected request: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
 
     render(
       <MemoryRouter>
@@ -227,13 +267,27 @@ describe("SCRUM-273 Summarization Smoke Tests", () => {
       )
     ).toBeInTheDocument();
 
-    expect(
-      screen.getByRole("button", {
-        name: "Generate Summary",
-      })
-    ).toBeEnabled();
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", {
+          name: "Generate Summary",
+        })
+      ).toBeEnabled();
+    });
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(
+      fetchMock.mock.calls.filter(
+        ([url]) => url === "/api/ai/summarize"
+      )
+    ).toHaveLength(1);
+
+    expect(
+      fetchMock.mock.calls.filter(
+        ([url, options]) =>
+          url === "/api/summaries" &&
+          options?.method === "POST"
+      )
+    ).toHaveLength(1);
   });
 
 });

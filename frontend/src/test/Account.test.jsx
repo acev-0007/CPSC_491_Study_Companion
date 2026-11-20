@@ -7,13 +7,33 @@ import Account from "../pages/Account";
 import ProtectedRoute from "../components/ProtectedRoute";
 import { ProfileSettings, SecuritySettings, PreferenceSettings, PrivacySettings, SettingsMenu } from "../components/Account/SettingsSections";
 import { getCurrentUser, logoutAccount } from "../api/auth";
-import { getAccount, updateAccount, uploadAvatar, removeAvatar, changePassword } from "../api/account";
+import {
+  getAccount,
+  updateAccount,
+  uploadAvatar,
+  removeAvatar,
+  updatePreferences,
+  changePassword,
+} from "../api/account";
 
-vi.mock("../api/auth", () => ({ getCurrentUser: vi.fn(), logoutAccount: vi.fn() }));
-vi.mock("../api/account", () => ({ getAccount: vi.fn(), updateAccount: vi.fn(), uploadAvatar: vi.fn(), removeAvatar: vi.fn(), changePassword: vi.fn() }));
+import { ThemeProvider } from "../theme/ThemeProvider";
+
+vi.mock("../api/auth", () => ({
+  getCurrentUser: vi.fn(),
+  logoutAccount: vi.fn(),
+}));
+
+vi.mock("../api/account", () => ({
+  getAccount: vi.fn(),
+  updateAccount: vi.fn(),
+  uploadAvatar: vi.fn(),
+  removeAvatar: vi.fn(),
+  updatePreferences: vi.fn(),
+  changePassword: vi.fn(),
+}));
 
 function renderAccount(path = "/account/profile") {
-  return render(<MemoryRouter initialEntries={[path]}><Routes>
+  return render(<MemoryRouter initialEntries={[path]}><ThemeProvider><Routes>
     <Route path="/" element={<h1>Public landing page</h1>} />
     <Route path="/login" element={<h1>Login page</h1>} />
     <Route element={<Layout />}>
@@ -27,7 +47,7 @@ function renderAccount(path = "/account/profile") {
         <Route path="menu" element={<SettingsMenu />} />
       </Route>
     </Route>
-  </Routes></MemoryRouter>);
+  </Routes></ThemeProvider></MemoryRouter>);
 }
 
 describe("Account settings workspace", () => {
@@ -160,5 +180,38 @@ describe("Account settings workspace", () => {
     expect(await screen.findByRole("heading", { name: "Sign-in details" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("link", { name: /All settings/ }));
     expect(await screen.findByRole("heading", { name: "Settings" })).toBeInTheDocument();
+  });
+});
+
+
+describe("SCRUM-281 appearance settings", () => {
+  beforeEach(() => {
+    vi.stubEnv("VITE_ENABLE_ROUTE_PROTECTION", "true");
+    getCurrentUser.mockResolvedValue({ user: { id: "one" } });
+    getAccount.mockResolvedValue({ user: { id: "one", email: "one@example.com", preferences: { theme: "system" } } });
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs(); vi.clearAllMocks();
+    document.documentElement.removeAttribute("data-theme");
+  });
+
+  it("defaults to System and persists Dark without reloading", async () => {
+    updatePreferences.mockResolvedValue({ user: { id: "one", preferences: { theme: "dark" } } });
+    renderAccount("/account/preferences");
+    const system = await screen.findByRole("radio", { name: "System" });
+    await waitFor(() => expect(system).toBeChecked());
+    await userEvent.click(screen.getByRole("radio", { name: "Dark" }));
+    await waitFor(() => expect(updatePreferences).toHaveBeenCalledWith("dark"));
+    await waitFor(() => expect(document.documentElement.dataset.theme).toBe("dark"));
+    expect(screen.getByRole("radio", { name: "Dark" })).toBeChecked();
+  });
+
+  it("reverts to saved theme and shows an error when saving fails", async () => {
+    updatePreferences.mockRejectedValue(new Error("Save unavailable"));
+    renderAccount("/account/preferences");
+    await waitFor(() => expect(screen.getByRole("radio", { name: "System" })).toBeChecked());
+    await userEvent.click(screen.getByRole("radio", { name: "Light" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Save unavailable");
+    expect(screen.getByRole("radio", { name: "System" })).toBeChecked();
   });
 });

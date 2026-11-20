@@ -1,4 +1,3 @@
-
 import {
   describe,
   it,
@@ -49,6 +48,7 @@ let fromMock;
 let getSelectMock;
 let eqMock;
 let orderMock;
+let limitMock;
 
 
 beforeEach(() => {
@@ -70,8 +70,8 @@ beforeEach(() => {
     select: insertSelectMock,
   });
 
-  // SCRUM-232: Mock summary retrieval.
-  orderMock = vi.fn().mockResolvedValue({
+// SCRUM-232: Mock summary retrieval.  
+  limitMock = vi.fn().mockResolvedValue({
     data: [
       {
         id: "summary-1",
@@ -88,6 +88,11 @@ beforeEach(() => {
     ],
     error: null,
   });
+
+orderMock = vi.fn().mockReturnValue({
+  limit: limitMock,
+});
+
 
   eqMock = vi.fn().mockReturnValue({
     order: orderMock,
@@ -303,7 +308,7 @@ describe("SCRUM-232: Saved summary retrieval", () => {
   });
 
   it("returns an empty array when no summaries exist", async () => {
-    orderMock.mockResolvedValueOnce({
+    limitMock.mockResolvedValueOnce({
       data: [],
       error: null,
     });
@@ -365,8 +370,15 @@ describe("SCRUM-232: Saved summary retrieval", () => {
     );
   });
 
+  it("limits retrieved summaries to the 15 most recent", async () => {
+    const response = await request(app)
+      .get("/api/summaries");
+    expect(response.status).toBe(200);
+    expect(limitMock).toHaveBeenCalledWith(15);
+  });
+
   it("handles Supabase retrieval failures", async () => {
-    orderMock.mockResolvedValueOnce({
+    limitMock.mockResolvedValueOnce({
       data: null,
       error: {
         message: "Database unavailable",
