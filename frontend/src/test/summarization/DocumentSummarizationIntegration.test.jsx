@@ -56,13 +56,29 @@ function mockJsonResponse(body, status = 200) {
 }
 
 describe("SCRUM-244 Document-to-Summarization Integration", () => {
+  let fetchMock;
+
   beforeEach(() => {
     vi.clearAllMocks();
+
+    // Default: saved-summary history loads successfully.
+    fetchMock = vi.fn(async (url, options) => {
+      if (
+        url === "/api/summaries" &&
+        options?.method !== "POST"
+      ) {
+        return mockJsonResponse({ summaries: [] });
+      }
+
+      throw new Error(`Unexpected request: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it("rejects a document with empty extracted text", async () => {
@@ -74,16 +90,13 @@ describe("SCRUM-244 Document-to-Summarization Integration", () => {
       chunks: [],
     });
 
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
-
     renderDocument();
 
     expect(
-      await screen.findByRole("alert")
-    ).toHaveTextContent(
-      "The selected document has no readable text."
-    );
+      await screen.findByText(
+        "The selected document has no readable text."
+      )
+    ).toBeInTheDocument();
 
     expect(
       screen.getByRole("button", {
@@ -91,7 +104,11 @@ describe("SCRUM-244 Document-to-Summarization Integration", () => {
       })
     ).toBeDisabled();
 
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(
+      fetchMock.mock.calls.filter(
+        ([url]) => url === "/api/ai/summarize"
+      )
+    ).toHaveLength(0);
   });
 
   it("handles document retrieval network failures", async () => {
@@ -99,14 +116,11 @@ describe("SCRUM-244 Document-to-Summarization Integration", () => {
       new Error("Unable to retrieve document.")
     );
 
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
-
     renderDocument();
 
     expect(
-      await screen.findByRole("alert")
-    ).toHaveTextContent("Unable to retrieve document.");
+      await screen.findByText("Unable to retrieve document.")
+    ).toBeInTheDocument();
 
     expect(
       screen.getByRole("button", {
@@ -114,19 +128,33 @@ describe("SCRUM-244 Document-to-Summarization Integration", () => {
       })
     ).toBeDisabled();
 
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(
+      fetchMock.mock.calls.filter(
+        ([url]) => url === "/api/ai/summarize"
+      )
+    ).toHaveLength(0);
   });
 
   it("handles an AI provider failure after loading a document", async () => {
     mockReadyDocument();
 
-    const fetchMock = vi.fn().mockResolvedValue(
-      mockJsonResponse(
-        { error: "AI provider unavailable." },
-        503
-      )
-    );
-    vi.stubGlobal("fetch", fetchMock);
+    fetchMock.mockImplementation(async (url, options) => {
+      if (
+        url === "/api/summaries" &&
+        options?.method !== "POST"
+      ) {
+        return mockJsonResponse({ summaries: [] });
+      }
+
+      if (url === "/api/ai/summarize") {
+        return mockJsonResponse(
+          { error: "AI provider unavailable." },
+          503
+        );
+      }
+
+      throw new Error(`Unexpected request: ${url}`);
+    });
 
     renderDocument();
 
@@ -139,8 +167,8 @@ describe("SCRUM-244 Document-to-Summarization Integration", () => {
     );
 
     expect(
-      await screen.findByRole("alert")
-    ).toHaveTextContent("AI provider unavailable.");
+      await screen.findByText("AI provider unavailable.")
+    ).toBeInTheDocument();
 
     expect(
       screen.queryByRole("heading", {
@@ -148,32 +176,53 @@ describe("SCRUM-244 Document-to-Summarization Integration", () => {
       })
     ).not.toBeInTheDocument();
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(
+      fetchMock.mock.calls.filter(
+        ([url]) => url === "/api/ai/summarize"
+      )
+    ).toHaveLength(1);
+
+    expect(
+      fetchMock.mock.calls.filter(
+        ([url, options]) =>
+          url === "/api/summaries" &&
+          options?.method === "POST"
+      )
+    ).toHaveLength(0);
   });
 
-  it("generates and saves a summary from a loaded document", async () => {
+  it("generates and automatically saves a summary from a loaded document", async () => {
     mockReadyDocument();
 
     const generatedSummary =
       "Binary search efficiently searches sorted data.";
 
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce(
-        mockJsonResponse({
-          summary: generatedSummary,
-        })
-      )
-      .mockResolvedValueOnce(
-        mockJsonResponse(
+    fetchMock.mockImplementation(async (url, options) => {
+      if (
+        url === "/api/summaries" &&
+        options?.method === "POST"
+      ) {
+        return mockJsonResponse(
           {
             id: "summary-123",
             message: "Summary saved successfully.",
           },
           201
-        )
-      );
+        );
+      }
 
-    vi.stubGlobal("fetch", fetchMock);
+      if (url === "/api/summaries") {
+        return mockJsonResponse({ summaries: [] });
+      }
+
+      if (url === "/api/ai/summarize") {
+        return mockJsonResponse({
+          summary: generatedSummary,
+        });
+      }
+
+      throw new Error(`Unexpected request: ${url}`);
+    });
 
     renderDocument();
 
@@ -189,26 +238,18 @@ describe("SCRUM-244 Document-to-Summarization Integration", () => {
       await screen.findByText(generatedSummary)
     ).toBeInTheDocument();
 
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      1,
-      "/api/ai/summarize",
-      expect.objectContaining({
-        method: "POST",
-        body: JSON.stringify({
-          notes: documentText,
-        }),
-      })
-    );
-
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "Save Summary",
-      })
-    );
-
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenNthCalledWith(
-        2,
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/ai/summarize",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({
+            notes: documentText,
+          }),
+        })
+      );
+
+      expect(fetchMock).toHaveBeenCalledWith(
         "/api/summaries",
         expect.objectContaining({
           method: "POST",
@@ -221,16 +262,12 @@ describe("SCRUM-244 Document-to-Summarization Integration", () => {
     });
 
     expect(
-      await screen.findByText(
-        "Your summary was saved successfully."
+      fetchMock.mock.calls.filter(
+        ([url, options]) =>
+          url === "/api/summaries" &&
+          options?.method === "POST"
       )
-    ).toBeInTheDocument();
-
-    expect(
-      screen.getByRole("button", {
-        name: "Summary Saved",
-      })
-    ).toBeDisabled();
+    ).toHaveLength(1);
   });
 
   it("blocks generation when document loading fails", async () => {
@@ -238,14 +275,11 @@ describe("SCRUM-244 Document-to-Summarization Integration", () => {
       new Error("Document not found.")
     );
 
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
-
     renderDocument("missing-document");
 
     expect(
-      await screen.findByRole("alert")
-    ).toHaveTextContent("Document not found.");
+      await screen.findByText("Document not found.")
+    ).toBeInTheDocument();
 
     const generateButton = screen.getByRole("button", {
       name: "Generate Summary",
@@ -255,6 +289,10 @@ describe("SCRUM-244 Document-to-Summarization Integration", () => {
 
     fireEvent.click(generateButton);
 
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(
+      fetchMock.mock.calls.filter(
+        ([url]) => url === "/api/ai/summarize"
+      )
+    ).toHaveLength(0);
   });
 });

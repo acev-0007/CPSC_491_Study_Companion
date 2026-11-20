@@ -1,83 +1,185 @@
+
 .summarization-page {
+  display: grid;
+  gap: var(--space-6);
+  width: 100%;
   max-width: 900px;
   margin: 0 auto;
-  padding: 2rem;
+  color: var(--color-text-primary);
 }
 
 .summarization-page h1 {
-  margin-bottom: 0.5rem;
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: clamp(32px, 4vw, 42px);
+  font-weight: 720;
+  line-height: 1.12;
+  letter-spacing: -0.8px;
 }
 
 .summarization-description {
-  margin-bottom: 1.5rem;
+  margin: calc(-1 * var(--space-3)) 0 0;
+  color: var(--color-text-secondary);
+  font-size: 15px;
+  line-height: 1.55;
 }
 
 .summarization-form {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-6);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
 }
 
 .summarization-input {
+  display: block;
   width: 100%;
-  min-height: 300px;
-  padding: 1rem;
-  font: inherit;
-  line-height: 1.5;
-  resize: vertical;
+  min-height: 260px;
   box-sizing: border-box;
-  border: 1px solid #ccc;
-  border-radius: 8px;
+  padding: var(--space-4);
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.65;
+  resize: vertical;
+  transition: border-color 150ms ease;
+}
+
+.summarization-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.summarization-input:hover:not(:disabled) {
+  border-color: var(--color-text-muted);
+}
+
+.summarization-input:focus-visible {
+  outline: 2px solid #b7a7ff;
+  outline-offset: 2px;
 }
 
 .summarization-button {
   align-self: flex-start;
-  padding: 0.75rem 1.25rem;
+  min-height: 44px;
+  padding: 11px 20px;
+  background: #49378f;
+  color: #ffffff;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
   font: inherit;
+  font-size: 14px;
+  font-weight: 650;
   cursor: pointer;
-  border-radius: 8px;
+  transition: background-color 150ms ease;
 }
 
-.summarization-validation-error {
-  margin: 0;
-  font-size: 0.95rem;
-  font-weight: 500;
+.summarization-button:hover:not(:disabled) {
+  background: #5b46ac;
+}
+
+.summarization-button:focus-visible {
+  outline: 2px solid #b7a7ff;
+  outline-offset: 3px;
+}
+
+.summarization-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.summarization-input:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 
 .summarization-result {
-  margin-top: 1.5rem;
-  padding: 1.25rem;
-  border: 1px solid #ccc;
-  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
+  min-width: 0;
+  margin-top: var(--space-3);
+  padding: var(--space-6);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
 }
 
 .summarization-result h2 {
-  margin-top: 0;
-  margin-bottom: 0.75rem;
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: 20px;
+  font-weight: 680;
+  line-height: 1.3;
+  letter-spacing: -0.3px;
 }
 
 .summarization-result p {
+  max-width: 100%;
   margin: 0;
-  line-height: 1.6;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 1.75;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
+.summarization-result .summarization-button {
+  background: transparent;
+  color: #c0b2ff;
+  border-color: var(--color-border-subtle);
+}
+
+.summarization-result .summarization-button:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+}
+
+.summarization-validation-error,
 .summarization-request-error {
   margin: 0;
-  font-size: 0.95rem;
+  color: var(--color-error);
+  font-size: 14px;
   font-weight: 500;
+  line-height: 1.5;
 }
 
 .summarization-loading {
   margin: 0;
-  font-size: 0.95rem;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
 }
 
-.summarization-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
+@media (max-width: 680px) {
+  .summarization-page {
+    gap: var(--space-5);
+  }
+
+  .summarization-form,
+  .summarization-result {
+    padding: var(--space-4);
+  }
+
+  .summarization-input {
+    min-height: 220px;
+  }
+
+  .summarization-button {
+    width: 100%;
+    align-self: stretch;
+  }
 }
 
-.summarization-input:disabled {
-  opacity: 0.7;
+@media (prefers-reduced-motion: reduce) {
+  .summarization-input,
+  .summarization-button {
+    transition: none;
+  }
 }

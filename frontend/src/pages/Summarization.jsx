@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import RecentSummaries from "../components/RecentSummaries/RecentSummaries";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { getAiReadyDocumentContent } from "../api/documents";
 import "./Summarization.css";
+import ReactMarkdown from "react-markdown";
 
 
 function SummarizationContent() {
@@ -16,7 +18,8 @@ function SummarizationContent() {
   const [summary, setSummary] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [requestError, setRequestError] = useState("");
-
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
+  const savingRef = useRef(false);
   // SCRUM-231: Summary persistence state
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
@@ -124,6 +127,7 @@ function SummarizationContent() {
       }
 
       setSummary(data.summary);
+      await handleSaveSummary(data.summary, studyMaterial.trim());
     } catch (error) {
       console.error("Summarization request failed:", error);
 
@@ -137,11 +141,13 @@ function SummarizationContent() {
   };
 
   // SCRUM-231: Save generated summary to Supabase
-  const handleSaveSummary = async () => {
-    if (!summary || isSaving || isSaved || isLoading) return;
-
-    setIsSaving(true);
-    setSaveError("");
+ const handleSaveSummary = async (summaryToSave = summary,sourceToSave = studyMaterial) => {
+  if (!summaryToSave?.trim() || savingRef.current || isSaved) {
+    return;
+  }
+  savingRef.current = true;
+  setIsSaving(true);
+  setSaveError("");
 
     try {
       const response = await fetch("/api/summaries", {
@@ -151,8 +157,8 @@ function SummarizationContent() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          sourceText: studyMaterial.trim(),
-          summary: summary.trim(),
+          sourceText: sourceToSave.trim(),
+          summary: summaryToSave.trim(),
         }),
       });
 
@@ -165,13 +171,14 @@ function SummarizationContent() {
       }
 
       setIsSaved(true);
+      setHistoryRefreshKey((value) => value + 1);
     } catch (error) {
       console.error("Summary save failed:", error);
-
       setSaveError(
         error.message || "Unable to save summary."
       );
     } finally {
+      savingRef.current = false;
       setIsSaving(false);
     }
   };
@@ -243,13 +250,15 @@ function SummarizationContent() {
           onClick={handleGenerateSummary}
           disabled={isLoading || isSaving || isLoadingDocument || Boolean(documentError)}
         >
-          {isLoading
+          {isLoading && !summary
             ? "Generating Summary..."
-            : "Generate Summary"}
+            : isSaving
+              ? "Saving Summary..."
+              : "Generate Summary"}
         </button>
 
-        {isLoading && (
-          <p className="summarization-loading">
+        {isLoading && !summary && (
+          <p className="summarization-loading" role="status">
             Generating your summary...
           </p>
         )}
@@ -257,26 +266,26 @@ function SummarizationContent() {
         {summary && (
           <div className="summarization-result">
             <h2>Generated Summary</h2>
-            <p>{summary}</p>
 
-            {/* SCRUM-231: Save Summary button */}
-            <button
-              type="button"
-              className="summarization-button"
-              onClick={handleSaveSummary}
-              disabled={isSaving || isSaved || isLoading}
-            >
-              {isSaving
-                ? "Saving..."
-                : isSaved
-                  ? "Summary Saved"
-                  : "Save Summary"}
-            </button>
-
-            {isSaved && (
-              <p role="status">
-                Your summary was saved successfully.
+            <div className="summarization-markdown">
+              <ReactMarkdown>{summary}</ReactMarkdown>
+            </div>
+            
+            {isSaving && (
+              <p className="summarization-loading" role="status">
+                Saving your summary...
               </p>
+            )}
+            
+            {saveError && (
+              <button
+                type="button"
+                className="summarization-button"
+                onClick={() => handleSaveSummary()}
+                disabled={isSaving || isLoading}
+              >
+                Retry Save
+              </button>
             )}
 
             {saveError && (
@@ -290,6 +299,15 @@ function SummarizationContent() {
           </div>
         )}
       </div>
+      <section
+        className="summarization-history"
+        aria-label="Recent saved summaries"
+      >
+        <RecentSummaries
+          limit={15}
+          refreshKey={historyRefreshKey}
+        />
+      </section>
     </div>
   );
 }
