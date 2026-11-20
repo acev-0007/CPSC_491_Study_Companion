@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import {
   saveGeneratedFlashcards,
@@ -12,6 +13,11 @@ import SavedDeckList from "../components/SavedDeckList";
 import "../components/Flashcards.css";
 
 function Flashcards() {
+  // Revieves Document ID
+  const [searchParams] = useSearchParams();
+  const documentId = searchParams.get("documentId");
+
+
   // Saved and generated decks remain separate.
   const [isSaving, setIsSaving] = useState(false);
   const [saveResult, setSaveResult] = useState(null);
@@ -33,7 +39,12 @@ function Flashcards() {
   // instead of pulling them into a generated deck they did not ask for.
   const generateRequestRef = useRef(0);
 
-  const [view, setView] = useState("home");
+  const [view, setView] = useState(
+    () =>
+      documentId
+        ? "generate"
+        : "home"
+  );
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
@@ -343,7 +354,9 @@ return (
           ← Back
         </button>
 
-        <StudyMaterialInput onGenerate={handleGenerate} />
+        <StudyMaterialInput
+        onGenerate={handleGenerate}
+        initialDocumentId={documentId}/>
 
         {generationNotice && (
           <p

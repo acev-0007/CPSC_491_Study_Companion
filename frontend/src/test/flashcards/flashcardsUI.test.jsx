@@ -6,7 +6,7 @@ import Flashcards from "../../pages/Flashcards";
 import { getFlashcards } from "../../data/flashcardSource";
 import { listDecks } from "../../services/flashcardDecks";
 import { saveGeneratedFlashcards } from "../../services/flashcardPersistence";
-
+import { MemoryRouter } from "react-router-dom";
 // FLASH-UI-4: UI semantics, edit behavior, smoke, and lightweight performance.
 
 vi.mock("../../data/flashcardSource", () => ({ getFlashcards: vi.fn() }));
@@ -17,6 +17,14 @@ vi.mock("../../services/flashcardDecks", () => ({
 vi.mock("../../services/flashcardPersistence", () => ({
   saveGeneratedFlashcards: vi.fn(),
 }));
+
+function renderFlashcards(initialEntries = ["/flashcards"]) {
+  return render(
+    <MemoryRouter initialEntries={initialEntries}>
+      <Flashcards />
+    </MemoryRouter>
+  );
+}
 
 const DECK = {
   id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
@@ -38,7 +46,7 @@ async function openDeck(cards) {
   getFlashcards.mockResolvedValue(cards);
 
   const user = userEvent.setup();
-  render(<Flashcards />);
+  renderFlashcards();
 
   await user.click(
     screen.getByRole("button", { name: "Study Saved Flashcards" })
@@ -63,7 +71,7 @@ afterEach(() => {
 
 describe("Flashcards UI - smoke (FLASH-UI-4)", () => {
   it("renders the home screen with both entry points", () => {
-    render(<Flashcards />);
+    renderFlashcards();
 
     expect(
       screen.getByRole("heading", { level: 1, name: "Flashcards" })
@@ -122,7 +130,7 @@ describe("Flashcards UI - accessibility (FLASH-UI-4)", () => {
   it("announces the loading state as a status", async () => {
     listDecks.mockReturnValue(new Promise(() => {}));
     const user = userEvent.setup();
-    render(<Flashcards />);
+    renderFlashcards();
 
     await user.click(
       screen.getByRole("button", { name: "Study Saved Flashcards" })
@@ -136,7 +144,7 @@ describe("Flashcards UI - accessibility (FLASH-UI-4)", () => {
   it("announces a load failure as an alert", async () => {
     listDecks.mockRejectedValue(new Error("boom"));
     const user = userEvent.setup();
-    render(<Flashcards />);
+    renderFlashcards();
 
     await user.click(
       screen.getByRole("button", { name: "Study Saved Flashcards" })

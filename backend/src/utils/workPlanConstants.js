@@ -1,0 +1,1 @@
+export const MAX_WORK_PLAN_SESSIONS = 30;

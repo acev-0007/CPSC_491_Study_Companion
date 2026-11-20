@@ -32,7 +32,7 @@ describe("TextbookHub", () => {
       new File(["fake image"], "diagram.png", { type: "image/png" })
     );
 
-    expect(screen.getByRole("alert")).toHaveTextContent(/only txt and pdf/i);
+    expect(screen.getByRole("alert")).toHaveTextContent(/unsupported file type/i);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
