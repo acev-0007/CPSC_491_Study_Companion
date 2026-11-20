@@ -1,7 +1,7 @@
-
 import { Router } from "express";
 import { generateClaudeResponse } from "../providers/claudeProvider.js";
-import { parseQuiz } from "../quizValidator.js"; 
+import { parseQuiz, parseQuizTopic } from "../quizValidator.js";
+import { saveGeneratedQuiz } from "../generatedQuizStore.js";
 import { requireAuth } from "../middleware/requireAuth.js"
 import { createUserSupabaseClient } from "../config/supabase.js";
 import { getDateInTimeZone } from "../utils/dateUtils.js"
@@ -163,16 +163,21 @@ Generate exactly 5 multiple-choice quiz questions from the following material.
 
 Return ONLY a valid JSON object in this exact format:
 {
+  "topic": "Operating Systems",
   "questions": [
     {
       "question": "Question text",
       "options": ["Choice A text", "Choice B text", "Choice C text", "Choice D text"],
-      "correctOptionId": "B"
+      "correctOptionId": "B",
+      "category": "Deadlocks"
     }
   ]
 }
 
 Requirements:
+- "topic" is a short name (2-4 words, Title Case) for the subject of the whole material.
+- Each question has a "category": a short subtopic label (1-3 words, Title Case).
+- Reuse the same category label for questions about the same subtopic.
 - Exactly 5 questions.
 - Each question has exactly 4 distinct options, in the "options" array.
 - correctOptionId is the letter of the one correct option: "A", "B", "C", or "D".
@@ -198,8 +203,17 @@ ${notes.trim()}
       });
     }
 
-    return res.json({ questions });
-    } catch (error) {
+    // SCRUM-128: keep a trusted snapshot so the finished quiz can be graded and
+    // saved to history by the server. quizId is null if the snapshot failed.
+    const topic = parseQuizTopic(response);
+    const quizId = await saveGeneratedQuiz(
+      req.user.id,
+      topic,
+      questions
+    );
+
+    return res.json({ quizId, topic, questions });
+  } catch (error) {
     next(error);
   }
 });

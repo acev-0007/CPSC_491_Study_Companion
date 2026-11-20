@@ -1,27 +1,38 @@
-// SCRUM-125: parses and validates the AI's quiz output.
+
+// SCRUM-125: Parse and validate AI-generated quiz output.
+// SCRUM-128: Support quiz topics and question categories.
 //
-// The AI is asked for the simplest possible shape:
-//   { "questions": [ { "question": "...", "options": ["...", "...", "...", "..."], "correctOptionId": "B" } ] }
+// Expected AI response:
+// {
+//   "topic": "Operating Systems",
+//   "questions": [
+//     {
+//       "question": "...",
+//       "options": ["...", "...", "...", "..."],
+//       "correctOptionId": "B",
+//       "category": "Process Management"
+//     }
+//   ]
+// }
 //
-// This module turns that into the contract the Quiz UI (mockQuiz.js) expects,
-// assigning the ids itself so the AI cannot produce duplicate or odd ids:
-//   { id: "q1", question, options: [{ id: "A", text }, ...], correctOptionId }
-//
-// Anything that does not match exactly is rejected. Nothing is repaired or
-// filled in, so a half-valid quiz never reaches the student.
+// The backend assigns question and option IDs.
+// Invalid quiz structure is rejected.
+// Optional topic/category metadata defaults to "General".
 
 export const QUESTION_COUNT = 5;
 export const OPTION_IDS = ["A", "B", "C", "D"];
 
 const MAX_QUESTION_LENGTH = 500;
 const MAX_OPTION_LENGTH = 300;
+const MAX_CATEGORY_LENGTH = 60;
+const MAX_TOPIC_LENGTH = 80;
 
 const isText = (value, max) =>
   typeof value === "string" &&
   value.trim().length > 0 &&
   value.trim().length <= max;
 
-// The AI is told not to use Markdown fences, but occasionally does anyway.
+// The AI occasionally wraps JSON in Markdown code fences.
 function stripCodeFence(text) {
   return text
     .trim()
@@ -29,14 +40,65 @@ function stripCodeFence(text) {
     .replace(/\s*```$/, "");
 }
 
+// Normalize optional metadata without affecting quiz validity.
+function normalizeLabel(value, maxLength) {
+  if (typeof value !== "string") {
+    return "General";
+  }
+
+  const normalized = value.replace(/\s+/g, " ").trim();
+
+  if (
+    normalized.length === 0 ||
+    normalized.length > maxLength
+  ) {
+    return "General";
+  }
+
+  return normalized;
+}
+
 /**
- * @param {string} rawResponse Raw text returned by the AI provider.
- * @returns {Array|null} Validated questions, or null if anything is invalid.
+ * Extracts the topic from an AI-generated quiz.
+ *
+ * Missing, malformed, or invalid topics default to General.
+ *
+ * @param {string} rawResponse
+ * @returns {string}
+ */
+export function parseQuizTopic(rawResponse) {
+  if (typeof rawResponse !== "string") {
+    return "General";
+  }
+
+  try {
+    const parsed = JSON.parse(stripCodeFence(rawResponse));
+
+    return normalizeLabel(
+      parsed?.topic,
+      MAX_TOPIC_LENGTH
+    );
+  } catch {
+    return "General";
+  }
+}
+
+/**
+ * Parses and validates an AI-generated quiz.
+ *
+ * Returns null when required quiz data is invalid.
+ * Optional category metadata never invalidates the quiz.
+ *
+ * @param {string} rawResponse
+ * @returns {Array|null}
  */
 export function parseQuiz(rawResponse) {
-  if (typeof rawResponse !== "string") return null;
+  if (typeof rawResponse !== "string") {
+    return null;
+  }
 
   let parsed;
+
   try {
     parsed = JSON.parse(stripCodeFence(rawResponse));
   } catch {
@@ -44,35 +106,69 @@ export function parseQuiz(rawResponse) {
   }
 
   const questions = parsed?.questions;
-  if (!Array.isArray(questions) || questions.length !== QUESTION_COUNT) {
+
+  if (
+    !Array.isArray(questions) ||
+    questions.length !== QUESTION_COUNT
+  ) {
     return null;
   }
 
   const result = [];
 
   for (const [index, item] of questions.entries()) {
-    if (!item || !isText(item.question, MAX_QUESTION_LENGTH)) return null;
-
+    // Validate question text.
     if (
-      !Array.isArray(item.options) ||
-      item.options.length !== OPTION_IDS.length ||
-      !item.options.every((option) => isText(option, MAX_OPTION_LENGTH))
+      !item ||
+      !isText(item.question, MAX_QUESTION_LENGTH)
     ) {
       return null;
     }
 
-    const texts = item.options.map((option) => option.trim());
-    if (new Set(texts.map((text) => text.toLowerCase())).size !== texts.length) {
+    // Validate exactly four nonempty options.
+    if (
+      !Array.isArray(item.options) ||
+      item.options.length !== OPTION_IDS.length ||
+      !item.options.every((option) =>
+        isText(option, MAX_OPTION_LENGTH)
+      )
+    ) {
       return null;
     }
 
-    if (!OPTION_IDS.includes(item.correctOptionId)) return null;
+    const texts = item.options.map((option) =>
+      option.trim()
+    );
+
+    // Reject duplicate options (case-insensitive).
+    if (
+      new Set(
+        texts.map((text) => text.toLowerCase())
+      ).size !== texts.length
+    ) {
+      return null;
+    }
+
+    // Validate the correct answer.
+    if (!OPTION_IDS.includes(item.correctOptionId)) {
+      return null;
+    }
+
+    // Normalize optional category metadata.
+    const category = normalizeLabel(
+      item.category,
+      MAX_CATEGORY_LENGTH
+    );
 
     result.push({
       id: `q${index + 1}`,
       question: item.question.trim(),
-      options: texts.map((text, i) => ({ id: OPTION_IDS[i], text })),
+      options: texts.map((text, i) => ({
+        id: OPTION_IDS[i],
+        text,
+      })),
       correctOptionId: item.correctOptionId,
+      category,
     });
   }
 

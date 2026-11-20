@@ -1,4 +1,5 @@
 import express from "express";
+import quizHistoryRoutes from "./routes/quizHistoryRoutes.js";
 import cors from "cors";
 import multer from "multer";
 import cookieParser from "cookie-parser";
@@ -1562,6 +1563,11 @@ app.post(
     "/api/assignments",
     assignmentRoutes
   );
+  app.use(
+  "/api/quiz-history",
+  requireAuth,
+  quizHistoryRoutes
+);
 
   return app;
 }

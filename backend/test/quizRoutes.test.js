@@ -1,21 +1,36 @@
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 
-// SCRUM-125: tests POST /api/ai/quiz through the real Express app
-// (createApp): real auth middleware, routing, validation and error handling.
-// Only Supabase auth and the Claude provider are mocked, so CI never makes a
-// billable AI request. The live provider check is quizRoutes.live.test.js.
+// SCRUM-125: Quiz generation route tests.
+// SCRUM-128: Verify trusted quiz snapshot persistence.
+// Authentication, AI provider, and database are mocked.
 
-const { getUserMock, generateMock } = vi.hoisted(() => ({
+const {
+  getUserMock,
+  generateMock,
+  serviceRoleClientMock,
+  snapshotInsertMock,
+  snapshotFromMock,
+} = vi.hoisted(() => ({
   getUserMock: vi.fn(),
   generateMock: vi.fn(),
+  serviceRoleClientMock: vi.fn(),
+  snapshotInsertMock: vi.fn(),
+  snapshotFromMock: vi.fn(),
 }));
+
+const QUIZ_ID = "550e8400-e29b-41d4-a716-446655440000";
 
 vi.mock("../src/config/supabase.js", () => ({
   createSupabaseClient: () => ({
-    auth: { getUser: getUserMock, refreshSession: vi.fn() },
+    auth: {
+      getUser: getUserMock,
+      refreshSession: vi.fn(),
+    },
   }),
   createUserSupabaseClient: vi.fn(),
+  createServiceRoleSupabaseClient: serviceRoleClientMock,
 }));
 
 vi.mock("../src/providers/claudeProvider.js", () => ({
@@ -34,7 +49,9 @@ const question = (n, overrides = {}) => ({
 });
 
 const validQuiz = (overrides = {}) => ({
-  questions: [1, 2, 3, 4, 5].map((n) => question(n, overrides)),
+  questions: [1, 2, 3, 4, 5].map((n) =>
+    question(n, overrides)
+  ),
 });
 
 function postQuiz(body) {
@@ -46,37 +63,92 @@ function postQuiz(body) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+
   getUserMock.mockResolvedValue({
-    data: { user: { id: "student-1" } },
+    data: {
+      user: { id: "student-1" },
+    },
     error: null,
+  });
+
+  // Mock the Supabase insert -> select -> single chain.
+  const single = vi.fn().mockResolvedValue({
+    data: { id: QUIZ_ID },
+    error: null,
+  });
+
+  const select = vi.fn().mockReturnValue({ single });
+
+  snapshotInsertMock.mockReturnValue({ select });
+
+  snapshotFromMock.mockReturnValue({
+    insert: snapshotInsertMock,
+  });
+
+  serviceRoleClientMock.mockReturnValue({
+    from: snapshotFromMock,
   });
 });
 
 describe("POST /api/ai/quiz", () => {
-  it("AIQ-01/02/03: returns 5 questions with 4 options and a valid answer key", async () => {
-    generateMock.mockResolvedValue(JSON.stringify(validQuiz()));
+  it(
+    "AIQ-01/02/03: returns 5 questions with 4 options and a valid answer key",
+    async () => {
+      generateMock.mockResolvedValue(
+        JSON.stringify(validQuiz())
+      );
 
-    const response = await postQuiz({ notes: "Operating systems notes." });
+      const response = await postQuiz({
+        notes: "Operating systems notes.",
+      });
 
-    expect(response.status).toBe(200);
-    expect(response.body.questions).toHaveLength(5);
+      expect(response.status).toBe(200);
+      expect(response.body.questions).toHaveLength(5);
 
-    for (const q of response.body.questions) {
-      expect(q.options).toHaveLength(4);
-      expect(q.options.map((o) => o.id)).toEqual(["A", "B", "C", "D"]);
-      expect(q.options.map((o) => o.id)).toContain(q.correctOptionId);
+      for (const q of response.body.questions) {
+        expect(q.options).toHaveLength(4);
+        expect(q.options.map((o) => o.id)).toEqual([
+          "A", "B", "C", "D",
+        ]);
+        expect(q.options.map((o) => o.id)).toContain(
+          q.correctOptionId
+        );
+      }
+
+      expect(response.body.questions.map((q) => q.id)).toEqual([
+        "q1", "q2", "q3", "q4", "q5",
+      ]);
+
+      expect(generateMock).toHaveBeenCalledOnce();
+
+      // SCRUM-128: Verify trusted snapshot persistence.
+      expect(serviceRoleClientMock).toHaveBeenCalledOnce();
+
+      expect(snapshotFromMock).toHaveBeenCalledWith(
+        "generated_quizzes"
+      );
+
+      expect(snapshotInsertMock).toHaveBeenCalledOnce();
+
+      expect(snapshotInsertMock).toHaveBeenCalledWith({
+        user_id: "student-1",
+        topic: "General",
+        questions: response.body.questions,
+      });
+
+      expect(response.body.quizId).toBe(QUIZ_ID);
+      expect(response.body.topic).toBe("General");
     }
-
-    expect(response.body.questions.map((q) => q.id)).toEqual([
-      "q1", "q2", "q3", "q4", "q5",
-    ]);
-    expect(generateMock).toHaveBeenCalledOnce();
-  });
+  );
 
   it("sends the study material to the provider", async () => {
-    generateMock.mockResolvedValue(JSON.stringify(validQuiz()));
+    generateMock.mockResolvedValue(
+      JSON.stringify(validQuiz())
+    );
 
-    await postQuiz({ notes: "Deadlock needs circular wait." });
+    await postQuiz({
+      notes: "Deadlock needs circular wait.",
+    });
 
     expect(generateMock.mock.calls[0][0]).toContain(
       "Deadlock needs circular wait."
@@ -85,31 +157,47 @@ describe("POST /api/ai/quiz", () => {
 
   it("accepts JSON wrapped in a Markdown code fence", async () => {
     generateMock.mockResolvedValue(
-      "```json\n" + JSON.stringify(validQuiz()) + "\n```"
+      "```json\n" +
+      JSON.stringify(validQuiz()) +
+      "\n```"
     );
 
-    const response = await postQuiz({ notes: "Notes." });
+    const response = await postQuiz({
+      notes: "Notes.",
+    });
 
     expect(response.status).toBe(200);
     expect(response.body.questions).toHaveLength(5);
+    expect(response.body.quizId).toBe(QUIZ_ID);
   });
 
   it("AIQ-04: rejects empty, missing and non-string notes", async () => {
-    for (const body of [{}, { notes: "   " }, { notes: 42 }]) {
+    for (const body of [
+      {},
+      { notes: "   " },
+      { notes: 42 },
+    ]) {
       const response = await postQuiz(body);
       expect(response.status).toBe(400);
     }
+
     expect(generateMock).not.toHaveBeenCalled();
+    expect(snapshotInsertMock).not.toHaveBeenCalled();
   });
 
   it("AIQ-05: rejects notes over 20,000 characters", async () => {
-    const response = await postQuiz({ notes: "a".repeat(20001) });
+    const response = await postQuiz({
+      notes: "a".repeat(20001),
+    });
 
     expect(response.status).toBe(400);
+
     expect(response.body.error).toBe(
       "Study material cannot exceed 20,000 characters."
     );
+
     expect(generateMock).not.toHaveBeenCalled();
+    expect(snapshotInsertMock).not.toHaveBeenCalled();
   });
 
   it("AIQ-06: rejects anonymous requests before calling the provider", async () => {
@@ -124,54 +212,109 @@ describe("POST /api/ai/quiz", () => {
 
     expect(response.status).toBe(401);
     expect(generateMock).not.toHaveBeenCalled();
+    expect(snapshotInsertMock).not.toHaveBeenCalled();
   });
 
   it("AIQ-07: returns a controlled 500 when the provider fails", async () => {
-    generateMock.mockRejectedValue(new Error("ANTHROPIC_API_KEY is wrong"));
+    generateMock.mockRejectedValue(
+      new Error("ANTHROPIC_API_KEY is wrong")
+    );
 
-    const response = await postQuiz({ notes: "Notes." });
+    const response = await postQuiz({
+      notes: "Notes.",
+    });
 
     expect(response.status).toBe(500);
-    expect(response.body).toEqual({ error: "Unexpected server error." });
-    expect(JSON.stringify(response.body)).not.toContain("ANTHROPIC");
+
+    expect(response.body).toEqual({
+      error: "Unexpected server error.",
+    });
+
+    expect(JSON.stringify(response.body)).not.toContain(
+      "ANTHROPIC"
+    );
+
+    expect(snapshotInsertMock).not.toHaveBeenCalled();
   });
 });
 
 describe("POST /api/ai/quiz: invalid AI output returns 502", () => {
   const cases = {
     "not JSON": "Here are your questions!",
-    "no questions array": JSON.stringify({ quiz: [] }),
+
+    "no questions array": JSON.stringify({
+      quiz: [],
+    }),
+
     "too few questions": JSON.stringify({
       questions: validQuiz().questions.slice(0, 4),
     }),
+
     "too many questions": JSON.stringify({
-      questions: [...validQuiz().questions, question(6)],
+      questions: [
+        ...validQuiz().questions,
+        question(6),
+      ],
     }),
+
     "three options": JSON.stringify(
-      validQuiz({ options: ["a", "b", "c"] })
+      validQuiz({
+        options: ["a", "b", "c"],
+      })
     ),
+
     "duplicate options": JSON.stringify(
-      validQuiz({ options: ["same", "same", "c", "d"] })
+      validQuiz({
+        options: ["same", "same", "c", "d"],
+      })
     ),
+
     "empty option text": JSON.stringify(
-      validQuiz({ options: ["a", "  ", "c", "d"] })
+      validQuiz({
+        options: ["a", "  ", "c", "d"],
+      })
     ),
+
     "correct answer outside A-D": JSON.stringify(
-      validQuiz({ correctOptionId: "E" })
+      validQuiz({
+        correctOptionId: "E",
+      })
     ),
+
     "missing correct answer": JSON.stringify(
-      validQuiz({ correctOptionId: undefined })
+      validQuiz({
+        correctOptionId: undefined,
+      })
     ),
-    "empty question text": JSON.stringify(validQuiz({ question: "" })),
-    "truncated JSON": JSON.stringify(validQuiz()).slice(0, 120),
+
+    "empty question text": JSON.stringify(
+      validQuiz({
+        question: "",
+      })
+    ),
+
+    "truncated JSON": JSON.stringify(
+      validQuiz()
+    ).slice(0, 120),
   };
 
-  it.each(Object.entries(cases))("%s", async (_name, aiOutput) => {
-    generateMock.mockResolvedValue(aiOutput);
+  it.each(Object.entries(cases))(
+    "%s",
+    async (_name, aiOutput) => {
+      generateMock.mockResolvedValue(aiOutput);
 
-    const response = await postQuiz({ notes: "Notes." });
+      const response = await postQuiz({
+        notes: "Notes.",
+      });
 
-    expect(response.status).toBe(502);
-    expect(response.body).toEqual({ error: "Quiz generation failed." });
-  });
+      expect(response.status).toBe(502);
+
+      expect(response.body).toEqual({
+        error: "Quiz generation failed.",
+      });
+
+      // Invalid quizzes must never be persisted.
+      expect(snapshotInsertMock).not.toHaveBeenCalled();
+    }
+  );
 });
