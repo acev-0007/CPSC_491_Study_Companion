@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
+import { MemoryRouter } from "react-router-dom";
 import Quiz from "./Quiz";
 import { mockQuiz } from "../data/mockQuiz";
 
@@ -46,7 +46,11 @@ afterEach(() => {
 describe("Quiz generation flow", () => {
   it("shows setup first, lists only ready documents, and keeps Create disabled when empty", async () => {
     stubApi({ quizResponse: quizOk });
-    render(<Quiz />);
+    render(
+  <MemoryRouter>
+    <Quiz />
+  </MemoryRouter>
+);
 
     expect(
       screen.getByRole("heading", { name: "Create a quiz" })
@@ -61,7 +65,11 @@ describe("Quiz generation flow", () => {
   it("generates from pasted notes and shows the first generated question", async () => {
     const user = userEvent.setup();
     const fetchMock = stubApi({ quizResponse: quizOk });
-    render(<Quiz />);
+    render(
+  <MemoryRouter>
+    <Quiz />
+  </MemoryRouter>
+);
 
     await user.type(screen.getByLabelText("Study material"), "Mutex notes");
     await user.click(screen.getByRole("button", { name: "Create Quiz" }));
@@ -78,7 +86,11 @@ describe("Quiz generation flow", () => {
   it("loads a Document Hub file into the notes box and generates from it", async () => {
     const user = userEvent.setup();
     const fetchMock = stubApi({ quizResponse: quizOk });
-    render(<Quiz />);
+    render(
+  <MemoryRouter>
+    <Quiz />
+  </MemoryRouter>
+);
 
     await user.selectOptions(
       await screen.findByLabelText(/Document Hub file/),
@@ -100,7 +112,11 @@ describe("Quiz generation flow", () => {
   it("truncates a long document to the 20,000-character limit and says so", async () => {
     const user = userEvent.setup();
     stubApi({ quizResponse: quizOk, documentText: "x".repeat(30000) });
-    render(<Quiz />);
+    render(
+  <MemoryRouter>
+    <Quiz />
+  </MemoryRouter>
+);
 
     await user.selectOptions(
       await screen.findByLabelText(/Document Hub file/),
@@ -120,7 +136,11 @@ describe("Quiz generation flow", () => {
           json: () => Promise.resolve({ error: "Quiz generation failed." }),
         }),
     });
-    render(<Quiz />);
+   render(
+  <MemoryRouter>
+    <Quiz />
+  </MemoryRouter>
+);
 
     await user.type(screen.getByLabelText("Study material"), "Notes");
     await user.click(screen.getByRole("button", { name: "Create Quiz" }));
@@ -146,7 +166,11 @@ describe("Quiz generation flow", () => {
             });
         }),
     });
-    render(<Quiz />);
+    render(
+  <MemoryRouter>
+    <Quiz />
+  </MemoryRouter>
+);
 
     await user.type(screen.getByLabelText("Study material"), "Notes");
     const button = screen.getByRole("button", { name: "Create Quiz" });
@@ -163,8 +187,11 @@ describe("Quiz generation flow", () => {
   it("New quiz returns to setup", async () => {
     const user = userEvent.setup();
     stubApi({ quizResponse: quizOk });
-    render(<Quiz />);
-
+    render(
+  <MemoryRouter>
+    <Quiz />
+  </MemoryRouter>
+);
     await user.type(screen.getByLabelText("Study material"), "Notes");
     await user.click(screen.getByRole("button", { name: "Create Quiz" }));
     await screen.findByText("Question 1 of 5");

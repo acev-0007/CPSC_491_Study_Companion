@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 
 import Quiz from "./Quiz";
 import { mockQuiz } from "../data/mockQuiz";
@@ -25,7 +26,11 @@ describe("mockQuiz data", () => {
 
 describe("Quiz page", () => {
   it("opens on the first question with progress shown", () => {
-    render(<Quiz initialQuestions={mockQuiz} />);
+   render(
+  <MemoryRouter>
+    <Quiz initialQuestions={mockQuiz} />
+  </MemoryRouter>
+);
 
     expect(
       screen.getByRole("heading", { name: mockQuiz[0].question })
@@ -37,7 +42,11 @@ describe("Quiz page", () => {
 
   it("marks a correct answer green with a check and text", async () => {
     const user = userEvent.setup();
-    render(<Quiz initialQuestions={mockQuiz} />);
+    render(
+  <MemoryRouter>
+    <Quiz initialQuestions={mockQuiz} />
+  </MemoryRouter>
+);
 
     await user.click(option("B"));
 
@@ -49,7 +58,11 @@ describe("Quiz page", () => {
 
   it("marks an incorrect answer red and reveals the correct one in green", async () => {
     const user = userEvent.setup();
-    render(<Quiz initialQuestions={mockQuiz} />);
+    render(
+  <MemoryRouter>
+    <Quiz initialQuestions={mockQuiz} />
+  </MemoryRouter>
+);
 
     await user.click(option("A"));
 
@@ -64,7 +77,11 @@ describe("Quiz page", () => {
 
   it("locks the answer after the first selection", async () => {
     const user = userEvent.setup();
-    render(<Quiz initialQuestions={mockQuiz} />);
+    render(
+  <MemoryRouter>
+    <Quiz initialQuestions={mockQuiz} />
+  </MemoryRouter>
+);
 
     await user.click(option("A"));
     await user.click(option("B"));
@@ -78,7 +95,11 @@ describe("Quiz page", () => {
 
   it("navigates with Next/Previous and enforces the boundaries", async () => {
     const user = userEvent.setup();
-    render(<Quiz initialQuestions={mockQuiz} />);
+    render(
+  <MemoryRouter>
+    <Quiz initialQuestions={mockQuiz} />
+  </MemoryRouter>
+);
 
     const previous = screen.getByRole("button", { name: "Previous" });
     const next = screen.getByRole("button", { name: "Next" });
@@ -104,7 +125,11 @@ describe("Quiz page", () => {
 
   it("keeps answers and feedback when navigating away and back", async () => {
     const user = userEvent.setup();
-    render(<Quiz initialQuestions={mockQuiz} />);
+    render(
+  <MemoryRouter>
+    <Quiz initialQuestions={mockQuiz} />
+  </MemoryRouter>
+);
 
     await user.click(option("A")); // wrong on q1
     await user.click(screen.getByRole("button", { name: "Next" }));
@@ -126,7 +151,11 @@ describe("Quiz page", () => {
   });
 
   it("labels Hint and Chat as Coming Soon and omits Quiz Settings", () => {
-    render(<Quiz initialQuestions={mockQuiz} />);
+    render(
+  <MemoryRouter>
+    <Quiz initialQuestions={mockQuiz} />
+  </MemoryRouter>
+);
 
     expect(screen.getByRole("button", { name: /Hint/ })).toBeDisabled();
     expect(screen.getByRole("button", { name: /Chat/ })).toBeDisabled();
@@ -154,7 +183,11 @@ async function answerAll(user, picks) {
 describe("Quiz results screen", () => {
   it("does not offer results until every question is answered", async () => {
     const user = userEvent.setup();
-    render(<Quiz initialQuestions={mockQuiz} />);
+   render(
+  <MemoryRouter>
+    <Quiz initialQuestions={mockQuiz} />
+  </MemoryRouter>
+);
 
     // Answer only q1, then jump to the last question.
     await user.click(option("B"));
@@ -174,7 +207,11 @@ describe("Quiz results screen", () => {
 
   it("replaces Next with View Results on the last question once complete", async () => {
     const user = userEvent.setup();
-    render(<Quiz initialQuestions={mockQuiz} />);
+    render(
+  <MemoryRouter>
+    <Quiz initialQuestions={mockQuiz} />
+  </MemoryRouter>
+);
 
     await answerAll(user, THREE_CORRECT);
 
@@ -184,7 +221,11 @@ describe("Quiz results screen", () => {
 
   it("shows correct, incorrect and total counts for a partial score", async () => {
     const user = userEvent.setup();
-    render(<Quiz initialQuestions={mockQuiz} />);
+    render(
+  <MemoryRouter>
+    <Quiz initialQuestions={mockQuiz} />
+  </MemoryRouter>
+);
 
     await answerAll(user, THREE_CORRECT);
     await user.click(screen.getByRole("button", { name: "View Results" }));
@@ -199,7 +240,11 @@ describe("Quiz results screen", () => {
 
   it("handles a perfect score", async () => {
     const user = userEvent.setup();
-    const { container } = render(<Quiz initialQuestions={mockQuiz} />);
+    const { container } = render(
+  <MemoryRouter>
+    <Quiz initialQuestions={mockQuiz} />
+  </MemoryRouter>
+);
 
     await answerAll(user, ALL_CORRECT);
     await user.click(screen.getByRole("button", { name: "View Results" }));
@@ -220,7 +265,11 @@ describe("Quiz results screen", () => {
 
   it("handles a zero score", async () => {
     const user = userEvent.setup();
-    const { container } = render(<Quiz initialQuestions={mockQuiz} />);
+    const { container } = render(
+  <MemoryRouter>
+    <Quiz initialQuestions={mockQuiz} />
+  </MemoryRouter>
+);
 
     await answerAll(user, ALL_WRONG);
     await user.click(screen.getByRole("button", { name: "View Results" }));
@@ -236,7 +285,11 @@ describe("Quiz results screen", () => {
 
   it("reviews each question with the chosen and correct answers", async () => {
     const user = userEvent.setup();
-    render(<Quiz initialQuestions={mockQuiz} />);
+    render(
+  <MemoryRouter>
+    <Quiz initialQuestions={mockQuiz} />
+  </MemoryRouter>
+);
 
     await answerAll(user, THREE_CORRECT);
     await user.click(screen.getByRole("button", { name: "View Results" }));
@@ -262,7 +315,11 @@ describe("Quiz results screen", () => {
 
   it("restarts the quiz and clears previous answers", async () => {
     const user = userEvent.setup();
-    render(<Quiz initialQuestions={mockQuiz} />);
+    render(
+  <MemoryRouter>
+    <Quiz initialQuestions={mockQuiz} />
+  </MemoryRouter>
+);
 
     await answerAll(user, THREE_CORRECT);
     await user.click(screen.getByRole("button", { name: "View Results" }));

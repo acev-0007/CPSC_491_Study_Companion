@@ -1,7 +1,7 @@
-
 import { useEffect, useRef, useState } from "react";
 
 import QuizSetup from "../components/QuizSetup";
+import { useNavigate } from "react-router-dom";
 import { submitQuizAttempt } from "../services/quizHistory";
 import "./Quiz.css";
 
@@ -161,6 +161,7 @@ function QuizSession({
   quizId,
   onNewQuiz,
 }) {
+  const navigate = useNavigate();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState({});
   const [showResults, setShowResults] = useState(false);
@@ -547,25 +548,39 @@ function QuizSession({
           </ol>
         </section>
 
-        <div className="quiz-results-actions">
-          <button
-            type="button"
-            className="quiz-nav-button quiz-nav-button--primary"
-            onClick={handleRestart}
-            disabled={saveStatus === "saving"}
-          >
-            Restart quiz
-          </button>
 
-          <button
-            type="button"
-            className="quiz-nav-button"
-            onClick={handleNewQuiz}
-            disabled={saveStatus === "saving"}
-          >
-            New quiz
-          </button>
-        </div>
+<div className="quiz-results-actions">
+  {saveStatus === "saved" && (
+
+<button
+  type="button"
+  className="quiz-nav-button quiz-nav-button--primary"
+  onClick={() => navigate("/quiz/history")}
+>
+  View History
+</button>
+
+  )}
+
+  <button
+    type="button"
+    className="quiz-nav-button"
+    onClick={handleRestart}
+    disabled={saveStatus === "saving"}
+  >
+    Restart quiz
+  </button>
+
+  <button
+    type="button"
+    className="quiz-nav-button"
+    onClick={handleNewQuiz}
+    disabled={saveStatus === "saving"}
+  >
+    New quiz
+  </button>
+</div>
+
       </section>
     );
   }

@@ -12,6 +12,7 @@ import EmailConfirmation from "../pages/EmailConfirmation";
 import Dashboard from "../pages/Dashboard";
 import Flashcards from "../pages/Flashcards";
 import Quiz from "../pages/Quiz";
+import QuizHistory from "../pages/QuizHistory";
 import AssignmentTracker from "../pages/AssignmentTracker";
 import VisualGenerator from "../pages/VisualGenerator";
 import Summarization from "../pages/Summarization";
@@ -189,6 +190,10 @@ function AppRoutes() {
               </>
             </ProtectedRoute>
           }
+        />
+        <Route
+          path="/quiz/history"
+          element={<ProtectedRoute><><title>Quiz History | AI Study Companion</title><QuizHistory /></></ProtectedRoute>}
         />
         <Route
           path="/assignments"
