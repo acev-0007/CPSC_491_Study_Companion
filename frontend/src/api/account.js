@@ -26,6 +26,9 @@ export async function updatePreferences(theme) {
   return parse(await fetch("/api/account", {
     method: "PATCH", credentials: "same-origin",
     headers: { "Content-Type": "application/json" }, body: JSON.stringify({ theme }),
+  }));
+}
+
 export async function changePassword(currentPassword, newPassword, confirmPassword) {
   return parse(await fetch("/api/account/password", {
     method: "PATCH", credentials: "same-origin",

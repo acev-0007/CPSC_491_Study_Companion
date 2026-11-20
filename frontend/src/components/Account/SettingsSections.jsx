@@ -1,7 +1,5 @@
 import { useRef, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
-import { useRef, useState } from "react";
-import { Link, useOutletContext } from "react-router-dom";
 import {
   updateAccount,
   uploadAvatar,
@@ -11,6 +9,11 @@ import {
 } from "../../api/account";
 import { useTheme } from "../../theme/themeContext";
 import { settingsItems } from "./settingsItems";
+
+function Section({ title, subtitle, children }) {
+  return <section className="settings-detail" aria-labelledby="settings-section-title">
+    <Link className="settings-mobile-back" to="/account/menu">← All settings</Link>
+    <header className="settings-detail-heading"><h1 id="settings-section-title">{title}</h1><p>{subtitle}</p></header>
     {children}
   </section>;
 }
